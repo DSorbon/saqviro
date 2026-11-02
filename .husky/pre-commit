@@ -1,1 +1,3 @@
+# GUI git clients often start without the Rust toolchain on PATH.
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 cargo fmt --all --check
