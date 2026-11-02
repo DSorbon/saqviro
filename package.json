@@ -1,0 +1,18 @@
+{
+  "name": "saqviro",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@12.9.1",
+  "scripts": {
+    "prepare": "husky",
+    "dev": "pnpm --filter @saqviro/desktop tauri dev",
+    "check": "pnpm -r check",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20",
+    "@commitlint/config-conventional": "^20",
+    "husky": "^9"
+  }
+}

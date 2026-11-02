@@ -1,0 +1,25 @@
+[package]
+name = "saqviro-desktop"
+description = "Saqviro desktop app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+# The `_lib` suffix avoids a name clash with the binary on Windows (rust-lang/cargo#8519).
+name = "saqviro_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+saqviro-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+
+[lints]
+workspace = true
