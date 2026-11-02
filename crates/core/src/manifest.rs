@@ -399,6 +399,48 @@ impl ToolManifest {
         issues
     }
 
+    /// Checks run-time parameters against the manifest and fills in defaults.
+    /// `null` leaves an optional parameter unset. Issues are sorted by field.
+    pub fn resolve_params(
+        &self,
+        given: &serde_json::Map<String, Value>,
+    ) -> Result<serde_json::Map<String, Value>, Vec<Issue>> {
+        let mut issues = Vec::new();
+        let mut resolved = serde_json::Map::new();
+
+        for key in given.keys().filter(|k| self.parameter(k).is_none()) {
+            issues.push(Issue {
+                field: key.clone(),
+                message: "unknown parameter".into(),
+            });
+        }
+        for p in &self.parameters {
+            match given.get(&p.id).filter(|v| !v.is_null()).or(p.default.as_ref()) {
+                Some(value) => match p.check(value) {
+                    Ok(()) => {
+                        resolved.insert(p.id.clone(), value.clone());
+                    }
+                    Err(e) => issues.push(Issue {
+                        field: p.id.clone(),
+                        message: e,
+                    }),
+                },
+                None if p.optional => {}
+                None => issues.push(Issue {
+                    field: p.id.clone(),
+                    message: "required".into(),
+                }),
+            }
+        }
+
+        if issues.is_empty() {
+            Ok(resolved)
+        } else {
+            issues.sort_by(|a, b| a.field.cmp(&b.field));
+            Err(issues)
+        }
+    }
+
     pub fn parameter(&self, id: &str) -> Option<&Parameter> {
         self.parameters.iter().find(|p| p.id == id)
     }
