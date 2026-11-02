@@ -6,6 +6,8 @@ use std::sync::Arc;
 use saqviro_jobs::Executor;
 
 pub mod developer;
+pub mod images;
+pub mod output;
 
 /// Ids of every tool implemented in this crate.
 pub const IMPLEMENTED: &[&str] = &["developer.json.format"];

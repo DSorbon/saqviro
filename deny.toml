@@ -16,6 +16,11 @@ allow = [
   "MPL-2.0",
   "BSL-1.0",
   "CDLA-Permissive-2.0",
+  # mozjpeg. Requires the notice "This software is based in part on the work of
+  # the Independent JPEG Group" in the product documentation (third-party notices).
+  "IJG",
+  # LLVM's permissive license, via rav1e.
+  "NCSA",
 ]
 confidence-threshold = 0.9
 
