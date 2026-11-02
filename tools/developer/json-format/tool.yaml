@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.json.format
+name: JSON Formatter
+category: developer
+tool_version: 1
+description: Pretty-print, minify and validate JSON.
+keywords: [json, pretty, beautify, minify, validate, prettify]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities:
+  batch: false
+  preview: true
+  offline: true
+  destructive: false
+permissions:
+  network: false
+platforms: [windows, macos, linux]
+parameters:
+  - id: indent
+    type: enum
+    values: ["2", "4", tab, minify]
+    default: "2"
+  - id: sort_keys
+    type: boolean
+    default: false
+presets:
+  - id: pretty
+    name: Pretty
+    params: { indent: "2" }
+  - id: minify
+    name: Minify
+    params: { indent: minify }
+ui:
+  advanced: [sort_keys]

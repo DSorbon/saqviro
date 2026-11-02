@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.resize
+name: Resize Images
+category: image
+tool_version: 1
+description: Resize one or many images.
+keywords: [scale, shrink, dimensions, thumbnail, smaller]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/avif, image/heic, image/tiff]
+    extensions: [jpg, jpeg, png, webp, avif, heic, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-{width}x{height}.{ext}"
+engine: libvips
+capabilities:
+  batch: true
+  preview: true
+  offline: true
+  destructive: false
+permissions:
+  network: false
+platforms: [windows, macos, linux]
+parameters:
+  - id: width
+    type: integer
+    min: 1
+    optional: true
+  - id: height
+    type: integer
+    min: 1
+    optional: true
+  - id: fit
+    type: enum
+    values: [contain, cover, fill, inside, outside]
+    default: inside
+presets:
+  - id: web
+    name: Web
+    params: { width: 1920, fit: inside }
+  - id: email
+    name: Email
+    params: { width: 1280, fit: inside }
+  - id: thumbnail
+    name: Thumbnail
+    params: { width: 400, height: 400, fit: cover }
+ui:
+  advanced: [fit]
