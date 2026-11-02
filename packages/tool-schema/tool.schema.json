@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ToolManifest",
+  "type": "object",
+  "properties": {
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    },
+    "category": {
+      "$ref": "#/$defs/Category"
+    },
+    "description": {
+      "type": "string"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "id": {
+      "$ref": "#/$defs/ToolId"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InputPort"
+      }
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OutputPort"
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Parameter"
+      }
+    },
+    "permissions": {
+      "$ref": "#/$defs/Permissions"
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Platform"
+      }
+    },
+    "presets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Preset"
+      }
+    },
+    "schema_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "tool_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "ui": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UiHints"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "category",
+    "tool_version",
+    "description",
+    "keywords",
+    "inputs",
+    "outputs",
+    "engine",
+    "capabilities",
+    "permissions",
+    "platforms",
+    "presets"
+  ],
+  "$defs": {
+    "Capabilities": {
+      "type": "object",
+      "properties": {
+        "batch": {
+          "type": "boolean"
+        },
+        "destructive": {
+          "type": "boolean"
+        },
+        "offline": {
+          "type": "boolean"
+        },
+        "preview": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "batch",
+        "preview",
+        "offline",
+        "destructive"
+      ]
+    },
+    "Category": {
+      "type": "string",
+      "enum": [
+        "pdf",
+        "image",
+        "video",
+        "audio",
+        "files",
+        "text",
+        "qr",
+        "developer",
+        "privacy",
+        "network",
+        "system",
+        "screen",
+        "ocr"
+      ]
+    },
+    "DataType": {
+      "type": "string",
+      "enum": [
+        "image",
+        "pdf",
+        "video",
+        "audio",
+        "archive",
+        "text",
+        "json",
+        "any"
+      ]
+    },
+    "InputPort": {
+      "type": "object",
+      "properties": {
+        "extensions": {
+          "description": "Lowercase, without the leading dot. Required for every type except `text`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mime": {
+          "description": "Required for every type except `text`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "multiple": {
+          "type": "boolean",
+          "default": false
+        },
+        "type": {
+          "$ref": "#/$defs/DataType"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ]
+    },
+    "OutputPort": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "description": "Output file name template, e.g. `{stem}-small.{ext}`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "multiple": {
+          "type": "boolean",
+          "default": false
+        },
+        "type": {
+          "$ref": "#/$defs/DataType"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ]
+    },
+    "ParamType": {
+      "type": "string",
+      "enum": [
+        "integer",
+        "number",
+        "boolean",
+        "string",
+        "enum"
+      ]
+    },
+    "Parameter": {
+      "type": "object",
+      "properties": {
+        "default": true,
+        "id": {
+          "type": "string"
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false
+        },
+        "type": {
+          "$ref": "#/$defs/ParamType"
+        },
+        "values": {
+          "description": "Allowed values; required for `enum`, forbidden otherwise.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ]
+    },
+    "Permissions": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Platform": {
+      "type": "string",
+      "enum": [
+        "windows",
+        "macos",
+        "linux"
+      ]
+    },
+    "Preset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "ToolId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*){1,2}$"
+    },
+    "UiHints": {
+      "type": "object",
+      "properties": {
+        "advanced": {
+          "description": "Parameters hidden under the \"Advanced\" disclosure.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preview": {
+          "description": "Custom preview widget, e.g. `image-compare`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
