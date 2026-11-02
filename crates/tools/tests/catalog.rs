@@ -22,7 +22,10 @@ fn manifests() -> Registry {
 
 #[test]
 fn every_builtin_tool_has_an_executor() {
-    for tool in manifests().tools().iter().filter(|t| t.engine == "builtin") {
+    let gated = |id: &str| saqviro_tools::NEEDS_FEATURE.iter().any(|(t, _)| *t == id);
+    let builtin = manifests();
+    let builtin = builtin.tools().iter().filter(|t| t.engine == "builtin");
+    for tool in builtin.filter(|t| cfg!(feature = "heic") || !gated(t.id.as_str())) {
         assert!(saqviro_tools::executor(tool).is_some(), "{} has no executor", tool.id);
     }
 }

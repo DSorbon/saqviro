@@ -236,6 +236,8 @@ mod tests {
             ids.contains(&"developer.json.format") && ids.contains(&"image.compress"),
             "{ids:?}"
         );
+        // `tauri dev` builds without default features, so HEIC must not depend on them.
+        assert_eq!(ids.contains(&"image.heic-to-jpg"), cfg!(not(windows)), "{ids:?}");
 
         let body = json!({
             "toolId": "developer.json.format",

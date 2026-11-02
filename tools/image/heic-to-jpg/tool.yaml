@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.heic-to-jpg
+name: HEIC to JPG
+category: image
+tool_version: 1
+description: Turn iPhone photos into JPG or PNG that open everywhere.
+keywords: [heic, heif, iphone, apple, photo, jpg, jpeg, png, convert]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/heic, image/heif]
+    extensions: [heic, heif]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [jpg, png], default: jpg }
+  - { id: quality, type: integer, min: 1, max: 100, default: 90 }
+presets:
+  - { id: jpg, name: JPG, params: { format: jpg } }
+  - { id: png, name: PNG, params: { format: png } }
+ui:
+  advanced: [quality]

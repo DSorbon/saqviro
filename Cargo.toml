@@ -25,6 +25,8 @@ mozjpeg = "0.10"
 webp = { version = "0.3", default-features = false, features = ["img"] }
 oxipng = { version = "10", default-features = false, features = ["parallel"] }
 crc32fast = "1"
+# v1_17: the oldest libheif we support (Ubuntu 24.04).
+libheif-rs = { version = "3", default-features = false, features = ["v1_17"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

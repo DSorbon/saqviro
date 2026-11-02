@@ -16,6 +16,8 @@ pub const IMPLEMENTED: &[&str] = &[
     "developer.json.format",
     "image.compress",
     "image.convert",
+    #[cfg(feature = "heic")]
+    "image.heic-to-jpg",
     "image.metadata.remove",
     "image.resize",
     "image.rotate",
@@ -23,6 +25,10 @@ pub const IMPLEMENTED: &[&str] = &[
     "image.to-webp",
     "image.webp-to-jpg",
 ];
+
+/// Tools that exist only when a cargo feature is enabled: (tool id, feature).
+/// Without the feature the app hides the tool.
+pub const NEEDS_FEATURE: &[(&str, &str)] = &[("image.heic-to-jpg", "heic")];
 
 /// The executor for a tool, or `None` if it is not implemented. Executors
 /// take their output file name template from the manifest.
@@ -37,6 +43,8 @@ pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
     let exec: Arc<dyn Executor> = match tool.id.as_str() {
         "developer.json.format" => Arc::new(developer::json_format::run),
         "image.convert" | "image.webp-to-jpg" => img::convert(None, name),
+        #[cfg(feature = "heic")]
+        "image.heic-to-jpg" => img::convert(None, name),
         "image.to-webp" => img::convert(Some(Format::Webp), name),
         "image.to-avif" => img::convert(Some(Format::Avif), name),
         "image.resize" => img::resize(name),

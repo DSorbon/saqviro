@@ -179,6 +179,15 @@ pub fn decode(path: &Path) -> Result<Picture, JobError> {
     Ok(Picture { image, icc, format })
 }
 
+#[cfg(feature = "heic")]
+pub mod heic;
+
+#[cfg(feature = "heic")]
+fn heic(path: &Path, bytes: &[u8]) -> Result<Picture, JobError> {
+    heic::decode(path, bytes)
+}
+
+#[cfg(not(feature = "heic"))]
 fn heic(path: &Path, _bytes: &[u8]) -> Result<Picture, JobError> {
     Err(JobError::new(
         ErrorKind::UnsupportedFormat,

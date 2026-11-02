@@ -25,6 +25,11 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 
+# HEIC needs libheif (>= 1.17) on the build machine. Windows builds leave it
+# out until libheif is packaged there; the HEIC tool is then hidden.
+[target.'cfg(not(windows))'.dependencies]
+saqviro-tools = { workspace = true, features = ["heic"] }
+
 [dev-dependencies]
 tempfile.workspace = true
 tauri = { version = "2", features = ["test"] }

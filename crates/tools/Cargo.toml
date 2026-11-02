@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+# HEIC decoding through libheif (LGPL), linked dynamically.
+heic = ["dep:libheif-rs"]
+
 [dependencies]
 saqviro-core.workspace = true
 saqviro-jobs.workspace = true
@@ -17,6 +21,7 @@ mozjpeg.workspace = true
 webp.workspace = true
 oxipng.workspace = true
 crc32fast.workspace = true
+libheif-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
