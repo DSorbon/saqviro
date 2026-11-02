@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.to-webp
+name: Image to WebP
+category: image
+tool_version: 1
+description: Convert images to WebP for smaller web pages.
+keywords: [webp, web, convert, smaller, website]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: quality, type: integer, min: 1, max: 100, default: 80 }
+presets:
+  - { id: balanced, name: Balanced, params: { quality: 80 } }
+  - { id: smaller, name: Smaller, params: { quality: 60 } }
+  - { id: best, name: Best quality, params: { quality: 92 } }
+ui:
+  advanced: [quality]

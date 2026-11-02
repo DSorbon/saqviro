@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.rotate
+name: Rotate Images
+category: image
+tool_version: 1
+description: Rotate images by 90, 180 or 270 degrees.
+keywords: [rotate, turn, sideways, upside down, orientation]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp]
+    extensions: [jpg, jpeg, png, webp]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-rotated.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: angle, type: enum, values: ["90", "180", "270"], default: "90" }
+presets:
+  - { id: right, name: Right, params: { angle: "90" } }
+  - { id: left, name: Left, params: { angle: "270" } }
+  - { id: flip, name: Upside down, params: { angle: "180" } }

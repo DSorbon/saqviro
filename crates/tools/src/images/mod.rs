@@ -14,6 +14,7 @@ use saqviro_jobs::{ErrorKind, JobError};
 
 pub mod jpeg;
 pub mod metadata;
+pub mod tools;
 
 /// Larger images are rejected before any pixel memory is allocated.
 const MAX_SIDE: u32 = 32_768;

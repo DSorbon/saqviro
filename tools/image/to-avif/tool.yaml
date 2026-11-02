@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.to-avif
+name: Image to AVIF
+category: image
+tool_version: 1
+description: Convert images to AVIF, the smallest widely supported format.
+keywords: [avif, av1, convert, smaller, web]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: quality, type: integer, min: 1, max: 100, default: 65 }
+presets:
+  - { id: balanced, name: Balanced, params: { quality: 65 } }
+  - { id: smaller, name: Smaller, params: { quality: 45 } }
+  - { id: best, name: Best quality, params: { quality: 85 } }
+ui:
+  advanced: [quality]

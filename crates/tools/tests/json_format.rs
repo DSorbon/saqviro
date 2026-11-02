@@ -112,7 +112,8 @@ fn run(input: JobInput, params: serde_json::Value) -> JobSnapshot {
         |_: &JobSnapshot| {},
     )
     .unwrap();
-    let exec = saqviro_tools::executor("developer.json.format").unwrap();
+    let exec: std::sync::Arc<dyn saqviro_jobs::Executor> =
+        std::sync::Arc::new(saqviro_tools::developer::json_format::run);
     let params: Params = params.as_object().unwrap().clone();
     jobs.wait(jobs.submit("developer.json.format", exec, input, params))
         .unwrap()

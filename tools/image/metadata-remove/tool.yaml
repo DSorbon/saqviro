@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.metadata.remove
+name: Remove EXIF / Metadata
+category: image
+tool_version: 1
+description: Remove location, camera and author data without touching the pixels.
+keywords: [exif, metadata, gps, location, privacy, strip, clean, remove]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp]
+    extensions: [jpg, jpeg, png, webp]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-clean.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Remove all }

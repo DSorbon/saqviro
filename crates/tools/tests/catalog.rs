@@ -23,11 +23,7 @@ fn manifests() -> Registry {
 #[test]
 fn every_builtin_tool_has_an_executor() {
     for tool in manifests().tools().iter().filter(|t| t.engine == "builtin") {
-        assert!(
-            saqviro_tools::executor(tool.id.as_str()).is_some(),
-            "{} has no executor",
-            tool.id
-        );
+        assert!(saqviro_tools::executor(tool).is_some(), "{} has no executor", tool.id);
     }
 }
 

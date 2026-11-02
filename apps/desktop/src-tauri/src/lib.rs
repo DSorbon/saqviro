@@ -1,6 +1,10 @@
 use saqviro_core::{manifest::ToolManifest, registry::Registry};
 use saqviro_jobs::{Config, ErrorKind, JobError, JobId, JobInput, JobManager, JobSnapshot, Params};
+use std::path::PathBuf;
+
 use tauri::{AppHandle, Builder, Emitter, Manager, Runtime, State};
+use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
 
 mod catalog {
     include!(concat!(env!("OUT_DIR"), "/manifests.rs"));
@@ -13,7 +17,33 @@ fn bundled_registry() -> Registry {
 
 /// Only tools with an implementation are shown. A manifest alone is not a tool.
 fn is_available(tool: &ToolManifest) -> bool {
-    saqviro_tools::executor(tool.id.as_str()).is_some()
+    saqviro_tools::executor(tool).is_some()
+}
+
+/// File extensions one tool accepts, or every available tool when `tool_id` is `None`.
+fn accepted_extensions(registry: &Registry, tool_id: Option<&str>) -> Vec<String> {
+    let mut exts: Vec<String> = registry
+        .tools()
+        .iter()
+        .filter(|t| is_available(t) && tool_id.is_none_or(|id| t.id.as_str() == id))
+        .flat_map(|t| t.inputs.iter().flat_map(|i| i.extensions.iter().cloned()))
+        .collect();
+    exts.sort();
+    exts.dedup();
+    exts
+}
+
+/// The UI may only open or reveal files that Saqviro itself created.
+fn job_result(jobs: &JobManager, path: &str) -> Result<PathBuf, JobError> {
+    let path = PathBuf::from(path);
+    if jobs.is_output(&path) {
+        Ok(path)
+    } else {
+        Err(JobError::new(
+            ErrorKind::PermissionDenied,
+            "only files created by Saqviro can be opened from here",
+        ))
+    }
 }
 
 /// Validates the request against the manifest and queues the job.
@@ -27,7 +57,7 @@ fn start_job(
     let tool = registry
         .get(tool_id)
         .ok_or_else(|| JobError::new(ErrorKind::InvalidInput, format!("unknown tool `{tool_id}`")))?;
-    let executor = saqviro_tools::executor(tool_id)
+    let executor = saqviro_tools::executor(tool)
         .ok_or_else(|| JobError::new(ErrorKind::EngineMissing, format!("{} is not available yet", tool.name)))?;
     let params = tool.resolve_params(params).map_err(|issues| {
         let message = issues.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
@@ -69,6 +99,43 @@ fn cancel_job(jobs: State<'_, JobManager>, id: JobId) -> bool {
     jobs.cancel(id)
 }
 
+/// Native file picker, filtered to what the tool (or any tool) accepts.
+#[tauri::command]
+async fn pick_files<R: Runtime>(
+    app: AppHandle<R>,
+    registry: State<'_, Registry>,
+    tool_id: Option<String>,
+) -> Result<Vec<String>, JobError> {
+    let exts = accepted_extensions(&registry, tool_id.as_deref());
+    let mut dialog = app.dialog().file();
+    if !exts.is_empty() {
+        let exts: Vec<&str> = exts.iter().map(String::as_str).collect();
+        dialog = dialog.add_filter("Supported files", &exts);
+    }
+    let picked = dialog.blocking_pick_files().unwrap_or_default();
+    Ok(picked
+        .into_iter()
+        .filter_map(|f| f.into_path().ok())
+        .map(|p| p.display().to_string())
+        .collect())
+}
+
+#[tauri::command]
+fn reveal_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: String) -> Result<(), JobError> {
+    let path = job_result(&jobs, &path)?;
+    app.opener()
+        .reveal_item_in_dir(path)
+        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))
+}
+
+#[tauri::command]
+fn open_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: String) -> Result<(), JobError> {
+    let path = job_result(&jobs, &path)?;
+    app.opener()
+        .open_path(path.display().to_string(), None::<&str>)
+        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))
+}
+
 fn job_manager<R: Runtime>(app: &AppHandle<R>) -> Result<JobManager, Box<dyn std::error::Error>> {
     let workers = std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).clamp(1, 4));
     let config = Config {
@@ -84,6 +151,9 @@ fn job_manager<R: Runtime>(app: &AppHandle<R>) -> Result<JobManager, Box<dyn std
 
 fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder
+        // The UI gets no plugin permissions; only the Rust commands below use these.
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(bundled_registry())
         .setup(|app| {
             let jobs = job_manager(app.handle())?;
@@ -94,7 +164,10 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             list_tools,
             tools_for_files,
             run_tool,
-            cancel_job
+            cancel_job,
+            pick_files,
+            reveal_file,
+            open_file
         ])
 }
 
@@ -159,7 +232,10 @@ mod tests {
 
         let tools: Vec<serde_json::Value> = invoke("list_tools", json!({})).unwrap().deserialize().unwrap();
         let ids: Vec<_> = tools.iter().map(|t| t["id"].as_str().unwrap()).collect();
-        assert_eq!(ids, ["developer.json.format"]);
+        assert!(
+            ids.contains(&"developer.json.format") && ids.contains(&"image.compress"),
+            "{ids:?}"
+        );
 
         let body = json!({
             "toolId": "developer.json.format",
@@ -181,6 +257,12 @@ mod tests {
             .deserialize()
             .unwrap();
         assert!(!cancelled);
+
+        // Files the UI did not get from a job cannot be opened or revealed.
+        for cmd in ["open_file", "reveal_file"] {
+            let err = invoke(cmd, json!({ "path": "/etc/passwd" })).unwrap_err();
+            assert_eq!(err["kind"], "permission_denied", "{cmd}");
+        }
     }
 
     #[test]
@@ -226,21 +308,71 @@ mod tests {
         assert_eq!(err.kind, ErrorKind::InvalidInput);
         assert!(err.message.contains("indent"), "{}", err.message);
 
-        let err = start_job(
-            &registry,
-            &jobs,
-            "image.resize",
-            JobInput::Files(vec![]),
-            &Params::new(),
-        )
-        .unwrap_err();
+        let planned = planned_only_registry();
+        let err = start_job(&planned, &jobs, "image.crop", JobInput::Files(vec![]), &Params::new()).unwrap_err();
         assert_eq!(err.kind, ErrorKind::EngineMissing);
+    }
+
+    /// A registry with one manifest that has no implementation yet.
+    fn planned_only_registry() -> Registry {
+        let yaml = r#"
+schema_version: 1
+id: image.crop
+name: Crop Images
+category: image
+tool_version: 1
+description: Crop.
+keywords: [crop]
+inputs: [{ type: image, mime: [image/png], extensions: [png] }]
+outputs: [{ type: image }]
+engine: builtin
+capabilities: { batch: true, preview: true, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [macos]
+presets: [{ id: default, name: Default }]
+"#;
+        Registry::from_sources([("crop", yaml)]).unwrap()
     }
 
     #[test]
     fn only_implemented_tools_are_available() {
+        assert!(is_available(bundled_registry().get("image.resize").unwrap()));
+        assert!(!is_available(planned_only_registry().get("image.crop").unwrap()));
+        assert!(accepted_extensions(&planned_only_registry(), None).is_empty());
+    }
+
+    #[test]
+    fn file_picker_filters_come_from_manifests() {
         let registry = bundled_registry();
-        assert!(is_available(registry.get("developer.json.format").unwrap()));
-        assert!(!is_available(registry.get("image.resize").unwrap()));
+        assert_eq!(accepted_extensions(&registry, Some("image.webp-to-jpg")), ["webp"]);
+        let all = accepted_extensions(&registry, None);
+        assert!(
+            all.contains(&"jpg".to_string()) && all.contains(&"png".to_string()),
+            "{all:?}"
+        );
+        assert!(all.windows(2).all(|w| w[0] < w[1]), "not sorted and unique: {all:?}");
+    }
+
+    #[test]
+    fn only_job_results_can_be_opened() {
+        use saqviro_jobs::OutputFile;
+        let (jobs, _root) = jobs();
+        let made = OutputFile {
+            path: "/tmp/x-clean.jpg".into(),
+            size: 1,
+            source_size: None,
+        };
+        let exec: std::sync::Arc<dyn saqviro_jobs::Executor> =
+            std::sync::Arc::new(move |_: &saqviro_jobs::JobContext, _: JobInput, _: &Params| {
+                Ok(JobOutput::Files(vec![made.clone()]))
+            });
+        jobs.wait(jobs.submit("x.y", exec, JobInput::Files(vec![]), Params::new()))
+            .unwrap();
+
+        assert!(job_result(&jobs, "/tmp/x-clean.jpg").is_ok());
+        assert_eq!(
+            job_result(&jobs, "/tmp/other.jpg").unwrap_err().kind,
+            ErrorKind::PermissionDenied
+        );
     }
 }

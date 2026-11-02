@@ -9,13 +9,13 @@ keywords: [scale, shrink, dimensions, thumbnail, smaller]
 inputs:
   - type: image
     multiple: true
-    mime: [image/jpeg, image/png, image/webp, image/avif, image/heic, image/tiff]
-    extensions: [jpg, jpeg, png, webp, avif, heic, tif, tiff]
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
 outputs:
   - type: image
     multiple: true
     filename: "{stem}-{width}x{height}.{ext}"
-engine: libvips
+engine: builtin
 capabilities:
   batch: true
   preview: true
@@ -35,7 +35,7 @@ parameters:
     optional: true
   - id: fit
     type: enum
-    values: [contain, cover, fill, inside, outside]
+    values: [inside, cover, fill]
     default: inside
 presets:
   - id: web

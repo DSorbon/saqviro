@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.compress
+name: Compress Images
+category: image
+tool_version: 1
+description: Make JPG, PNG and WebP files smaller. PNG stays lossless.
+keywords: [compress, smaller, reduce, shrink, optimize, size, email]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp]
+    extensions: [jpg, jpeg, png, webp]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-compressed.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: quality, type: integer, min: 1, max: 100, default: 75 }
+presets:
+  - { id: balanced, name: Balanced, params: { quality: 75 } }
+  - { id: smaller, name: Smaller, params: { quality: 60 } }
+  - { id: best, name: Best quality, params: { quality: 85 } }
+ui:
+  advanced: [quality]
