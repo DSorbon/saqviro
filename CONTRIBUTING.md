@@ -45,7 +45,11 @@ pnpm check && pnpm test
 1. Create `tools/<category>/<name>/tool.yaml`. Your editor validates it against `packages/tool-schema/tool.schema.json`.
 2. The id is `category.operation[.qualifier]` and never changes after release.
 3. Give it 1–4 presets; the first is the default. Hide rarely used parameters with `ui.advanced`.
-4. If you change the manifest types in `crates/core`, regenerate the schema:
+4. Implement the executor in `crates/tools/src/<category>/` and register it in `executor()` and `IMPLEMENTED` in `crates/tools/src/lib.rs`. Until then the tool is not shown in the app.
+   - call `ctx.check_cancelled()?` between units of work and `ctx.progress(fraction)` as you go;
+   - put intermediate files in `ctx.temp_dir()?` — it is removed for you;
+   - return `JobError` with the most specific `ErrorKind`.
+5. If you change the manifest types in `crates/core`, regenerate the schema:
    `UPDATE_SCHEMA=1 cargo test -p saqviro-core --test schema`
 
 ## Language

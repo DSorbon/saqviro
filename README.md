@@ -22,7 +22,9 @@ cargo test --workspace
 | Path | What |
 |---|---|
 | `apps/desktop` | Tauri 2 + Svelte 5 desktop app |
-| `crates/core` | Tool manifests and registry |
+| `crates/core` | Tool manifests, registry and parameter validation |
+| `crates/jobs` | Job queue with progress, cancellation and temp directories |
+| `crates/tools` | Tool implementations |
 | `tools/` | One folder per tool with its `tool.yaml` manifest |
 | `packages/tool-schema` | JSON Schema for `tool.yaml`, generated from `crates/core` |
 | `docs/` | Developer documentation |
