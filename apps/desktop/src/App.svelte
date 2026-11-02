@@ -15,6 +15,7 @@
   let query = $state("");
   let hovering = $state(false);
   let dropped = $state<string[]>([]);
+  let files = $state<string[]>([]);
   let suggestionIds = $state<string[]>([]);
   let error = $state("");
   let searchInput: HTMLInputElement;
@@ -27,8 +28,14 @@
   onMount(() => {
     listTools().then((t) => (tools = t)).catch((e) => (error = String(e)));
     const unlisten = onFileDrop(async (paths) => {
+      const accepting = await toolsForFiles(paths);
+      // Files dropped on an open tool that accepts them go to that tool.
+      if (openTool && accepting.includes(openTool.id)) {
+        files = paths;
+        return;
+      }
       dropped = paths;
-      suggestionIds = await toolsForFiles(paths);
+      suggestionIds = accepting;
       select("home");
     }, (active) => (hovering = active));
     return () => void unlisten.then((f) => f());
@@ -42,6 +49,7 @@
 
   function open(tool: Tool) {
     openTool = tool;
+    files = suggestionIds.includes(tool.id) ? dropped : [];
     query = "";
   }
 
@@ -87,7 +95,7 @@
         <p class="muted">No tools match “{query}”.</p>
       {/if}
     {:else if openTool}
-      {#key openTool.id}<ToolView tool={openTool} />{/key}
+      {#key openTool.id}<ToolView tool={openTool} {files} />{/key}
     {:else if section === "home"}
       <Home {hovering} {dropped} {suggestions} popular={tools.slice(0, 8)} onOpen={open} onClear={() => { dropped = []; suggestionIds = []; }} />
     {:else}

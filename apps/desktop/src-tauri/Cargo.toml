@@ -17,9 +17,15 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 saqviro-core.workspace = true
+saqviro-jobs.workspace = true
+saqviro-tools.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2", features = [] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tauri = { version = "2", features = ["test"] }
 
 [lints]
 workspace = true
