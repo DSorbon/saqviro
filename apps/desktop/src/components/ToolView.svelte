@@ -1,11 +1,21 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { cancelJob, onJobEvent, runTool } from "../lib/api";
-  import { canRun, errorText, inputKind, isActive, statusLine, type JobError, type JobSnapshot } from "../lib/job";
+  import { cancelJob, onJobEvent, openFile, pickFiles, revealFile, runTool } from "../lib/api";
+  import {
+    canRun,
+    errorText,
+    fileName,
+    inputKind,
+    isActive,
+    sizeChange,
+    statusLine,
+    type JobError,
+    type JobSnapshot,
+  } from "../lib/job";
   import { initialParams, isAdvanced } from "../lib/params";
   import type { Parameter, ParamValue, Tool } from "../lib/types";
 
-  let { tool, files }: { tool: Tool; files: string[] } = $props();
+  let { tool, files: dropped }: { tool: Tool; files: string[] } = $props();
 
   // The parent re-creates this component per tool ({#key}), so capturing the initial tool is intended.
   // svelte-ignore state_referenced_locally
@@ -14,6 +24,11 @@
   // svelte-ignore state_referenced_locally
   let values = $state<Record<string, ParamValue>>(initialParams(tool, firstPreset));
   let text = $state("");
+  let files = $state<string[]>([]);
+  // Files dropped on the window replace the list.
+  $effect(() => {
+    files = [...dropped];
+  });
   let jobId = $state<number | null>(null);
   let job = $state<JobSnapshot | null>(null);
   let requestError = $state<JobError | null>(null);
@@ -39,6 +54,11 @@
     values = initialParams(tool, id);
   }
 
+  async function choose() {
+    const picked = await pickFiles(tool.id);
+    files = [...files, ...picked.filter((p) => !files.includes(p))];
+  }
+
   async function run() {
     if (!ready) return;
     requestError = null;
@@ -61,7 +81,6 @@
   }
 
   const label = (p: Parameter) => p.id.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-  const fileName = (p: string) => p.split(/[\\/]/).pop();
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -91,12 +110,20 @@
 
   {#if kind === "text"}
     <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
-  {:else if files.length > 0}
-    <ul class="files">
-      {#each files as f (f)}<li>{fileName(f)}</li>{/each}
-    </ul>
   {:else}
-    <p class="muted drop">Drop files on this window</p>
+    <section class="input-files">
+      {#if files.length > 0}
+        <ul class="files">
+          {#each files as f (f)}<li title={f}>{fileName(f)}</li>{/each}
+        </ul>
+      {:else}
+        <p class="muted drop">Drop files on this window</p>
+      {/if}
+      <div class="actions">
+        {#if files.length > 0}<button onclick={() => (files = [])} disabled={running}>Clear</button>{/if}
+        <button onclick={choose} disabled={running}>Choose files…</button>
+      </div>
+    </section>
   {/if}
 
   {#if tool.presets.length > 1}
@@ -131,6 +158,21 @@
     </section>
   {/if}
 
+  {#if output?.kind === "files"}
+    <ul class="results" aria-label="Results">
+      {#each output.value as f (f.path)}
+        <li>
+          <div class="result-name">
+            <span title={f.path}>{fileName(f.path)}</span>
+            <span class="muted">{sizeChange(f)}</span>
+          </div>
+          <button onclick={() => openFile(f.path)}>Open</button>
+          <button onclick={() => revealFile(f.path)}>Show in folder</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
   {#if failure}
     <p class="error" role="alert">{errorText(failure)}</p>
   {/if}
@@ -162,7 +204,14 @@
     resize: vertical;
     user-select: text;
   }
-  .files { margin: 0; padding: var(--space-2) var(--space-3); list-style: none; border: 1px solid var(--border); border-radius: var(--radius); }
+  .input-files { display: flex; flex-direction: column; gap: var(--space-2); }
+  .files { margin: 0; padding: var(--space-2) var(--space-3); list-style: none; border: 1px solid var(--border); border-radius: var(--radius); max-height: 180px; overflow-y: auto; }
+  .files li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .results { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
+  .results li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .result-name { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .result-name span:first-child { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .result-name .muted { font-size: var(--text-caption); }
   .drop { padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border); border-radius: var(--radius); }
   .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
   .segmented button { padding: 4px var(--space-3); border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: default; }
@@ -173,7 +222,7 @@
   input[type="checkbox"] { align-self: flex-start; }
   summary { color: var(--text-muted); cursor: default; margin-bottom: var(--space-3); }
   .result { display: flex; flex-direction: column; gap: var(--space-2); }
-  .actions { display: flex; justify-content: flex-end; }
+  .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
   .error { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); user-select: text; }
   footer { margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--border); }
   .status { flex: 1; }

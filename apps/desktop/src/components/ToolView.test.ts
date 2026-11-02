@@ -9,11 +9,17 @@ const api = vi.hoisted(() => ({
   listeners: [] as ((s: JobSnapshot) => void)[],
   runTool: vi.fn(),
   cancelJob: vi.fn(),
+  pickFiles: vi.fn(),
+  revealFile: vi.fn(),
+  openFile: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
   runTool: api.runTool,
   cancelJob: api.cancelJob,
+  pickFiles: api.pickFiles,
+  revealFile: api.revealFile,
+  openFile: api.openFile,
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -43,6 +49,53 @@ beforeEach(() => {
   api.listeners.length = 0;
   api.runTool.mockReset().mockResolvedValue(7);
   api.cancelJob.mockReset().mockResolvedValue(true);
+  api.pickFiles.mockReset().mockResolvedValue([]);
+  api.revealFile.mockReset().mockResolvedValue(undefined);
+  api.openFile.mockReset().mockResolvedValue(undefined);
+});
+
+const compress = tool("image.compress", "Compress Images", {
+  inputs: [{ type: "image", extensions: ["jpg"] }],
+  parameters: [{ id: "quality", type: "integer", min: 1, max: 100, default: 75 }],
+  presets: [{ id: "balanced", name: "Balanced", params: { quality: 75 } }],
+  ui: { advanced: ["quality"] },
+});
+
+describe("ToolView with files", () => {
+  it("lists dropped files and runs on them", async () => {
+    render(ToolView, { tool: compress, files: ["/photos/a.jpg", "/photos/b.jpg"] });
+    expect(screen.getByText("a.jpg")).toBeTruthy();
+    expect(screen.getByText("b.jpg")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(api.runTool).toHaveBeenCalledWith(compress.id, { kind: "files", value: ["/photos/a.jpg", "/photos/b.jpg"] }, { quality: 75 });
+  });
+
+  it("adds files from the picker without duplicates and can clear them", async () => {
+    api.pickFiles.mockResolvedValue(["/photos/a.jpg", "/photos/c.jpg"]);
+    render(ToolView, { tool: compress, files: ["/photos/a.jpg"] });
+    await fireEvent.click(screen.getByRole("button", { name: "Choose files…" }));
+    expect(api.pickFiles).toHaveBeenCalledWith(compress.id);
+    expect(await screen.findByText("c.jpg")).toBeTruthy();
+    expect(screen.getAllByText("a.jpg")).toHaveLength(1);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByText("a.jpg")).toBeNull();
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("shows results with sizes and opens or reveals them", async () => {
+    render(ToolView, { tool: compress, files: ["/photos/a.jpg"] });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    const out = { path: "/photos/a-compressed.jpg", size: 348_160, source_size: 1_258_291 };
+    emit({ status: "completed", progress: 1, finished_at: 900, output: { kind: "files", value: [out] } });
+
+    expect(await screen.findByText("a-compressed.jpg")).toBeTruthy();
+    expect(screen.getByText("1.2 MB → 340 KB (−72%)")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Show in folder" }));
+    expect(api.revealFile).toHaveBeenCalledWith(out.path);
+    await fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(api.openFile).toHaveBeenCalledWith(out.path);
+  });
 });
 
 describe("ToolView", () => {

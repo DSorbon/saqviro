@@ -4,7 +4,7 @@
   import Sidebar from "./components/Sidebar.svelte";
   import ToolList from "./components/ToolList.svelte";
   import ToolView from "./components/ToolView.svelte";
-  import { listTools, onFileDrop, toolsForFiles } from "./lib/api";
+  import { listTools, onFileDrop, pickFiles, toolsForFiles } from "./lib/api";
   import { searchTools } from "./lib/search";
   import { sidebarGroups } from "./lib/sidebar";
   import type { Tool } from "./lib/types";
@@ -27,19 +27,22 @@
 
   onMount(() => {
     listTools().then((t) => (tools = t)).catch((e) => (error = String(e)));
-    const unlisten = onFileDrop(async (paths) => {
-      const accepting = await toolsForFiles(paths);
-      // Files dropped on an open tool that accepts them go to that tool.
-      if (openTool && accepting.includes(openTool.id)) {
-        files = paths;
-        return;
-      }
-      dropped = paths;
-      suggestionIds = accepting;
-      select("home");
-    }, (active) => (hovering = active));
+    const unlisten = onFileDrop(receive, (active) => (hovering = active));
     return () => void unlisten.then((f) => f());
   });
+
+  async function receive(paths: string[]) {
+    if (paths.length === 0) return;
+    const accepting = await toolsForFiles(paths);
+    // Files dropped on an open tool that accepts them go to that tool.
+    if (openTool && accepting.includes(openTool.id)) {
+      files = paths;
+      return;
+    }
+    dropped = paths;
+    suggestionIds = accepting;
+    select("home");
+  }
 
   function select(id: string) {
     section = id;
@@ -97,7 +100,7 @@
     {:else if openTool}
       {#key openTool.id}<ToolView tool={openTool} {files} />{/key}
     {:else if section === "home"}
-      <Home {hovering} {dropped} {suggestions} popular={tools.slice(0, 8)} onOpen={open} onClear={() => { dropped = []; suggestionIds = []; }} />
+      <Home {hovering} {dropped} {suggestions} popular={tools.slice(0, 8)} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={() => { dropped = []; suggestionIds = []; }} />
     {:else}
       <ToolList tools={groupTools} onOpen={open} />
     {/if}

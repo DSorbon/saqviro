@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { canRun, errorText, inputKind, isActive, statusLine, type JobSnapshot } from "./job";
+import { canRun, errorText, formatBytes, inputKind, isActive, sizeChange, statusLine, type JobSnapshot } from "./job";
 
 const snap = (over: Partial<JobSnapshot>): JobSnapshot => ({
   id: 1,
@@ -58,5 +58,20 @@ describe("errorText", () => {
       "The input is not valid. line 1, column 2: expected a value",
     );
     expect(errorText({ kind: "something_new", message: "boom" })).toBe("Something went wrong. boom");
+  });
+});
+
+describe("formatBytes and sizeChange", () => {
+  it("formats sizes in binary units", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(1_258_291)).toBe("1.2 MB");
+  });
+
+  it("shows how much a file changed", () => {
+    expect(sizeChange({ path: "/a", size: 348_160, source_size: 1_258_291 })).toBe("1.2 MB → 340 KB (−72%)");
+    expect(sizeChange({ path: "/a", size: 2048, source_size: 1024 })).toBe("1 KB → 2 KB (+100%)");
+    expect(sizeChange({ path: "/a", size: 1024, source_size: 1024 })).toBe("1 KB, same size");
+    expect(sizeChange({ path: "/a", size: 1024, source_size: null })).toBe("1 KB");
   });
 });

@@ -4,7 +4,15 @@ import type { Tool } from "./types";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
-export type JobData = { kind: "text"; value: string } | { kind: "files"; value: string[] };
+export type JobInput = { kind: "text"; value: string } | { kind: "files"; value: string[] };
+
+export interface OutputFile {
+  path: string;
+  size: number;
+  source_size: number | null;
+}
+
+export type JobOutput = { kind: "text"; value: string } | { kind: "files"; value: OutputFile[] };
 
 export interface JobError {
   kind: string;
@@ -16,7 +24,7 @@ export interface JobSnapshot {
   tool_id: string;
   status: JobStatus;
   progress: number;
-  output: JobData | null;
+  output: JobOutput | null;
   error: JobError | null;
   started_at: number | null;
   finished_at: number | null;
@@ -70,3 +78,28 @@ const EXPLANATIONS: Record<string, string> = {
 export function errorText(error: JobError): string {
   return `${EXPLANATIONS[error.kind] ?? "Something went wrong."} ${error.message}`;
 }
+
+const UNITS = ["B", "KB", "MB", "GB", "TB"];
+
+export function formatBytes(bytes: number): string {
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < UNITS.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  if (unit === 0) return `${bytes} B`;
+  const shown = value < 10 ? value.toFixed(1).replace(/\.0$/, "") : Math.round(value).toString();
+  return `${shown} ${UNITS[unit]}`;
+}
+
+/** "1.2 MB → 340 KB (−72%)", or just the size when there is no single source. */
+export function sizeChange(file: OutputFile): string {
+  if (file.source_size === null) return formatBytes(file.size);
+  if (file.size === file.source_size) return `${formatBytes(file.size)}, same size`;
+  const pct = Math.round(((file.size - file.source_size) / file.source_size) * 100);
+  const sign = pct < 0 ? "\u2212" : "+";
+  return `${formatBytes(file.source_size)} → ${formatBytes(file.size)} (${sign}${Math.abs(pct)}%)`;
+}
+
+export const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;

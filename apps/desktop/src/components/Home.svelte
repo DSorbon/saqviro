@@ -1,17 +1,18 @@
 <script lang="ts">
   import type { Tool } from "../lib/types";
+  import { fileName } from "../lib/job";
   import ToolList from "./ToolList.svelte";
 
-  let { hovering, dropped, suggestions, popular, onOpen, onClear }: {
+  let { hovering, dropped, suggestions, popular, onOpen, onChoose, onClear }: {
     hovering: boolean;
     dropped: string[];
     suggestions: Tool[];
     popular: Tool[];
     onOpen: (tool: Tool) => void;
+    onChoose: () => void;
     onClear: () => void;
   } = $props();
 
-  const fileName = (p: string) => p.split(/[\\/]/).pop();
 </script>
 
 {#if dropped.length > 0}
@@ -30,6 +31,7 @@
   <div class="drop" class:hovering>
     <p class="title">Drop files anywhere</p>
     <p class="muted">Files never leave your device</p>
+    <button class="choose" onclick={onChoose}>Choose files…</button>
     <p class="muted hint">or press <kbd>⌘K</kbd> to search tools</p>
   </div>
 {/if}
@@ -55,6 +57,7 @@
   .drop p { margin: 2px 0; }
   .title { font-size: var(--text-title); font-weight: 600; }
   .hint { margin-top: var(--space-3) !important; font-size: var(--text-caption); }
+  .choose { justify-self: center; margin-top: var(--space-4); padding: 6px var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   kbd { font-family: var(--mono); padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; }
   section { margin-top: var(--space-6); }
   header { display: flex; align-items: baseline; justify-content: space-between; }
