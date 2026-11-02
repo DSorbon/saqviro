@@ -8,7 +8,7 @@ A free, open-source desktop toolbox for Windows, macOS and Linux. Convert, compr
 
 ## Development
 
-Requirements: [Rust](https://rustup.rs) (stable), Node.js 24, pnpm, and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
+Requirements: [Rust](https://rustup.rs) (stable), Node.js 24, pnpm, the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS, and on macOS and Linux libheif 1.17+ with pkg-config for HEIC (`brew install libheif pkgconf`, `apt install libheif-dev`). Windows builds do not include HEIC yet. On x86_64, [nasm](https://nasm.us) speeds up the JPEG and AVIF encoders.
 
 ```bash
 pnpm install
