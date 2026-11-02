@@ -99,7 +99,17 @@ pub enum JobInput {
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum JobOutput {
     Text(String),
-    Files(Vec<PathBuf>),
+    Files(Vec<OutputFile>),
+}
+
+/// A file a job created, with sizes so the UI can show what changed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OutputFile {
+    pub path: PathBuf,
+    /// Bytes.
+    pub size: u64,
+    /// Size of the file it was made from, when there is exactly one.
+    pub source_size: Option<u64>,
 }
 
 /// The state of a job at one moment. Every event sent to the sink is a snapshot.
@@ -315,6 +325,15 @@ impl JobManager {
 
     pub fn snapshot(&self, id: JobId) -> Option<JobSnapshot> {
         self.shared.lock().jobs.get(&id).map(|e| e.snapshot.clone())
+    }
+
+    /// True if a completed job created this file. The app only opens or
+    /// reveals such files, never arbitrary paths sent by the UI.
+    pub fn is_output(&self, path: &Path) -> bool {
+        self.shared.lock().jobs.values().any(|e| match &e.snapshot.output {
+            Some(JobOutput::Files(files)) => files.iter().any(|f| f.path == path),
+            _ => false,
+        })
     }
 
     /// Blocks until the job finishes. Returns `None` for an unknown job.

@@ -233,3 +233,20 @@ fn progress_is_clamped() {
     jobs.wait(jobs.submit("x.y", wild, text(""), Params::new())).unwrap();
     assert!(events.lock().unwrap().iter().all(|e| (0.0..=1.0).contains(&e.progress)));
 }
+
+#[test]
+fn knows_which_files_its_jobs_created() {
+    use saqviro_jobs::OutputFile;
+    let (jobs, _, _root) = manager(1);
+    let made = PathBuf::from("/tmp/out/a.png");
+    let file = OutputFile {
+        path: made.clone(),
+        size: 1,
+        source_size: None,
+    };
+    let job = exec(move |_, _, _| Ok(JobOutput::Files(vec![file.clone()])));
+    jobs.wait(jobs.submit("x.y", job, text(""), Params::new())).unwrap();
+
+    assert!(jobs.is_output(&made));
+    assert!(!jobs.is_output(std::path::Path::new("/etc/passwd")));
+}
