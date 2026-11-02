@@ -11,11 +11,14 @@ rust-version = "1.89"
 
 [workspace.dependencies]
 saqviro-core = { path = "crates/core" }
+saqviro-jobs = { path = "crates/jobs" }
+saqviro-tools = { path = "crates/tools" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde-saphyr = "2"
 schemars = "1"
 thiserror = "2"
+tempfile = "3"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
