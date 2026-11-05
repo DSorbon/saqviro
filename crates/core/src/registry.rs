@@ -70,19 +70,22 @@ impl Registry {
     }
 
     /// Smart Drop Lite: tools that accept every dropped file, by extension.
-    /// A file without an extension matches nothing.
+    /// A file without an extension or a folder matches only tools that take
+    /// anything.
     pub fn for_files(&self, paths: &[&str]) -> Vec<&ToolManifest> {
-        let exts: Option<Vec<&str>> = paths
+        if paths.is_empty() {
+            return Vec::new();
+        }
+        let exts: Vec<Option<&str>> = paths
             .iter()
             .map(|p| Path::new(p).extension().and_then(|e| e.to_str()))
             .collect();
-        match exts {
-            Some(exts) if !exts.is_empty() => self
-                .tools
-                .iter()
-                .filter(|t| exts.iter().all(|e| t.accepts_extension(e)))
-                .collect(),
-            _ => Vec::new(),
-        }
+        self.tools
+            .iter()
+            .filter(|t| {
+                exts.iter()
+                    .all(|e| e.map_or(t.accepts_anything(), |e| t.accepts_extension(e)))
+            })
+            .collect()
     }
 }

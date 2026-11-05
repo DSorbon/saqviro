@@ -138,7 +138,10 @@ pub enum DataType {
     Archive,
     Text,
     Json,
+    /// Any file or folder. `extensions` is `["*"]`.
     Any,
+    /// The tool takes no input.
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -148,10 +151,13 @@ pub struct InputPort {
     pub data_type: DataType,
     #[serde(default)]
     pub multiple: bool,
-    /// Required for every type except `text`.
+    /// Text input may be left empty.
+    #[serde(default)]
+    pub optional: bool,
+    /// Required for file inputs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mime: Vec<String>,
-    /// Lowercase, without the leading dot. Required for every type except `text`.
+    /// Lowercase, without the leading dot, or `*` for anything. Required for file inputs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extensions: Vec<String>,
 }
@@ -333,7 +339,7 @@ impl ToolManifest {
         }
 
         for (i, input) in self.inputs.iter().enumerate() {
-            if input.data_type != DataType::Text {
+            if !matches!(input.data_type, DataType::Text | DataType::None) {
                 if input.mime.is_empty() {
                     issue(format!("inputs[{i}].mime"), "required for file inputs".into());
                 }
@@ -458,6 +464,11 @@ impl ToolManifest {
 
     pub fn accepts_extension(&self, ext: &str) -> bool {
         let ext = ext.trim_start_matches('.').to_ascii_lowercase();
-        self.inputs.iter().any(|i| i.extensions.contains(&ext))
+        self.inputs.iter().any(|i| i.extensions.contains(&ext)) || self.accepts_anything()
+    }
+
+    /// True for tools that take any file or folder.
+    pub fn accepts_anything(&self) -> bool {
+        self.inputs.iter().any(|i| i.extensions.iter().any(|e| e == "*"))
     }
 }

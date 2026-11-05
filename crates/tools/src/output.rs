@@ -64,10 +64,21 @@ pub fn name_error(path: &Path, e: JobError) -> JobError {
     JobError::new(e.kind, format!("{name}: {}", e.message))
 }
 
+fn check_name(name: &str) -> Result<(), JobError> {
+    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\']) {
+        return Err(JobError::new(
+            ErrorKind::InvalidInput,
+            format!("invalid output file name `{name}`"),
+        ));
+    }
+    Ok(())
+}
+
 /// Files created by one job.
 #[derive(Debug, Default)]
 pub struct Outputs {
     created: Vec<PathBuf>,
+    folders: Vec<PathBuf>,
 }
 
 impl Outputs {
@@ -97,12 +108,7 @@ impl Outputs {
     /// Creates an empty file under the first free name. It is removed with
     /// the other results if the job does not finish.
     fn reserve(&mut self, dir: &Path, name: &str) -> Result<(fs::File, PathBuf), JobError> {
-        if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\']) {
-            return Err(JobError::new(
-                ErrorKind::InvalidInput,
-                format!("invalid output file name `{name}`"),
-            ));
-        }
+        check_name(name)?;
         let (stem, ext) = match name.rsplit_once('.') {
             Some((stem, ext)) if !stem.is_empty() => (stem, Some(ext)),
             _ => (name, None),
@@ -127,8 +133,32 @@ impl Outputs {
         unreachable!("an unbounded range always yields a free name")
     }
 
+    /// Creates the folder `dir/name`, or the first free `name (n)`. It goes,
+    /// with all it holds, if the job does not finish.
+    pub fn folder(&mut self, dir: &Path, name: &str) -> Result<PathBuf, JobError> {
+        check_name(name)?;
+        for n in 1u32.. {
+            let candidate = if n == 1 {
+                name.to_owned()
+            } else {
+                format!("{name} ({n})")
+            };
+            let path = dir.join(candidate);
+            match fs::create_dir(&path) {
+                Ok(()) => {
+                    self.folders.push(path.clone());
+                    return Ok(path);
+                }
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        unreachable!("an unbounded range always yields a free name")
+    }
+
     /// Keeps the files and returns their paths.
     pub fn finish(mut self) -> Vec<PathBuf> {
+        self.folders.clear();
         std::mem::take(&mut self.created)
     }
 }
@@ -137,6 +167,9 @@ impl Drop for Outputs {
     fn drop(&mut self) {
         for path in &self.created {
             let _ = fs::remove_file(path);
+        }
+        for path in &self.folders {
+            let _ = fs::remove_dir_all(path);
         }
     }
 }

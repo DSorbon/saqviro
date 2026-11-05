@@ -142,36 +142,54 @@
       ]
     },
     "DataType": {
-      "type": "string",
-      "enum": [
-        "image",
-        "pdf",
-        "video",
-        "audio",
-        "archive",
-        "text",
-        "json",
-        "any"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "image",
+            "pdf",
+            "video",
+            "audio",
+            "archive",
+            "text",
+            "json"
+          ]
+        },
+        {
+          "description": "Any file or folder. `extensions` is `[\"*\"]`.",
+          "type": "string",
+          "const": "any"
+        },
+        {
+          "description": "The tool takes no input.",
+          "type": "string",
+          "const": "none"
+        }
       ]
     },
     "InputPort": {
       "type": "object",
       "properties": {
         "extensions": {
-          "description": "Lowercase, without the leading dot. Required for every type except `text`.",
+          "description": "Lowercase, without the leading dot, or `*` for anything. Required for file inputs.",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "mime": {
-          "description": "Required for every type except `text`.",
+          "description": "Required for file inputs.",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "multiple": {
+          "type": "boolean",
+          "default": false
+        },
+        "optional": {
+          "description": "Text input may be left empty.",
           "type": "boolean",
           "default": false
         },

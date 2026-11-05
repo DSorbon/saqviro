@@ -100,6 +100,16 @@ pub enum JobInput {
 pub enum JobOutput {
     Text(String),
     Files(Vec<OutputFile>),
+    /// A picture made from text, shown in the app until the user saves it.
+    Image(OutputImage),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OutputImage {
+    /// File extension: `png` or `svg`.
+    pub ext: String,
+    /// The encoded file, in Base64.
+    pub data: String,
 }
 
 /// A file a job created, with sizes so the UI can show what changed.

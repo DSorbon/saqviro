@@ -86,3 +86,25 @@ fn suggests_only_tools_accepting_every_dropped_file() {
     assert_eq!(ids(&["/tmp/Makefile"]), Vec::<String>::new());
     assert_eq!(ids(&[]), Vec::<String>::new());
 }
+
+#[test]
+fn tools_that_take_anything_match_every_drop() {
+    let (any, png) = (
+        manifest("files.any", "files", "\"*\""),
+        manifest("image.png", "image", "png"),
+    );
+    let registry = Registry::from_sources([("a", any.as_str()), ("b", png.as_str())]).unwrap();
+    let ids = |paths: &[&str]| {
+        registry
+            .for_files(paths)
+            .iter()
+            .map(|t| t.id.to_string())
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(ids(&["/a.png"]), ["files.any", "image.png"]);
+    assert_eq!(ids(&["/a.exe"]), ["files.any"]);
+    assert_eq!(ids(&["/Folder"]), ["files.any"], "a folder has no extension");
+    assert_eq!(ids(&["/a.png", "/Folder"]), ["files.any"]);
+    assert!(ids(&[]).is_empty());
+}
