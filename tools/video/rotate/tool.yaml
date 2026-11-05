@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.rotate
+name: Rotate Video
+category: video
+tool_version: 1
+description: Rotate videos by 90, 180 or 270 degrees.
+keywords: [turn, flip, sideways, portrait, landscape, orientation]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-rotated.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: angle, type: enum, values: ["90", "180", "270"], default: "90" }
+presets:
+  - { id: right, name: Right, params: { angle: "90" } }
+  - { id: left, name: Left, params: { angle: "270" } }
+  - { id: flip, name: Upside down, params: { angle: "180" } }

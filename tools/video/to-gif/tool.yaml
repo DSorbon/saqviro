@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.to-gif
+name: Video to GIF
+category: video
+tool_version: 1
+description: Turn a video or part of it into a GIF.
+keywords: [gif, animation, animated, meme]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: start, type: string, optional: true }
+  - { id: end, type: string, optional: true }
+  - { id: fps, type: integer, min: 1, max: 30, default: 12 }
+  - { id: width, type: integer, min: 16, max: 1920, default: 480 }
+presets:
+  - { id: balanced, name: Balanced, params: { fps: 12, width: 480 } }
+  - { id: small, name: Small, params: { fps: 8, width: 320 } }
+  - { id: smooth, name: Smooth, params: { fps: 20, width: 640 } }
+ui:
+  advanced: [fps, width]

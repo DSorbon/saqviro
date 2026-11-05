@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.normalize
+name: Normalize Audio
+category: audio
+tool_version: 1
+description: Bring audio to a standard loudness without squashing it.
+keywords: [loudness, volume, louder, quiet, level, lufs, podcast]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}-normalized.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: target, type: enum, values: ["-14", "-16", "-23"], default: "-16" }
+presets:
+  - { id: podcast, name: Podcast, params: { target: "-16" } }
+  - { id: streaming, name: Streaming, params: { target: "-14" } }
+  - { id: broadcast, name: Broadcast, params: { target: "-23" } }

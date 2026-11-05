@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.resize
+name: Resize Video
+category: video
+tool_version: 1
+description: Scale videos down to 1080p, 720p or 480p.
+keywords: [scale, smaller, resolution, dimensions, 720p, 1080p]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-resized.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: resolution, type: enum, values: ["1080", "720", "480"], default: "720" }
+presets:
+  - { id: p1080, name: 1080p, params: { resolution: "1080" } }
+  - { id: p720, name: 720p, params: { resolution: "720" } }
+  - { id: p480, name: 480p, params: { resolution: "480" } }

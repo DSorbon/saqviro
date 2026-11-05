@@ -9,10 +9,15 @@ use saqviro_jobs::Executor;
 
 pub mod developer;
 pub mod images;
+pub mod media;
 pub mod output;
 
 /// Ids of every tool implemented in this crate.
 pub const IMPLEMENTED: &[&str] = &[
+    "audio.convert",
+    "audio.info",
+    "audio.normalize",
+    "audio.trim",
     "developer.json.format",
     "image.compress",
     "image.convert",
@@ -24,6 +29,15 @@ pub const IMPLEMENTED: &[&str] = &[
     "image.to-avif",
     "image.to-webp",
     "image.webp-to-jpg",
+    "video.compress",
+    "video.convert",
+    "video.extract-audio",
+    "video.info",
+    "video.mute",
+    "video.resize",
+    "video.rotate",
+    "video.to-gif",
+    "video.trim",
 ];
 
 /// Tools that exist only when a cargo feature is enabled: (tool id, feature).
@@ -34,6 +48,7 @@ pub const NEEDS_FEATURE: &[(&str, &str)] = &[("image.heic-to-jpg", "heic")];
 /// take their output file name template from the manifest.
 pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
     use images::{Format, tools as img};
+    use media::tools as media;
 
     let name = tool
         .outputs
@@ -51,6 +66,17 @@ pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
         "image.compress" => img::compress(name),
         "image.rotate" => img::rotate(name),
         "image.metadata.remove" => img::remove_metadata(name),
+        "video.compress" => media::compress(name),
+        "video.convert" => media::convert(name),
+        "video.extract-audio" | "audio.convert" => media::audio_to(name),
+        "video.info" | "audio.info" => media::info(),
+        "video.mute" => media::mute(name),
+        "video.resize" => media::resize(name),
+        "video.rotate" => media::rotate(name),
+        "video.to-gif" => media::to_gif(name),
+        "video.trim" => media::trim_video(name),
+        "audio.trim" => media::trim_audio(name),
+        "audio.normalize" => media::normalize(name),
         _ => return None,
     };
     Some(exec)

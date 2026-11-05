@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.trim
+name: Trim Video
+category: video
+tool_version: 1
+description: Keep part of a video. Times look like 1:30.
+keywords: [cut, clip, shorten, split, crop]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-trimmed.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: start, type: string, optional: true }
+  - { id: end, type: string, optional: true }
+  - { id: exact, type: boolean, default: false }
+presets:
+  - { id: fast, name: Fast, params: { exact: false } }
+  - { id: exact, name: Frame accurate, params: { exact: true } }

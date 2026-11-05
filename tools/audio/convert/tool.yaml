@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.convert
+name: Convert Audio
+category: audio
+tool_version: 1
+description: Convert audio to MP3, M4A, WAV, FLAC or Ogg.
+keywords: [format, change, mp3, wav, flac, m4a, ogg, save as]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [mp3, m4a, wav, flac, ogg], default: mp3 }
+  - { id: bitrate, type: integer, min: 64, max: 320, default: 192 }
+presets:
+  - { id: mp3, name: MP3, params: { format: mp3 } }
+  - { id: m4a, name: M4A, params: { format: m4a } }
+  - { id: wav, name: WAV, params: { format: wav } }
+  - { id: flac, name: FLAC, params: { format: flac } }
+ui:
+  advanced: [bitrate]
