@@ -17,6 +17,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 saqviro-core.workspace = true
+base64.workspace = true
 saqviro-jobs.workspace = true
 saqviro-tools.workspace = true
 serde.workspace = true

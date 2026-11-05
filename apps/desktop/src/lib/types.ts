@@ -29,7 +29,7 @@ export interface Tool {
   category: Category;
   description: string;
   keywords: string[];
-  inputs: { type: string; multiple?: boolean; extensions?: string[] }[];
+  inputs: { type: string; multiple?: boolean; optional?: boolean; extensions?: string[] }[];
   parameters?: Parameter[];
   presets: Preset[];
   ui?: { advanced?: string[]; preview?: string };

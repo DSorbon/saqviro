@@ -22,6 +22,9 @@ export const revealFile = (path: string) => invoke<void>("reveal_file", { path }
 
 export const openFile = (path: string) => invoke<void>("open_file", { path });
 
+/** Asks where to save a job's image. Resolves to false if the user cancels. */
+export const saveImage = (id: number) => invoke<boolean>("save_image", { id });
+
 /** Every change of every job. Returns a function that stops listening. */
 export const onJobEvent = (cb: (job: JobSnapshot) => void) => listen<JobSnapshot>("job", (e) => cb(e.payload));
 

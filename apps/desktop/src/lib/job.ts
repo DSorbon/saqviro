@@ -13,7 +13,10 @@ export interface OutputFile {
   note?: string | null;
 }
 
-export type JobOutput = { kind: "text"; value: string } | { kind: "files"; value: OutputFile[] };
+export type JobOutput =
+  | { kind: "text"; value: string }
+  | { kind: "files"; value: OutputFile[] }
+  | { kind: "image"; value: { ext: string; data: string } };
 
 export interface JobError {
   kind: string;
@@ -31,12 +34,22 @@ export interface JobSnapshot {
   finished_at: number | null;
 }
 
-export function inputKind(tool: Tool): "text" | "files" {
-  return tool.inputs[0]?.type === "text" ? "text" : "files";
+export function inputKind(tool: Tool): "text" | "files" | "none" {
+  const type = tool.inputs[0]?.type;
+  if (type === "none") return "none";
+  return type === "text" ? "text" : "files";
 }
 
 export function canRun(tool: Tool, text: string, files: string[]): boolean {
-  return inputKind(tool) === "text" ? text.trim().length > 0 : files.length > 0;
+  const kind = inputKind(tool);
+  if (kind === "none" || tool.inputs[0]?.optional) return true;
+  return kind === "text" ? text.trim().length > 0 : files.length > 0;
+}
+
+/** A `src` for a job's image output. */
+export function imageSource(image: { ext: string; data: string }): string {
+  const type = image.ext === "svg" ? "image/svg+xml" : `image/${image.ext}`;
+  return `data:${type};base64,${image.data}`;
 }
 
 export function isActive(job: JobSnapshot): boolean {

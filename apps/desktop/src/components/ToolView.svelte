@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { cancelJob, onJobEvent, openFile, pickFiles, revealFile, runTool } from "../lib/api";
+  import { cancelJob, onJobEvent, openFile, pickFiles, revealFile, runTool, saveImage } from "../lib/api";
   import {
     canRun,
     errorText,
     fileName,
+    imageSource,
     inputKind,
     isActive,
     sizeChange,
@@ -65,7 +66,7 @@
     job = null;
     // Empty optional fields are left out; the core fills in defaults.
     const chosen = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null && v !== undefined && v !== ""));
-    const input = kind === "text" ? { kind: "text" as const, value: text } : { kind: "files" as const, value: files };
+    const input = kind === "files" ? { kind: "files" as const, value: files } : { kind: "text" as const, value: text };
     try {
       jobId = await runTool(tool.id, input, chosen);
     } catch (e) {
@@ -112,7 +113,7 @@
 
   {#if kind === "text"}
     <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
-  {:else}
+  {:else if kind === "files"}
     <section class="input-files">
       {#if files.length > 0}
         <ul class="files">
@@ -156,6 +157,15 @@
       <textarea class="code" aria-label="Result" readonly value={output.value}></textarea>
       <div class="actions">
         <button onclick={() => navigator.clipboard.writeText(output.value)}>Copy</button>
+      </div>
+    </section>
+  {/if}
+
+  {#if output?.kind === "image"}
+    <section class="result">
+      <img class="picture" alt="Result" src={imageSource(output.value)} />
+      <div class="actions">
+        <button onclick={() => jobId !== null && saveImage(jobId)}>Save…</button>
       </div>
     </section>
   {/if}
@@ -224,6 +234,7 @@
   input:not([type="checkbox"]), select { padding: 6px var(--space-2); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
   input[type="checkbox"] { align-self: flex-start; }
   summary { color: var(--text-muted); cursor: default; margin-bottom: var(--space-3); }
+  .picture { align-self: center; width: 240px; height: 240px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); background: white; }
   .result { display: flex; flex-direction: column; gap: var(--space-2); }
   .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
   .error { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); user-select: text; }

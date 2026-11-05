@@ -1,5 +1,6 @@
+use base64::{Engine, engine::general_purpose::STANDARD};
 use saqviro_core::{manifest::ToolManifest, registry::Registry};
-use saqviro_jobs::{Config, ErrorKind, JobError, JobId, JobInput, JobManager, JobSnapshot, Params};
+use saqviro_jobs::{Config, ErrorKind, JobError, JobId, JobInput, JobManager, JobOutput, JobSnapshot, Params};
 use std::path::PathBuf;
 
 use tauri::{AppHandle, Builder, Emitter, Manager, Runtime, State};
@@ -27,6 +28,8 @@ fn accepted_extensions(registry: &Registry, tool_id: Option<&str>) -> Vec<String
         .iter()
         .filter(|t| is_available(t) && tool_id.is_none_or(|id| t.id.as_str() == id))
         .flat_map(|t| t.inputs.iter().flat_map(|i| i.extensions.iter().cloned()))
+        // `*` is no filter: an empty list shows every file in the picker.
+        .filter(|e| e != "*")
         .collect();
     exts.sort();
     exts.dedup();
@@ -120,6 +123,39 @@ async fn pick_files<R: Runtime>(
         .collect())
 }
 
+/// The bytes and extension of a finished job's image.
+fn job_image(jobs: &JobManager, id: JobId) -> Result<(Vec<u8>, String), JobError> {
+    let Some(JobSnapshot {
+        output: Some(JobOutput::Image(image)),
+        ..
+    }) = jobs.snapshot(id)
+    else {
+        return Err(JobError::new(ErrorKind::InvalidInput, "this job has no image to save"));
+    };
+    let bytes = STANDARD
+        .decode(&image.data)
+        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?;
+    Ok((bytes, image.ext))
+}
+
+/// Saves a job's image where the user chooses. The bytes come from the job,
+/// so the UI cannot write anything else to disk.
+#[tauri::command]
+async fn save_image<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, id: JobId) -> Result<bool, JobError> {
+    let (bytes, ext) = job_image(&jobs, id)?;
+    let picked = app
+        .dialog()
+        .file()
+        .set_file_name(format!("qr-code.{ext}"))
+        .add_filter(ext.to_uppercase(), &[ext.as_str()])
+        .blocking_save_file();
+    let Some(path) = picked.and_then(|p| p.into_path().ok()) else {
+        return Ok(false);
+    };
+    std::fs::write(path, bytes)?;
+    Ok(true)
+}
+
 #[tauri::command]
 fn reveal_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: String) -> Result<(), JobError> {
     let path = job_result(&jobs, &path)?;
@@ -166,6 +202,7 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             run_tool,
             cancel_job,
             pick_files,
+            save_image,
             reveal_file,
             open_file
         ])
@@ -341,6 +378,36 @@ presets: [{ id: default, name: Default }]
         assert!(is_available(bundled_registry().get("image.resize").unwrap()));
         assert!(!is_available(planned_only_registry().get("image.crop").unwrap()));
         assert!(accepted_extensions(&planned_only_registry(), None).is_empty());
+    }
+
+    #[test]
+    fn only_a_job_with_an_image_can_be_saved() {
+        let (jobs, _root) = jobs();
+        let registry = bundled_registry();
+        let qr = Params::from_iter([("format".to_owned(), "png".into())]);
+        let id = start_job(&registry, &jobs, "qr.generate", JobInput::Text("hi".into()), &qr).unwrap();
+        jobs.wait(id).unwrap();
+        let (bytes, ext) = job_image(&jobs, id).unwrap();
+        assert_eq!((&bytes[1..4], ext.as_str()), (&b"PNG"[..], "png"));
+
+        let text = start_job(
+            &registry,
+            &jobs,
+            "text.word-count",
+            JobInput::Text("hi".into()),
+            &Params::new(),
+        )
+        .unwrap();
+        jobs.wait(text).unwrap();
+        assert_eq!(job_image(&jobs, text).unwrap_err().kind, ErrorKind::InvalidInput);
+        assert!(job_image(&jobs, JobId(9999)).is_err());
+    }
+
+    #[test]
+    fn picking_files_for_a_tool_that_takes_anything_has_no_filter() {
+        let registry = bundled_registry();
+        assert!(accepted_extensions(&registry, Some("files.zip.create")).is_empty());
+        assert!(!accepted_extensions(&registry, None).contains(&"*".to_owned()));
     }
 
     #[test]

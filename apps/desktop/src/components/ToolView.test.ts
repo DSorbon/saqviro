@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   pickFiles: vi.fn(),
   revealFile: vi.fn(),
   openFile: vi.fn(),
+  saveImage: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -20,6 +21,7 @@ vi.mock("../lib/api", () => ({
   pickFiles: api.pickFiles,
   revealFile: api.revealFile,
   openFile: api.openFile,
+  saveImage: api.saveImage,
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -52,6 +54,7 @@ beforeEach(() => {
   api.pickFiles.mockReset().mockResolvedValue([]);
   api.revealFile.mockReset().mockResolvedValue(undefined);
   api.openFile.mockReset().mockResolvedValue(undefined);
+  api.saveImage.mockReset().mockResolvedValue(true);
 });
 
 const compress = tool("image.compress", "Compress Images", {
@@ -108,6 +111,33 @@ describe("ToolView with files", () => {
 });
 
 describe("ToolView", () => {
+  it("runs a tool that takes no input", async () => {
+    const tool = { ...json, inputs: [{ type: "none" }], presets: [{ id: "d", name: "D" }], parameters: [], ui: {} };
+    const { container } = render(ToolView, { tool, files: [] });
+    expect(container.querySelector("textarea")).toBeNull();
+    expect(screen.queryByText("Drop files on this window")).toBeNull();
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(api.runTool).toHaveBeenCalledWith(tool.id, { kind: "text", value: "" }, {});
+  });
+
+  it("allows optional text to stay empty", () => {
+    const tool = { ...json, inputs: [{ type: "text", optional: true }] };
+    render(ToolView, { tool, files: [] });
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("shows an image result and saves it", async () => {
+    render(ToolView, { tool: json, files: [] });
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "x" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    emit({ status: "completed", progress: 1, finished_at: 900, output: { kind: "image", value: { ext: "png", data: "QQ==" } } });
+
+    const picture = (await screen.findByAltText("Result")) as HTMLImageElement;
+    expect(picture.src).toBe("data:image/png;base64,QQ==");
+    await fireEvent.click(screen.getByRole("button", { name: "Save…" }));
+    expect(api.saveImage).toHaveBeenCalledOnce();
+  });
+
   it("hides secret parameters", () => {
     const tool = { ...json, parameters: [{ id: "password", type: "string" as const, secret: true }], ui: {} };
     const { container } = render(ToolView, { tool, files: [] });
