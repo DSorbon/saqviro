@@ -74,7 +74,7 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install ffmpeg qpdf -y
       - name: Fetch PDFium
-        if: runner.os != 'Windows'
+        shell: bash
         run: scripts/fetch-pdfium.sh
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
