@@ -1,13 +1,16 @@
 <script lang="ts">
   import type { Tool } from "../lib/types";
   import { fileName } from "../lib/job";
+  import { shortcut } from "../lib/platform";
   import ToolList from "./ToolList.svelte";
 
-  let { hovering, dropped, suggestions, popular, onOpen, onChoose, onClear }: {
+  let { hovering, dropped, specific, general, tilesLabel, tiles, onOpen, onChoose, onClear }: {
     hovering: boolean;
     dropped: string[];
-    suggestions: Tool[];
-    popular: Tool[];
+    specific: Tool[];
+    general: Tool[];
+    tilesLabel: string;
+    tiles: Tool[];
     onOpen: (tool: Tool) => void;
     onChoose: () => void;
     onClear: () => void;
@@ -21,9 +24,14 @@
       <h2>{dropped.length === 1 ? fileName(dropped[0]!) : `${dropped.length} files`}</h2>
       <button class="link" onclick={onClear}>Clear</button>
     </header>
-    {#if suggestions.length > 0}
-      <ToolList tools={suggestions} {onOpen} />
-    {:else}
+    {#if specific.length > 0}
+      <ToolList tools={specific} {onOpen} />
+    {/if}
+    {#if general.length > 0}
+      <h3 class="muted">For any file</h3>
+      <ToolList tools={general} {onOpen} />
+    {/if}
+    {#if specific.length === 0 && general.length === 0}
       <p class="muted">No tool accepts {dropped.length === 1 ? "this file" : "all of these files"} yet.</p>
     {/if}
   </section>
@@ -32,14 +40,14 @@
     <p class="title">Drop files anywhere</p>
     <p class="muted">Files never leave your device</p>
     <button class="choose" onclick={onChoose}>Choose files…</button>
-    <p class="muted hint">or press <kbd>⌘K</kbd> to search tools</p>
+    <p class="muted hint">or press <kbd>{shortcut("K")}</kbd> to search tools</p>
   </div>
 {/if}
 
-{#if popular.length > 0 && dropped.length === 0}
+{#if tiles.length > 0 && dropped.length === 0}
   <section>
-    <h3 class="muted">Popular</h3>
-    <ToolList tools={popular} {onOpen} />
+    <h3 class="muted">{tilesLabel}</h3>
+    <ToolList tools={tiles} {onOpen} tiles />
   </section>
 {/if}
 
@@ -62,6 +70,7 @@
   section { margin-top: var(--space-6); }
   header { display: flex; align-items: baseline; justify-content: space-between; }
   h2 { margin: 0 0 var(--space-2); font-size: var(--text-title); }
+  section h3:not(:first-child) { margin-top: var(--space-4); }
   h3 { margin: 0 0 var(--space-2); font-size: var(--text-caption); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
   .link { border: 0; background: none; color: var(--accent); cursor: default; }
 </style>

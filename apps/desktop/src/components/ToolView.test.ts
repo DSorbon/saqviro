@@ -138,6 +138,40 @@ describe("ToolView", () => {
     expect(api.saveImage).toHaveBeenCalledOnce();
   });
 
+  it("orders files only where the order matters", async () => {
+    const merge = { ...compress, capabilities: { batch: false } };
+    const { unmount } = render(ToolView, { tool: merge, files: ["/a.jpg", "/b.jpg"] });
+    await screen.findByText("a.jpg");
+    await fireEvent.click(screen.getByRole("button", { name: "Move a.jpg down" }));
+    expect(screen.getAllByRole("listitem").map((l) => l.textContent?.slice(0, 5))).toEqual(["b.jpg", "a.jpg"]);
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(api.runTool).toHaveBeenCalledWith(merge.id, { kind: "files", value: ["/b.jpg", "/a.jpg"] }, expect.anything());
+    unmount();
+
+    render(ToolView, { tool: compress, files: ["/a.jpg", "/b.jpg"] });
+    await screen.findByText("a.jpg");
+    expect(screen.queryByRole("button", { name: "Move a.jpg down" })).toBeNull();
+  });
+
+  it("removes one file from the list", async () => {
+    render(ToolView, { tool: compress, files: ["/a.jpg", "/b.jpg"] });
+    await fireEvent.click(await screen.findByRole("button", { name: "Remove a.jpg" }));
+    expect(screen.queryByText("a.jpg")).toBeNull();
+    expect(screen.getByText("b.jpg")).toBeTruthy();
+  });
+
+  it("says when text was copied", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(ToolView, { tool: json, files: [] });
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "x" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    emit({ status: "completed", progress: 1, finished_at: 900, output: { kind: "text", value: "done" } });
+    await fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
+    expect(writeText).toHaveBeenCalledWith("done");
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy();
+  });
+
   it("hides secret parameters", () => {
     const tool = { ...json, parameters: [{ id: "password", type: "string" as const, secret: true }], ui: {} };
     const { container } = render(ToolView, { tool, files: [] });
@@ -196,7 +230,7 @@ describe("ToolView", () => {
 
     api.runTool.mockRejectedValueOnce({ kind: "engine_missing", message: "not available yet" });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
-    expect((await screen.findByRole("alert")).textContent).toContain("not available yet");
+    expect((await screen.findByRole("alert")).textContent).toContain("Not available yet");
   });
 
   it("ignores events from other jobs", async () => {

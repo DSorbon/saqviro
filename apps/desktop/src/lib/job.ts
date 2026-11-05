@@ -78,10 +78,11 @@ export function statusLine(job: JobSnapshot): string {
   }
 }
 
+/** For errors that come without a message of their own. */
 const EXPLANATIONS: Record<string, string> = {
   invalid_input: "The input is not valid.",
   unsupported_format: "This file format is not supported.",
-  engine_missing: "This tool is not available yet.",
+  engine_missing: "This tool is not available in this installation.",
   permission_denied: "Saqviro is not allowed to access this file.",
   process_failed: "The tool stopped with an error.",
   output_exists: "A file with that name already exists.",
@@ -90,7 +91,21 @@ const EXPLANATIONS: Record<string, string> = {
 };
 
 export function errorText(error: JobError): string {
-  return `${EXPLANATIONS[error.kind] ?? "Something went wrong."} ${error.message}`;
+  const message = error.message.trim();
+  if (!message) return EXPLANATIONS[error.kind] ?? "Something went wrong.";
+  // "report.pdf: …" starts with a file name, which must stay as it is.
+  if (message.includes(": ")) return message;
+  return message.charAt(0).toUpperCase() + message.slice(1);
+}
+
+/** The list with the item at `index` moved by `delta`, if it can move. */
+export function moved<T>(list: T[], index: number, delta: number): T[] {
+  const target = index + delta;
+  if (target < 0 || target >= list.length) return list;
+  const next = [...list];
+  const [item] = next.splice(index, 1);
+  next.splice(target, 0, item!);
+  return next;
 }
 
 const UNITS = ["B", "KB", "MB", "GB", "TB"];

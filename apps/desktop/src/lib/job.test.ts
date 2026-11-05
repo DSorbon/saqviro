@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { canRun, errorText, formatBytes, inputKind, isActive, sizeChange, statusLine, type JobSnapshot } from "./job";
+import { canRun, errorText, formatBytes, inputKind, isActive, moved, sizeChange, statusLine, type JobSnapshot } from "./job";
 
 const snap = (over: Partial<JobSnapshot>): JobSnapshot => ({
   id: 1,
@@ -53,11 +53,27 @@ describe("statusLine", () => {
 });
 
 describe("errorText", () => {
-  it("explains the error kind and keeps the details", () => {
-    expect(errorText({ kind: "invalid_input", message: "line 1, column 2: expected a value" })).toBe(
-      "The input is not valid. line 1, column 2: expected a value",
-    );
-    expect(errorText({ kind: "something_new", message: "boom" })).toBe("Something went wrong. boom");
+  it("shows the message as a sentence, without a generic prefix", () => {
+    expect(errorText({ kind: "invalid_input", message: "there is no page 7" })).toBe("There is no page 7");
+  });
+
+  it("never changes a file name", () => {
+    expect(errorText({ kind: "invalid_input", message: "doc.pdf: bad" })).toBe("doc.pdf: bad");
+    expect(errorText({ kind: "invalid_input", message: "my doc.pdf: bad" })).toBe("my doc.pdf: bad");
+  });
+
+  it("explains errors that have no message", () => {
+    expect(errorText({ kind: "disk_full", message: " " })).toBe("The disk is full.");
+    expect(errorText({ kind: "something_new", message: "" })).toBe("Something went wrong.");
+  });
+});
+
+describe("moved", () => {
+  it("moves within the list and stops at its ends", () => {
+    expect(moved(["a", "b", "c"], 2, -1)).toEqual(["a", "c", "b"]);
+    expect(moved(["a", "b", "c"], 0, 1)).toEqual(["b", "a", "c"]);
+    expect(moved(["a", "b"], 0, -1)).toEqual(["a", "b"]);
+    expect(moved(["a", "b"], 1, 1)).toEqual(["a", "b"]);
   });
 });
 

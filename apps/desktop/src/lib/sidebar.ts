@@ -28,3 +28,9 @@ export function sidebarGroups(tools: Tool[]): SidebarGroup[] {
     tools: tools.filter((t) => g.categories.includes(t.category)).sort((a, b) => a.name.localeCompare(b.name)),
   })).filter((g) => g.tools.length > 0);
 }
+
+/** The domains holding any of `tools`; all of them when there is no match. */
+export function relevantGroups(groups: SidebarGroup[], tools: Tool[]): SidebarGroup[] {
+  const matching = groups.filter((g) => g.tools.some((t) => tools.some((m) => m.id === t.id)));
+  return matching.length > 0 ? matching : groups;
+}

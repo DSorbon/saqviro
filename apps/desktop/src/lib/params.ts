@@ -13,3 +13,9 @@ export function initialParams(tool: Tool, presetId?: string): Record<string, Par
 export function isAdvanced(tool: Tool, paramId: string): boolean {
   return tool.ui?.advanced?.includes(paramId) ?? false;
 }
+
+const LABELS: Record<string, string> = { dpi: "DPI", url_safe: "URL-safe", fps: "FPS" };
+
+export function paramLabel(id: string): string {
+  return LABELS[id] ?? id.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}

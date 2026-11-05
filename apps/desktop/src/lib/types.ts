@@ -32,5 +32,6 @@ export interface Tool {
   inputs: { type: string; multiple?: boolean; optional?: boolean; extensions?: string[] }[];
   parameters?: Parameter[];
   presets: Preset[];
+  capabilities?: { batch?: boolean };
   ui?: { advanced?: string[]; preview?: string };
 }

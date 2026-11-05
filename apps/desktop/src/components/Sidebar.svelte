@@ -1,23 +1,31 @@
 <script lang="ts">
   import type { SidebarGroup } from "../lib/sidebar";
 
-  let { groups, active, onSelect }: {
+  let { groups, active, onSelect, hasFavorites = false, hasRecent = false }: {
     groups: SidebarGroup[];
     active: string;
     onSelect: (id: string) => void;
+    hasFavorites?: boolean;
+    hasRecent?: boolean;
   } = $props();
 </script>
 
-<nav aria-label="Categories">
-  <button class:active={active === "home"} aria-current={active === "home" ? "page" : undefined} onclick={() => onSelect("home")}>
-    Home
+{#snippet item(id: string, label: string)}
+  <button class:active={active === id} aria-current={active === id ? "page" : undefined} onclick={() => onSelect(id)}>
+    {label}
   </button>
+{/snippet}
+
+<nav aria-label="Categories">
+  {@render item("home", "Home")}
+  {#if hasFavorites}{@render item("favorites", "Favorites")}{/if}
+  {#if hasRecent}{@render item("recent", "Recent")}{/if}
   <div class="gap"></div>
   {#each groups as group (group.id)}
-    <button class:active={active === group.id} aria-current={active === group.id ? "page" : undefined} onclick={() => onSelect(group.id)}>
-      {group.label}
-    </button>
+    {@render item(group.id, group.label)}
   {/each}
+  <div class="push"></div>
+  {@render item("settings", "Settings")}
 </nav>
 
 <style>
@@ -42,5 +50,6 @@
   }
   button:hover { background: var(--hover); }
   button.active { background: var(--hover); color: var(--text); font-weight: 500; }
-  .gap { height: var(--space-3); }
+  .gap { height: var(--space-3); flex: none; }
+  .push { flex: 1; min-height: var(--space-3); }
 </style>

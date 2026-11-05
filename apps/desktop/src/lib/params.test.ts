@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { initialParams, isAdvanced } from "./params";
+import { initialParams, isAdvanced, paramLabel } from "./params";
 
 const resize = tool("image.resize", "Resize", {
   parameters: [
@@ -34,5 +34,12 @@ describe("isAdvanced", () => {
   it("reads ui.advanced", () => {
     expect(isAdvanced(resize, "strip")).toBe(true);
     expect(isAdvanced(resize, "width")).toBe(false);
+  });
+});
+
+describe("paramLabel", () => {
+  it("reads like words", () => {
+    expect(paramLabel("page_size")).toBe("Page size");
+    expect(paramLabel("dpi")).toBe("DPI");
   });
 });
