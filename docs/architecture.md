@@ -65,6 +65,18 @@ See [decision 0004](decisions/0004-pdf-engine.md).
 - Passwords reach qpdf through a file in the job's temp directory, never through a command line. A test records qpdf's arguments to keep it that way.
 - Manifest parameters with `secret: true` render as password fields.
 
+## File tools (`crates/tools/src/files`)
+
+- **Extract ZIP** treats archives as hostile. Names that leave the target folder fail the job, links are skipped, an entry can never replace another, and limits on real bytes written stop zip bombs. Results go into a new folder that is removed if the job fails.
+- **Create ZIP** takes files and folders and never follows links.
+- **Batch Rename** is the only tool that changes the user's files in place, so it is marked `destructive`. It previews by default, checks every name before anything moves, renames through temporary names so swaps work, and puts every name back if a step fails.
+- **Checksums** read files in pieces and can be cancelled between them. A mismatch completes the job: it is an answer, not a failure.
+
+## Inputs and outputs
+
+- `inputs[].type: none` is a tool without input; `optional: true` lets text stay empty; `extensions: ["*"]` takes any file or folder. Such tools appear for every drop, and they add no filter to the file picker.
+- `JobOutput::Image` holds a picture made from text, such as a QR code. The app shows it, and `save_image` writes it where the user chooses. The bytes come from the job, so the UI cannot write anything else.
+
 ## Shipping engines
 
 `scripts/prepare-bundle.sh` puts FFmpeg, qpdf, PDFium and the render helper into `apps/desktop/src-tauri/binaries`. Bundling them is opt-in, so `pnpm dev` needs no such files:
