@@ -4,7 +4,7 @@ Saqviro opens files from anywhere, so we treat bugs in how it reads them as secu
 
 ## Reporting
 
-Please use [GitHub's private vulnerability reporting](https://github.com/saqviro/saqviro/security/advisories/new). Do not open a public issue.
+Please use [GitHub's private vulnerability reporting](https://github.com/DSorbon/saqviro/security/advisories/new). Do not open a public issue.
 
 Include the Saqviro version, your system, and a way to reproduce it. A sample file helps most.
 

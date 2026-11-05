@@ -177,7 +177,7 @@ fn open_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: S
 /// Set when building a release. Without it the app has no way to trust an
 /// update, so it does not offer any.
 const UPDATE_KEY: Option<&str> = update_key(option_env!("SAQVIRO_UPDATER_PUBKEY"));
-const UPDATE_MANIFEST: &str = "https://github.com/saqviro/saqviro/releases/latest/download/latest.json";
+const UPDATE_MANIFEST: &str = "https://github.com/DSorbon/saqviro/releases/latest/download/latest.json";
 
 /// CI passes a variable nobody has set as an empty string.
 const fn update_key(key: Option<&'static str>) -> Option<&'static str> {
@@ -321,6 +321,16 @@ mod tests {
         assert_eq!(update_key(None), None);
         assert_eq!(update_key(Some("")), None);
         assert_eq!(update_key(Some("key")), Some("key"));
+    }
+
+    #[test]
+    fn release_scripts_publish_where_the_app_looks_for_updates() {
+        let scripts = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../scripts");
+        let base = UPDATE_MANIFEST.strip_suffix("/latest.json").unwrap();
+        let build = std::fs::read_to_string(scripts.join("build-release.sh")).unwrap();
+        let manifest = std::fs::read_to_string(scripts.join("release-manifest.py")).unwrap();
+        assert!(build.contains(UPDATE_MANIFEST));
+        assert!(manifest.contains(base));
     }
 
     fn jobs() -> (JobManager, tempfile::TempDir) {

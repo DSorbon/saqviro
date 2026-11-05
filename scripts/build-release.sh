@@ -31,7 +31,7 @@ esac
 if [ -n "${SAQVIRO_UPDATER_PUBKEY:-}" ] || [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
   : "${SAQVIRO_UPDATER_PUBKEY:?set it together with TAURI_SIGNING_PRIVATE_KEY}"
   : "${TAURI_SIGNING_PRIVATE_KEY:?set it together with SAQVIRO_UPDATER_PUBKEY}"
-  manifest=https://github.com/saqviro/saqviro/releases/latest/download/latest.json
+  manifest=https://github.com/DSorbon/saqviro/releases/latest/download/latest.json
   config+=(--config "{\"bundle\":{\"createUpdaterArtifacts\":true},\"plugins\":{\"updater\":{\"pubkey\":\"$SAQVIRO_UPDATER_PUBKEY\",\"endpoints\":[\"$manifest\"]}}}")
 fi
 

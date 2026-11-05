@@ -9,7 +9,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = "https://github.com/saqviro/saqviro/releases/latest/download"
+BASE = "https://github.com/DSorbon/saqviro/releases/latest/download"
 
 # Which update file serves which platform, by the artifact folder it is in.
 PLATFORMS = {
