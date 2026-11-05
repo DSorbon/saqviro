@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Saqviro: third-party licenses</title>
+<style>
+  body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; font: 14px/1.5 system-ui, sans-serif; }
+  pre { white-space: pre-wrap; padding: 1rem; background: #f4f4f2; color: #1c1b19; overflow-wrap: anywhere; }
+  li { margin: 2px 0; }
+</style>
+</head>
+<body>
+<h1>Third-party licenses</h1>
+<p>Saqviro is licensed under Apache-2.0. It is built on the work below.</p>
+<!-- ENGINES -->
+<h2>Rust crates</h2>
+{{#each licenses}}
+<h3>{{name}}</h3>
+<ul>
+{{#each used_by}}<li>{{crate.name}} {{crate.version}}</li>
+{{/each}}
+</ul>
+<pre>{{text}}</pre>
+{{/each}}
+</body>
+</html>
