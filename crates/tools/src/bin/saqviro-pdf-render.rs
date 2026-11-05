@@ -25,7 +25,7 @@ const MAX_SIDE: i32 = 16_384;
 fn library_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(exe_dir) = env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
-        dirs.push(exe_dir.join("../Resources/binaries"));
+        dirs.push(exe_dir.join("../Frameworks"));
         dirs.push(exe_dir.join("binaries"));
         dirs.push(exe_dir.join("../lib/Saqviro/binaries"));
         dirs.push(exe_dir);

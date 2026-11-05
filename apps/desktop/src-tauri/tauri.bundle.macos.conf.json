@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "resources": ["binaries/THIRD-PARTY-NOTICES.html"],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-",
+      "hardenedRuntime": false,
+      "frameworks": ["binaries/libheif.1.dylib", "binaries/libde265.0.dylib", "binaries/libpdfium.dylib"]
+    }
+  }
+}

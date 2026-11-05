@@ -28,6 +28,12 @@ confidence-threshold = 0.9
 multiple-versions = "allow"
 
 [advisories]
+ignore = [
+  { id = "RUSTSEC-2026-0367", reason = "zip 4 in tauri-plugin-updater: Windows only, reads an archive only after its signature is verified. Remove when the plugin moves to zip 9." },
+  { id = "RUSTSEC-2026-0368", reason = "zip 4 in tauri-plugin-updater: Windows only, reads an archive only after its signature is verified. Remove when the plugin moves to zip 9." },
+  { id = "RUSTSEC-2026-0369", reason = "zip 4 in tauri-plugin-updater: Windows only, reads an archive only after its signature is verified. Remove when the plugin moves to zip 9." },
+  { id = "RUSTSEC-2026-0429", reason = "zip 4 in tauri-plugin-updater: Windows only, reads an archive only after its signature is verified. Remove when the plugin moves to zip 9." },
+]
 yanked = "deny"
 # Vulnerabilities always fail. "Unmaintained" only fails for our direct dependencies;
 # transitive ones (mostly from Tauri) are tracked upstream.

@@ -1,6 +1,5 @@
 {
   "bundle": {
-    "externalBin": ["binaries/ffmpeg", "binaries/ffprobe", "binaries/qpdf", "binaries/saqviro-pdf-render"],
-    "resources": ["binaries/libpdfium.*", "binaries/PDFIUM-LICENSE"]
+    "externalBin": ["binaries/ffmpeg", "binaries/ffprobe", "binaries/qpdf", "binaries/saqviro-pdf-render"]
   }
 }

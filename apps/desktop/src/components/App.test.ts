@@ -18,6 +18,10 @@ const api = vi.hoisted(() => ({
   jobListeners: [] as ((job: JobSnapshot) => void)[],
   toolsForFiles: vi.fn(),
   runTool: vi.fn(),
+  updatesEnabled: vi.fn(),
+  checkUpdate: vi.fn(),
+  installUpdate: vi.fn(),
+  openLicenses: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -29,6 +33,11 @@ vi.mock("../lib/api", () => ({
   revealFile: async () => undefined,
   openFile: async () => undefined,
   saveImage: async () => true,
+  appVersion: async () => "1.2.3",
+  updatesEnabled: api.updatesEnabled,
+  checkUpdate: api.checkUpdate,
+  installUpdate: api.installUpdate,
+  openLicenses: api.openLicenses,
   onFileDrop: (drop: (paths: string[]) => void) => {
     api.drop = drop;
     return Promise.resolve(() => undefined);
@@ -47,6 +56,10 @@ beforeEach(() => {
   api.jobListeners.length = 0;
   api.toolsForFiles.mockReset().mockResolvedValue(["pdf.compress", "pdf.merge", "files.zip.create"]);
   api.runTool.mockReset().mockResolvedValue(7);
+  api.updatesEnabled.mockReset().mockResolvedValue(true);
+  api.checkUpdate.mockReset().mockResolvedValue(null);
+  api.installUpdate.mockReset().mockResolvedValue(undefined);
+  api.openLicenses.mockReset().mockResolvedValue(undefined);
 });
 
 describe("home", () => {
@@ -188,5 +201,48 @@ describe("settings", () => {
     await screen.findByText("Popular");
     await fireEvent.keyDown(window, { key: ",", metaKey: true });
     expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
+  });
+});
+
+describe("updates", () => {
+  const openSettings = async () => {
+    render(App);
+    await fireEvent.click(await nav().findByRole("button", { name: "Settings" }));
+  };
+
+  it("never checks on its own", async () => {
+    await openSettings();
+    await screen.findByText("Saqviro 1.2.3");
+    expect(api.checkUpdate).not.toHaveBeenCalled();
+  });
+
+  it("offers nothing in a build that cannot verify updates", async () => {
+    api.updatesEnabled.mockResolvedValue(false);
+    await openSettings();
+    await screen.findByText("Saqviro 1.2.3");
+    expect(screen.queryByRole("button", { name: "Check for updates" })).toBeNull();
+  });
+
+  it("says when the app is up to date", async () => {
+    await openSettings();
+    await fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
+    expect(await screen.findByText("Saqviro is up to date.")).toBeTruthy();
+  });
+
+  it("installs only when asked", async () => {
+    api.checkUpdate.mockResolvedValue({ version: "2.0.0", notes: null });
+    await openSettings();
+    await fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
+    expect(await screen.findByText("Version 2.0.0 is available.")).toBeTruthy();
+    expect(api.installUpdate).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole("button", { name: "Install and restart" }));
+    expect(api.installUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("shows a failed check", async () => {
+    api.checkUpdate.mockRejectedValue({ kind: "unknown", message: "could not check for updates: offline" });
+    await openSettings();
+    await fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("offline");
   });
 });

@@ -3,9 +3,11 @@ use saqviro_core::{manifest::ToolManifest, registry::Registry};
 use saqviro_jobs::{Config, ErrorKind, JobError, JobId, JobInput, JobManager, JobOutput, JobSnapshot, Params};
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Builder, Emitter, Manager, Runtime, State};
+use serde::Serialize;
+use tauri::{AppHandle, Builder, Emitter, Manager, Runtime, State, path::BaseDirectory};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_updater::UpdaterExt;
 
 mod catalog {
     include!(concat!(env!("OUT_DIR"), "/manifests.rs"));
@@ -172,6 +174,82 @@ fn open_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: S
         .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))
 }
 
+/// Set when building a release. Without it the app has no way to trust an
+/// update, so it does not offer any.
+const UPDATE_KEY: Option<&str> = option_env!("SAQVIRO_UPDATER_PUBKEY");
+const UPDATE_MANIFEST: &str = "https://github.com/saqviro/saqviro/releases/latest/download/latest.json";
+
+#[derive(Debug, Serialize)]
+struct AvailableUpdate {
+    version: String,
+    notes: Option<String>,
+}
+
+fn update_error(e: impl std::fmt::Display) -> JobError {
+    JobError::new(ErrorKind::Unknown, format!("could not check for updates: {e}"))
+}
+
+async fn find_update<R: Runtime>(app: &AppHandle<R>) -> Result<Option<tauri_plugin_updater::Update>, JobError> {
+    let key = UPDATE_KEY.ok_or_else(|| update_error("this build has no update key"))?;
+    let url = UPDATE_MANIFEST.parse().map_err(update_error)?;
+    app.updater_builder()
+        .pubkey(key)
+        .endpoints(vec![url])
+        .map_err(update_error)?
+        .build()
+        .map_err(update_error)?
+        .check()
+        .await
+        .map_err(update_error)
+}
+
+#[tauri::command]
+fn updates_enabled() -> bool {
+    UPDATE_KEY.is_some()
+}
+
+/// Asks the update server only when the user does: the app never calls out
+/// on its own.
+#[tauri::command]
+async fn check_update<R: Runtime>(app: AppHandle<R>) -> Result<Option<AvailableUpdate>, JobError> {
+    let update = find_update(&app).await?;
+    Ok(update.map(|u| AvailableUpdate {
+        version: u.version,
+        notes: u.body,
+    }))
+}
+
+/// The plugin checks the signature before anything is installed.
+#[tauri::command]
+async fn install_update<R: Runtime>(app: AppHandle<R>) -> Result<(), JobError> {
+    let Some(update) = find_update(&app).await? else {
+        return Ok(());
+    };
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(update_error)?;
+    app.restart()
+}
+
+/// Opens the licenses that ship with the app.
+#[tauri::command]
+fn open_licenses<R: Runtime>(app: AppHandle<R>) -> Result<(), JobError> {
+    let path = app
+        .path()
+        .resolve("binaries/THIRD-PARTY-NOTICES.html", BaseDirectory::Resource)
+        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?;
+    if !path.is_file() {
+        return Err(JobError::new(
+            ErrorKind::InvalidInput,
+            "licenses are included in release builds",
+        ));
+    }
+    app.opener()
+        .open_path(path.display().to_string(), None::<&str>)
+        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))
+}
+
 fn job_manager<R: Runtime>(app: &AppHandle<R>) -> Result<JobManager, Box<dyn std::error::Error>> {
     let workers = std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).clamp(1, 4));
     let config = Config {
@@ -186,6 +264,10 @@ fn job_manager<R: Runtime>(app: &AppHandle<R>) -> Result<JobManager, Box<dyn std
 }
 
 fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
+    let builder = match UPDATE_KEY {
+        Some(key) => builder.plugin(tauri_plugin_updater::Builder::new().pubkey(key).build()),
+        None => builder,
+    };
     builder
         // The UI gets no plugin permissions; only the Rust commands below use these.
         .plugin(tauri_plugin_dialog::init())
@@ -203,6 +285,10 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             cancel_job,
             pick_files,
             save_image,
+            updates_enabled,
+            check_update,
+            install_update,
+            open_licenses,
             reveal_file,
             open_file
         ])

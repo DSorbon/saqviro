@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -24,6 +25,23 @@ export const openFile = (path: string) => invoke<void>("open_file", { path });
 
 /** Asks where to save a job's image. Resolves to false if the user cancels. */
 export const saveImage = (id: number) => invoke<boolean>("save_image", { id });
+
+export interface AvailableUpdate {
+  version: string;
+  notes: string | null;
+}
+
+/** False in builds that have no key to verify updates with. */
+export const updatesEnabled = () => invoke<boolean>("updates_enabled");
+
+export const checkUpdate = () => invoke<AvailableUpdate | null>("check_update");
+
+/** Installs and restarts the app. */
+export const installUpdate = () => invoke<void>("install_update");
+
+export const openLicenses = () => invoke<void>("open_licenses");
+
+export const appVersion = () => getVersion();
 
 /** Every change of every job. Returns a function that stops listening. */
 export const onJobEvent = (cb: (job: JobSnapshot) => void) => listen<JobSnapshot>("job", (e) => cb(e.payload));
