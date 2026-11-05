@@ -79,11 +79,7 @@ See [decision 0004](decisions/0004-pdf-engine.md).
 
 ## Shipping engines
 
-`scripts/prepare-bundle.sh` puts FFmpeg, qpdf, PDFium and the render helper into `apps/desktop/src-tauri/binaries`. Bundling them is opt-in, so `pnpm dev` needs no such files:
-
-```bash
-pnpm --filter @saqviro/desktop tauri build --config src-tauri/tauri.bundle.conf.json
-```
+See [decision 0005](decisions/0005-distribution.md) and [releasing](releasing.md). `scripts/prepare-bundle.sh` puts every engine and the license notices into `apps/desktop/src-tauri/binaries`, `scripts/build-release.sh` builds installers from them, and `scripts/check-bundle.sh` runs the result in a clean environment. Bundling is opt-in, so `pnpm dev` needs no such files.
 
 ## Result files (`crates/tools/src/output.rs`)
 
@@ -128,4 +124,4 @@ Preferences live in `lib/prefs.ts`, in `localStorage`: favorites, theme, reduced
 
 ## Not implemented yet
 
-Crop (needs an interactive selection); page thumbnails for reordering; choosing an output folder; Tailwind and `packages/ui`; libheif, FFmpeg, qpdf and PDFium builds for Windows; hardware H.264 on Linux (VA-API).
+Crop (needs an interactive selection); page thumbnails for reordering; choosing an output folder; Tailwind and `packages/ui`; HEIC on Windows; Windows code signing; hardware H.264 on Linux (VA-API).
