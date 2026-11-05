@@ -73,6 +73,12 @@ jobs:
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: choco install ffmpeg qpdf -y
+      # Chocolatey's ffmpeg.exe is a launcher: killing it leaves the real
+      # program running, which is not how the app's own binary behaves.
+      - name: Use the real FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: dirname "$(find /c/ProgramData/chocolatey/lib/ffmpeg -name ffmpeg.exe | head -1)" | xargs cygpath -w >> "$GITHUB_PATH"
       - name: Fetch PDFium
         shell: bash
         run: scripts/fetch-pdfium.sh

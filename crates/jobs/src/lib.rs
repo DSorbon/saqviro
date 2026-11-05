@@ -206,6 +206,8 @@ struct Entry {
     snapshot: JobSnapshot,
     cancel: Arc<AtomicBool>,
     work: Option<Work>,
+    /// The sink has received the job's final state.
+    announced: bool,
 }
 
 #[derive(Default)]
@@ -236,8 +238,13 @@ impl Shared {
             f(&mut entry.snapshot);
             entry.snapshot.clone()
         };
-        self.changed.notify_all();
         (self.sink)(&snapshot);
+        if snapshot.status.is_finished()
+            && let Some(entry) = self.lock().jobs.get_mut(&id)
+        {
+            entry.announced = true;
+        }
+        self.changed.notify_all();
     }
 }
 
@@ -300,6 +307,7 @@ impl JobManager {
                 snapshot: snapshot.clone(),
                 cancel: Arc::default(),
                 work: Some((executor, input, params)),
+                announced: false,
             };
             state.jobs.insert(id, entry);
             snapshot
@@ -353,9 +361,9 @@ impl JobManager {
     pub fn wait(&self, id: JobId) -> Option<JobSnapshot> {
         let mut state = self.shared.lock();
         loop {
-            let snapshot = &state.jobs.get(&id)?.snapshot;
-            if snapshot.status.is_finished() {
-                return Some(snapshot.clone());
+            let entry = state.jobs.get(&id)?;
+            if entry.announced {
+                return Some(entry.snapshot.clone());
             }
             state = self.shared.changed.wait(state).unwrap_or_else(|e| e.into_inner());
         }

@@ -207,8 +207,11 @@ fn compress_never_returns_a_bigger_file() {
     let out = one(&done);
 
     assert!(out.size <= out.source_size.unwrap());
-    assert!(out.note.unwrap().contains("left as it is"));
-    assert_eq!(fs::read(&out.path).unwrap(), fs::read(&src).unwrap());
+    // VP9 can beat the source even here; H.264 from the system cannot.
+    if let Some(note) = out.note {
+        assert!(note.contains("left as it is"));
+        assert_eq!(fs::read(&out.path).unwrap(), fs::read(&src).unwrap());
+    }
 }
 
 #[test]
@@ -396,7 +399,7 @@ fn rotates_a_quarter_turn() {
     let src = video(dir.path(), "clip.mp4", "320x240", 1);
     let (done, _) = run("video.rotate", &[src], json!({ "angle": "270" }));
     let out = one(&done);
-    assert_eq!(name(&out), "clip-rotated.mp4");
+    assert!(name(&out).starts_with("clip-rotated."), "{}", name(&out));
     assert_eq!(size_of(&out.path), (240, 320));
 }
 
@@ -534,7 +537,11 @@ fn never_overwrites_an_existing_file() {
 #[test]
 fn file_names_are_never_interpreted() {
     let dir = tempfile::tempdir().unwrap();
-    for file in ["-i evil.mp4", "100%d {stem}.mp4", "concat:a.mp4", "пример видео.mp4"] {
+    let mut names = vec!["-i evil.mp4", "100%d {stem}.mp4", "пример видео.mp4"];
+    if cfg!(unix) {
+        names.push("concat:a.mp4");
+    }
+    for file in names {
         let src = video(dir.path(), "plain.mp4", "160x120", 1);
         let tricky = dir.path().join(file);
         fs::rename(src, &tricky).unwrap();

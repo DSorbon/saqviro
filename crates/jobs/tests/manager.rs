@@ -251,3 +251,27 @@ fn knows_which_files_its_jobs_created() {
     assert!(jobs.is_output(&made));
     assert!(!jobs.is_output(std::path::Path::new("/etc/passwd")));
 }
+
+#[test]
+fn wait_returns_only_after_the_final_event_was_delivered() {
+    for _ in 0..50 {
+        let root = tempfile::tempdir().unwrap();
+        let config = Config {
+            temp_root: root.path().join("jobs"),
+            workers: 1,
+        };
+        let finished = Arc::new(Mutex::new(false));
+        let seen = finished.clone();
+        let jobs = JobManager::new(config, move |s: &JobSnapshot| {
+            if s.status.is_finished() {
+                // A slow listener must not be overtaken.
+                std::thread::sleep(std::time::Duration::from_millis(2));
+                *seen.lock().unwrap() = true;
+            }
+        })
+        .unwrap();
+        let run = Arc::new(|_: &JobContext, _: JobInput, _: &Params| Ok(JobOutput::Text(String::new())));
+        jobs.wait(jobs.submit("t", run, text(""), Params::new())).unwrap();
+        assert!(*finished.lock().unwrap());
+    }
+}

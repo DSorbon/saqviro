@@ -646,9 +646,11 @@ pub fn rotate(template: String) -> Arc<dyn Executor> {
     })
 }
 
-/// Trim Audio. Lossy audio is copied, so it is not degraded again. Lossless
-/// audio is encoded with its own codec: that loses nothing, cuts exactly and
-/// gives FLAC a correct length in its header.
+/// Trim Audio. Most lossy audio is copied, so it is not degraded again.
+/// Lossless audio is encoded with its own codec: that loses nothing, cuts
+/// exactly and gives FLAC a correct length in its header. Ogg keeps the
+/// timestamps of the original when copied, so players report the wrong
+/// length, and it is encoded too.
 pub fn trim_audio(template: String) -> Arc<dyn Executor> {
     batch(template, |step| {
         let audio = step.audio()?;
@@ -658,20 +660,16 @@ pub fn trim_audio(template: String) -> Arc<dyn Executor> {
         }
         let ext = copy_ext(&step.ext)?;
         let lossless = audio.codec == "flac" || audio.codec.starts_with("pcm_");
-        let codec = if lossless { audio.codec.as_str() } else { "copy" };
+        let kbps = audio.bit_rate.map_or(160, |b| (b / 1000) as u32).clamp(64, 320);
+        let codec: Vec<String> = match (lossless, ext) {
+            (true, _) => vec!["-c:a".into(), audio.codec.clone()],
+            (false, "ogg" | "opus") => vec!["-c:a".into(), "libopus".into(), "-b:a".into(), format!("{kbps}k")],
+            (false, _) => vec!["-c:a".into(), "copy".into()],
+        };
         let map = format!("0:{}", audio.index);
-        let args = [
-            "-map",
-            &map,
-            "-map_metadata",
-            "0",
-            "-vn",
-            "-c:a",
-            codec,
-            "-avoid_negative_ts",
-            "make_zero",
-        ]
-        .map(str::to_owned);
+        let mut args = ["-map", &map, "-map_metadata", "0", "-vn"].map(str::to_owned).to_vec();
+        args.extend(codec);
+        args.extend(["-avoid_negative_ts".into(), "make_zero".into()]);
         step.write(&range.args(), &args, ext, range.length(step.probe.duration), None)
     })
 }
