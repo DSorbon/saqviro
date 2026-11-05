@@ -55,7 +55,19 @@ See [decision 0003](decisions/0003-media-engine.md).
 - Trim Audio copies lossy audio and encodes lossless audio with its own codec, which is exact and keeps FLAC headers correct.
 - Normalize Audio runs loudnorm twice: once to measure, once to apply one constant gain.
 
-`scripts/build-ffmpeg.sh` builds the shipped binaries into `apps/desktop/src-tauri/binaries`. Bundling them is opt-in, so `pnpm dev` needs no such files:
+## PDF engine (`crates/tools/src/pdf`)
+
+See [decision 0004](decisions/0004-pdf-engine.md).
+
+- `Qpdf` runs qpdf as a process for merge, split, page edits, rotation and passwords. Paths are made absolute so a file name can never be read as an option.
+- `edit` uses lopdf for what qpdf cannot do: removing metadata, recompressing images, building a PDF from images.
+- `saqviro-pdf-render` is a helper binary that draws pages with PDFium, so a crash in PDFium ends the helper rather than the app.
+- Passwords reach qpdf through a file in the job's temp directory, never through a command line. A test records qpdf's arguments to keep it that way.
+- Manifest parameters with `secret: true` render as password fields.
+
+## Shipping engines
+
+`scripts/prepare-bundle.sh` puts FFmpeg, qpdf, PDFium and the render helper into `apps/desktop/src-tauri/binaries`. Bundling them is opt-in, so `pnpm dev` needs no such files:
 
 ```bash
 pnpm --filter @saqviro/desktop tauri build --config src-tauri/tauri.bundle.conf.json
@@ -102,4 +114,4 @@ Files dropped on the window go to the open tool if it accepts them; otherwise Ho
 
 ## Not implemented yet
 
-PDF tools; Crop (needs an interactive selection); choosing an output folder; settings, favorites and recents; Tailwind and `packages/ui`; libheif and FFmpeg builds for Windows; hardware H.264 on Linux (VA-API).
+Crop (needs an interactive selection); page thumbnails for reordering; choosing an output folder; settings, favorites and recents; Tailwind and `packages/ui`; libheif, FFmpeg, qpdf and PDFium builds for Windows; hardware H.264 on Linux (VA-API).
