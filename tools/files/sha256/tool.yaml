@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.sha256
+name: SHA-256 Calculator
+category: files
+tool_version: 1
+description: Get the SHA-256 checksum of files.
+keywords: [hash, checksum, sha256, digest, integrity]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

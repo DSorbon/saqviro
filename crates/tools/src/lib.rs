@@ -5,14 +5,18 @@
 use std::sync::Arc;
 
 use saqviro_core::manifest::ToolManifest;
-use saqviro_jobs::Executor;
+use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, Params};
 
 pub mod developer;
+pub mod files;
 pub mod images;
 pub mod media;
 pub mod output;
+pub(crate) mod params;
 pub mod pdf;
 pub mod process;
+pub mod qr;
+pub mod text;
 
 /// Ids of every tool implemented in this crate.
 pub const IMPLEMENTED: &[&str] = &[
@@ -20,7 +24,18 @@ pub const IMPLEMENTED: &[&str] = &[
     "audio.info",
     "audio.normalize",
     "audio.trim",
+    "developer.base64",
+    "developer.hash",
     "developer.json.format",
+    "developer.jwt.decode",
+    "developer.regex",
+    "developer.timestamp",
+    "developer.uuid",
+    "files.checksum.verify",
+    "files.rename",
+    "files.sha256",
+    "files.zip.create",
+    "files.zip.extract",
     "image.compress",
     "image.convert",
     #[cfg(feature = "heic")]
@@ -43,6 +58,10 @@ pub const IMPLEMENTED: &[&str] = &[
     "pdf.rotate-pages",
     "pdf.split",
     "pdf.to-images",
+    "qr.generate",
+    "qr.scan",
+    "text.case",
+    "text.word-count",
     "video.compress",
     "video.convert",
     "video.extract-audio",
@@ -58,6 +77,21 @@ pub const IMPLEMENTED: &[&str] = &[
 /// Without the feature the app hides the tool.
 pub const NEEDS_FEATURE: &[(&str, &str)] = &[("image.heic-to-jpg", "heic")];
 
+/// An executor for a tool that turns text into text.
+fn text_tool(run: fn(&str, &Params) -> Result<String, String>) -> Arc<dyn Executor> {
+    Arc::new(move |_: &JobContext, input: JobInput, params: &Params| {
+        let JobInput::Text(text) = input else {
+            return Err(JobError::new(
+                ErrorKind::InvalidInput,
+                "this tool takes text, not files",
+            ));
+        };
+        run(&text, params)
+            .map(JobOutput::Text)
+            .map_err(|e| JobError::new(ErrorKind::InvalidInput, e))
+    })
+}
+
 /// The executor for a tool, or `None` if it is not implemented. Executors
 /// take their output file name template from the manifest.
 pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
@@ -71,7 +105,22 @@ pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
         .and_then(|o| o.filename.clone())
         .unwrap_or_else(|| "{stem}.{ext}".into());
     let exec: Arc<dyn Executor> = match tool.id.as_str() {
+        "developer.base64" => text_tool(developer::base64::run),
+        "developer.hash" => text_tool(developer::hash::run),
         "developer.json.format" => Arc::new(developer::json_format::run),
+        "developer.jwt.decode" => text_tool(developer::jwt::run),
+        "developer.regex" => text_tool(developer::regex_test::run),
+        "developer.timestamp" => text_tool(developer::timestamp::run),
+        "developer.uuid" => text_tool(developer::uuid::run),
+        "files.checksum.verify" => files::checksum::verify(),
+        "files.rename" => files::rename::run(),
+        "files.sha256" => files::checksum::sha256(),
+        "files.zip.create" => files::archive::create(name),
+        "files.zip.extract" => files::archive::extract(name),
+        "qr.generate" => Arc::new(qr::generate),
+        "qr.scan" => qr::scan(),
+        "text.case" => text_tool(text::case::run),
+        "text.word-count" => text_tool(text::words::run),
         "image.convert" | "image.webp-to-jpg" => img::convert(None, name),
         #[cfg(feature = "heic")]
         "image.heic-to-jpg" => img::convert(None, name),

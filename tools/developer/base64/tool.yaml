@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.base64
+name: Base64 Encode / Decode
+category: developer
+tool_version: 1
+description: Encode text as Base64, or decode it back.
+keywords: [encode, decode, b64, convert]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: mode, type: enum, values: [encode, decode], default: encode }
+  - { id: url_safe, type: boolean, default: false }
+presets:
+  - { id: encode, name: Encode, params: { mode: encode } }
+  - { id: decode, name: Decode, params: { mode: decode } }
+ui:
+  advanced: [url_safe]

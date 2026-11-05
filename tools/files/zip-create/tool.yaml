@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.zip.create
+name: Create ZIP
+category: files
+tool_version: 1
+description: Pack files and folders into a ZIP archive.
+keywords: [zip, archive, compress, pack, bundle]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: archive
+    filename: "{stem}.zip"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: level, type: integer, min: 0, max: 9, default: 6 }
+presets:
+  - { id: balanced, name: Balanced, params: { level: 6 } }
+  - { id: smallest, name: Smallest, params: { level: 9 } }
+  - { id: store, name: No compression, params: { level: 0 } }
+ui:
+  advanced: [level]

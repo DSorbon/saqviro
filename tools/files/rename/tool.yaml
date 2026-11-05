@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.rename
+name: Batch Rename
+category: files
+tool_version: 1
+description: Rename many files at once. Preview first, nothing is overwritten.
+keywords: [rename, names, numbers, replace, prefix, suffix, organize]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: any
+    multiple: true
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: true }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: preview, type: boolean, default: true }
+  - { id: find, type: string, optional: true }
+  - { id: replace, type: string, optional: true }
+  - { id: prefix, type: string, optional: true }
+  - { id: suffix, type: string, optional: true }
+  - { id: numbers, type: boolean, default: false }
+  - { id: start, type: integer, min: 0, max: 1000000, default: 1 }
+  - { id: case, type: enum, values: [keep, lower, upper], default: keep }
+presets:
+  - { id: preview, name: Preview, params: { preview: true } }
+  - { id: rename, name: Rename files, params: { preview: false } }
+ui:
+  advanced: [start, case]

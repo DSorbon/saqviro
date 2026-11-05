@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.jwt.decode
+name: JWT Decoder
+category: developer
+tool_version: 1
+description: Read the header and claims of a JWT. Signatures are not checked.
+keywords: [token, jwt, bearer, claims, auth, decode]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

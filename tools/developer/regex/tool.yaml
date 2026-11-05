@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.regex
+name: Regex Tester
+category: developer
+tool_version: 1
+description: Test a regular expression on text, or replace with it.
+keywords: [regular expression, pattern, match, find, replace, grep]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: pattern, type: string, optional: true }
+  - { id: replacement, type: string, optional: true }
+  - { id: replacing, type: boolean, default: false }
+  - { id: ignore_case, type: boolean, default: false }
+  - { id: multi_line, type: boolean, default: false }
+  - { id: dot_all, type: boolean, default: false }
+presets:
+  - { id: find, name: Find, params: { replacing: false } }
+  - { id: replace, name: Replace, params: { replacing: true } }
+ui:
+  advanced: [ignore_case, multi_line, dot_all]

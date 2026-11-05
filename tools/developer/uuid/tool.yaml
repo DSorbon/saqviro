@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.uuid
+name: UUID Generator
+category: developer
+tool_version: 1
+description: Generate random or time-ordered UUIDs.
+keywords: [guid, id, unique, random, identifier]
+inputs:
+  - type: none
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: version, type: enum, values: ["4", "7"], default: "4" }
+  - { id: count, type: integer, min: 1, max: 1000, default: 1 }
+  - { id: uppercase, type: boolean, default: false }
+presets:
+  - { id: v4, name: Random (v4), params: { version: "4" } }
+  - { id: v7, name: Time-ordered (v7), params: { version: "7" } }
+ui:
+  advanced: [uppercase]

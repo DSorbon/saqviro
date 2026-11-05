@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.timestamp
+name: Timestamp Converter
+category: developer
+tool_version: 1
+description: Convert Unix time and dates. Leave empty for now.
+keywords: [unix, epoch, time, date, utc, iso, milliseconds]
+inputs:
+  - type: text
+    optional: true
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

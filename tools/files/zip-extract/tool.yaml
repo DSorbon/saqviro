@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.zip.extract
+name: Extract ZIP
+category: files
+tool_version: 1
+description: Unpack ZIP archives into a new folder.
+keywords: [unzip, unpack, archive, decompress, open zip]
+inputs:
+  - type: archive
+    multiple: true
+    mime: [application/zip]
+    extensions: [zip]
+outputs:
+  - type: any
+    multiple: true
+    filename: "{stem}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

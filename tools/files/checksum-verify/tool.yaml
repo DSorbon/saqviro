@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.checksum.verify
+name: Verify File Checksum
+category: files
+tool_version: 1
+description: Check a file against an MD5, SHA-1, SHA-256 or SHA-512 checksum.
+keywords: [hash, checksum, verify, compare, integrity, download]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: expected, type: string, optional: true }
+presets:
+  - { id: default, name: Default }

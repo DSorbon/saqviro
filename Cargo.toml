@@ -10,6 +10,18 @@ repository = "https://github.com/saqviro/saqviro"
 rust-version = "1.89"
 
 [workspace.dependencies]
+base64 = "0.23"
+blake3 = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+md-5 = "0.11"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+regex = "1"
+rqrr = { version = "0.11", default-features = false }
+sha1 = "0.11"
+sha2 = "0.11"
+unicode-segmentation = "1"
+uuid = { version = "1", features = ["v4", "v7"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 lopdf = "0.47"
 pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_8125", "image_025"] }
 saqviro-core = { path = "crates/core" }

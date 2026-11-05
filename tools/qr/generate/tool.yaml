@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: qr.generate
+name: QR Generator
+category: qr
+tool_version: 1
+description: Make a QR code from a link or text.
+keywords: [qr, code, barcode, link, url, wifi]
+inputs:
+  - type: text
+outputs:
+  - type: image
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [png, svg], default: png }
+  - { id: size, type: integer, min: 64, max: 4096, default: 512 }
+  - { id: correction, type: enum, values: [low, medium, quartile, high], default: medium }
+presets:
+  - { id: png, name: PNG, params: { format: png } }
+  - { id: svg, name: SVG, params: { format: svg } }
+ui:
+  advanced: [size, correction]
