@@ -42,11 +42,30 @@ Pure Rust except HEIC — see [decision 0002](decisions/0002-image-engine.md).
 - `metadata::strip` is lossless for JPEG, PNG and WebP: pixel data is copied byte for byte. It keeps the color profile and orientation and removes EXIF, XMP, IPTC, comments, unknown chunks and data after the image (for example Motion Photo video). The tool checks its own result by stripping it again.
 - HEIC uses libheif, linked dynamically, through the `heic` feature of `saqviro-tools`. The app enables it on macOS and Linux; Windows builds leave it out (and hide the tool) until libheif is packaged there. AVIF cannot be read yet.
 
+## Media engine (`crates/tools/src/media`)
+
+See [decision 0003](decisions/0003-media-engine.md).
+
+- `Engine` runs FFmpeg and ffprobe as separate processes, from argument arrays. Release builds use only the binaries next to the app; debug builds also search `PATH`.
+- `-progress pipe:1` drives job progress. Cancelling kills the process.
+- Every input is opened as `file:<path>` with a protocol and demuxer whitelist, so a file cannot pull in other files or the network.
+- Results are written to the job's temp directory and moved next to the original on success.
+- `plan_video` picks the encoder: system H.264 where it works, otherwise VP9. MP4 and MOV then become WebM, and the result's `note` tells the user.
+- Streams are copied when nothing needs to change: Mute, fast Trim, and Convert or Extract Audio when the codec already fits.
+- Trim Audio copies lossy audio and encodes lossless audio with its own codec, which is exact and keeps FLAC headers correct.
+- Normalize Audio runs loudnorm twice: once to measure, once to apply one constant gain.
+
+`scripts/build-ffmpeg.sh` builds the shipped binaries into `apps/desktop/src-tauri/binaries`. Bundling them is opt-in, so `pnpm dev` needs no such files:
+
+```bash
+pnpm --filter @saqviro/desktop tauri build --config src-tauri/tauri.bundle.conf.json
+```
+
 ## Result files (`crates/tools/src/output.rs`)
 
 - Written next to the original. A taken name gets ` (2)`, ` (3)`…; nothing is ever overwritten.
 - In a batch, the first failing file fails the job and the results already written are removed. Cancelling removes them too.
-- Each result carries its size and its source's size, so the UI can show "1.2 MB → 340 KB (−72%)".
+- Each result carries its size and its source's size, so the UI can show "1.2 MB → 340 KB (−72%)", and an optional `note` for anything the user should know.
 
 ## Jobs
 
@@ -83,4 +102,4 @@ Files dropped on the window go to the open tool if it accepts them; otherwise Ho
 
 ## Not implemented yet
 
-Video, audio and PDF tools; Crop (needs an interactive selection); choosing an output folder; settings, favorites and recents; Tailwind and `packages/ui`; a libheif build for Windows.
+PDF tools; Crop (needs an interactive selection); choosing an output folder; settings, favorites and recents; Tailwind and `packages/ui`; libheif and FFmpeg builds for Windows; hardware H.264 on Linux (VA-API).
