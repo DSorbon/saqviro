@@ -124,6 +124,8 @@ Every change of every job is emitted as a `job` event carrying a full `JobSnapsh
 
 Files dropped on the window go to the open tool if it accepts them; otherwise Home shows the tools that do.
 
+Preferences live in `lib/prefs.ts`, in `localStorage`: favorites, theme, reduced motion, and how often each tool was used. Never file names. Damaged or unavailable storage falls back to defaults. Usage decays by half every two weeks, and it ranks search results and the tools offered for dropped files. `contrast.test.ts` checks that both themes reach 4.5:1.
+
 ## Not implemented yet
 
-Crop (needs an interactive selection); page thumbnails for reordering; choosing an output folder; settings, favorites and recents; Tailwind and `packages/ui`; libheif, FFmpeg, qpdf and PDFium builds for Windows; hardware H.264 on Linux (VA-API).
+Crop (needs an interactive selection); page thumbnails for reordering; choosing an output folder; Tailwind and `packages/ui`; libheif, FFmpeg, qpdf and PDFium builds for Windows; hardware H.264 on Linux (VA-API).
