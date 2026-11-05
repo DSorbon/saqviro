@@ -10,10 +10,12 @@ triple=$(rustc -vV | sed -n 's/^host: //p')
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-curl -fsSLo "$work/qpdf.zip" \
+# Relative paths: unzip may be a Windows program that cannot read MSYS paths.
+cd "$work"
+curl -fsSLo qpdf.zip \
   "https://github.com/qpdf/qpdf/releases/download/v$VERSION/qpdf-$VERSION-msvc64.zip"
-echo "$SHA256  $work/qpdf.zip" | sha256sum -c -
-unzip -q "$work/qpdf.zip" -d "$work"
+echo "$SHA256  qpdf.zip" | sha256sum -c -
+unzip -q qpdf.zip
 mkdir -p "$out"
-cp "$work"/qpdf-*/bin/qpdf.exe "$out/qpdf-$triple.exe"
-cp "$work"/qpdf-*/bin/*.dll "$out/" 2>/dev/null || true
+cp qpdf-*/bin/qpdf.exe "$out/qpdf-$triple.exe"
+cp qpdf-*/bin/*.dll "$out/" 2>/dev/null || true

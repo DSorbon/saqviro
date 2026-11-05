@@ -1,6 +1,6 @@
 {
   "bundle": {
-    "resources": ["binaries/THIRD-PARTY-NOTICES.html", "binaries/libpdfium.*", "binaries/pdfium.dll"],
+    "resources": ["binaries/THIRD-PARTY-NOTICES.html", "binaries/*pdfium.*"],
     "linux": { "deb": { "depends": ["libheif1", "libheif-plugin-libde265"] } }
   }
 }
