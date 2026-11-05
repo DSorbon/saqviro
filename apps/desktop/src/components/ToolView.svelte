@@ -97,7 +97,7 @@
     {:else if p.type === "integer" || p.type === "number"}
       <input type="number" min={p.min} max={p.max} step={p.type === "integer" ? 1 : "any"} bind:value={values[p.id]} placeholder={p.optional ? "auto" : ""} />
     {:else}
-      <input type="text" bind:value={values[p.id]} />
+      <input type="text" bind:value={values[p.id]} placeholder={p.optional ? "optional" : ""} />
     {/if}
   </label>
 {/snippet}
@@ -165,6 +165,7 @@
           <div class="result-name">
             <span title={f.path}>{fileName(f.path)}</span>
             <span class="muted">{sizeChange(f)}</span>
+            {#if f.note}<span class="muted">{f.note}</span>{/if}
           </div>
           <button onclick={() => openFile(f.path)}>Open</button>
           <button onclick={() => revealFile(f.path)}>Show in folder</button>

@@ -10,6 +10,7 @@ export interface OutputFile {
   path: string;
   size: number;
   source_size: number | null;
+  note?: string | null;
 }
 
 export type JobOutput = { kind: "text"; value: string } | { kind: "files"; value: OutputFile[] };

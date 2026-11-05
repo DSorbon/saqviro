@@ -96,6 +96,15 @@ describe("ToolView with files", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Open" }));
     expect(api.openFile).toHaveBeenCalledWith(out.path);
   });
+
+  it("shows what a result needs to explain", async () => {
+    render(ToolView, { tool: compress, files: ["/clips/a.mp4"] });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    const out = { path: "/clips/a.webm", size: 10, source_size: 20, note: "Saved as WebM." };
+    emit({ status: "completed", progress: 1, finished_at: 900, output: { kind: "files", value: [out] } });
+
+    expect(await screen.findByText("Saved as WebM.")).toBeTruthy();
+  });
 });
 
 describe("ToolView", () => {
