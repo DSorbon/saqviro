@@ -243,6 +243,7 @@ fn knows_which_files_its_jobs_created() {
         path: made.clone(),
         size: 1,
         source_size: None,
+        note: None,
     };
     let job = exec(move |_, _, _| Ok(JobOutput::Files(vec![file.clone()])));
     jobs.wait(jobs.submit("x.y", job, text(""), Params::new())).unwrap();

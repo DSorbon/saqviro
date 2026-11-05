@@ -110,6 +110,9 @@ pub struct OutputFile {
     pub size: u64,
     /// Size of the file it was made from, when there is exactly one.
     pub source_size: Option<u64>,
+    /// Something the user should know about this result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 /// The state of a job at one moment. Every event sent to the sink is a snapshot.

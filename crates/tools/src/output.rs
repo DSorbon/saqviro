@@ -50,6 +50,26 @@ impl Outputs {
 
     /// Writes `bytes` to `dir/name`, or to the first free `name (n)`.
     pub fn write(&mut self, dir: &Path, name: &str, bytes: &[u8]) -> Result<PathBuf, JobError> {
+        let (mut file, path) = self.reserve(dir, name)?;
+        file.write_all(bytes).and_then(|()| file.sync_all())?;
+        Ok(path)
+    }
+
+    /// Moves the finished file `source` to `dir/name`, or to the first free
+    /// `name (n)`. Copies when `source` is on another volume.
+    pub fn adopt(&mut self, dir: &Path, name: &str, source: &Path) -> Result<PathBuf, JobError> {
+        let (file, path) = self.reserve(dir, name)?;
+        drop(file);
+        if fs::rename(source, &path).is_err() {
+            fs::copy(source, &path)?;
+            fs::remove_file(source)?;
+        }
+        Ok(path)
+    }
+
+    /// Creates an empty file under the first free name. It is removed with
+    /// the other results if the job does not finish.
+    fn reserve(&mut self, dir: &Path, name: &str) -> Result<(fs::File, PathBuf), JobError> {
         if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\']) {
             return Err(JobError::new(
                 ErrorKind::InvalidInput,
@@ -69,10 +89,9 @@ impl Outputs {
             };
             let path = dir.join(candidate);
             match OpenOptions::new().write(true).create_new(true).open(&path) {
-                Ok(mut file) => {
+                Ok(file) => {
                     self.created.push(path.clone());
-                    file.write_all(bytes).and_then(|()| file.sync_all())?;
-                    return Ok(path);
+                    return Ok((file, path));
                 }
                 Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
                 Err(e) => return Err(e.into()),

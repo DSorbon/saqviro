@@ -112,6 +112,7 @@ fn batch(
                 path: written,
                 size: made.bytes.len() as u64,
                 source_size,
+                note: None,
             });
             ctx.progress((i + 1) as f32 / files.len() as f32);
         }

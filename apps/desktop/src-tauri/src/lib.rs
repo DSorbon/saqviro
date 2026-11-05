@@ -363,6 +363,7 @@ presets: [{ id: default, name: Default }]
             path: "/tmp/x-clean.jpg".into(),
             size: 1,
             source_size: None,
+            note: None,
         };
         let exec: std::sync::Arc<dyn saqviro_jobs::Executor> =
             std::sync::Arc::new(move |_: &saqviro_jobs::JobContext, _: JobInput, _: &Params| {
