@@ -66,13 +66,16 @@ jobs:
       - uses: ilammy/setup-nasm@v1
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libheif-dev ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libheif-dev ffmpeg qpdf
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install libheif pkgconf ffmpeg
+        run: brew install libheif pkgconf ffmpeg qpdf
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
-        run: choco install ffmpeg -y
+        run: choco install ffmpeg qpdf -y
+      - name: Fetch PDFium
+        if: runner.os != 'Windows'
+        run: scripts/fetch-pdfium.sh
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       # Windows builds leave HEIC out until libheif is packaged there.
