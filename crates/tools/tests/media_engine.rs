@@ -2,10 +2,11 @@
 
 use saqviro_jobs::{ErrorKind, Params};
 use saqviro_tools::media::{
-    Encoders, failure, find_binary, parse_progress,
+    Encoders, failure, parse_progress,
     probe::{Probe, describe},
     tools::{Container, Range, parse_loudness, parse_time, plan_video},
 };
+use saqviro_tools::process::find_binary;
 use serde_json::json;
 
 fn params(value: serde_json::Value) -> Params {

@@ -210,6 +210,9 @@ pub struct Parameter {
     pub param_type: ParamType,
     #[serde(default)]
     pub optional: bool,
+    /// The value is a password: the UI hides it. Only for `string`.
+    #[serde(default)]
+    pub secret: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -358,6 +361,9 @@ impl ToolManifest {
                 (ParamType::Enum, true) => issue(format!("parameters.{}.values", p.id), "required for enum".into()),
                 (ParamType::Enum, false) | (_, true) => {}
                 (_, false) => issue(format!("parameters.{}.values", p.id), "only allowed for enum".into()),
+            }
+            if p.secret && p.param_type != ParamType::String {
+                issue(format!("parameters.{}.secret", p.id), "only allowed for string".into());
             }
             if let Some(default) = &p.default
                 && let Err(e) = p.check(default)

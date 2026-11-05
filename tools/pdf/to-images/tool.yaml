@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.to-images
+name: PDF to Images
+category: pdf
+tool_version: 1
+description: Save every page of a PDF as an image.
+keywords: [png, jpg, convert, export, pictures, screenshot]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-{part}.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [png, jpg], default: png }
+  - { id: dpi, type: integer, min: 36, max: 600, default: 150 }
+  - { id: quality, type: integer, min: 1, max: 100, default: 85 }
+presets:
+  - { id: png, name: PNG, params: { format: png } }
+  - { id: jpg, name: JPG, params: { format: jpg } }
+ui:
+  advanced: [dpi, quality]

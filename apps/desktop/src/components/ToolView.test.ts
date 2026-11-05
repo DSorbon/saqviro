@@ -108,6 +108,12 @@ describe("ToolView with files", () => {
 });
 
 describe("ToolView", () => {
+  it("hides secret parameters", () => {
+    const tool = { ...json, parameters: [{ id: "password", type: "string" as const, secret: true }], ui: {} };
+    const { container } = render(ToolView, { tool, files: [] });
+    expect(container.querySelector("input[type=password]")).toBeTruthy();
+  });
+
   it("renders presets and hides advanced parameters", () => {
     render(ToolView, { tool: json, files: [] });
     expect(screen.getByRole("radio", { name: "Pretty" }).getAttribute("aria-checked")).toBe("true");

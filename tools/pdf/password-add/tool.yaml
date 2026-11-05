@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.password.add
+name: Add PDF Password
+category: pdf
+tool_version: 1
+description: Protect a PDF with a password, using AES-256.
+keywords: [encrypt, protect, lock, secure]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-protected.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: password, type: string, optional: true, secret: true }
+presets:
+  - { id: default, name: Default }

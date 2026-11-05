@@ -186,3 +186,13 @@ fn accepts_extensions_case_insensitively() {
     assert!(m.accepts_extension("JPG"));
     assert!(!m.accepts_extension("pdf"));
 }
+
+#[test]
+fn only_strings_can_be_secret() {
+    let source = VALID.replace(
+        "{ id: fit, type: enum, values: [contain, cover] }",
+        "{ id: pin, type: integer, secret: true }",
+    );
+    let issues = ToolManifest::from_yaml(&source).unwrap_err();
+    assert!(format!("{issues:?}").contains("parameters.pin.secret"), "{issues:?}");
+}

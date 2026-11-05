@@ -14,6 +14,14 @@ impl Segment {
     }
 }
 
+/// Color components in the frame header: 1 gray, 3 color, 4 CMYK.
+pub fn components(bytes: &[u8]) -> Option<u32> {
+    let (segments, _) = header_segments(bytes)?;
+    let is_frame = |m: u8| (0xC0..=0xCF).contains(&m) && !matches!(m, 0xC4 | 0xC8 | 0xCC);
+    let frame = segments.iter().find(|s| is_frame(s.marker))?;
+    frame.payload(bytes).get(5).map(|n| u32::from(*n))
+}
+
 pub const SOS: u8 = 0xDA;
 const EOI: u8 = 0xD9;
 

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.metadata.remove
+name: Remove PDF Metadata
+category: pdf
+tool_version: 1
+description: Remove the author, title, dates and other document properties.
+keywords: [metadata, privacy, author, properties, clean, xmp]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-clean.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

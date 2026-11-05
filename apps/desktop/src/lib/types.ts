@@ -10,6 +10,7 @@ export interface Parameter {
   id: string;
   type: "integer" | "number" | "boolean" | "string" | "enum";
   optional?: boolean;
+  secret?: boolean;
   min?: number;
   max?: number;
   values?: string[];

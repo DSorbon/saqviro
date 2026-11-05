@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use saqviro_jobs::{ErrorKind, JobError};
+use saqviro_jobs::{ErrorKind, JobError, JobInput};
 
 /// Replaces `{name}` placeholders in one pass, so values that contain braces
 /// are never substituted again. Unknown placeholders are left as they are.
@@ -35,6 +35,33 @@ pub fn render_name(template: &str, vars: &[(&str, &str)]) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// The files a job was given.
+pub fn input_files(input: JobInput) -> Result<Vec<PathBuf>, JobError> {
+    match input {
+        JobInput::Files(files) if !files.is_empty() => Ok(files),
+        JobInput::Files(_) => Err(JobError::new(ErrorKind::InvalidInput, "add at least one file")),
+        JobInput::Text(_) => Err(JobError::new(ErrorKind::InvalidInput, "this tool works on files")),
+    }
+}
+
+/// A file's name without its extension.
+pub fn file_stem(path: &Path) -> String {
+    path.file_stem()
+        .map_or_else(|| "file".into(), |s| s.to_string_lossy().into_owned())
+}
+
+/// Puts the file name in front of an error, unless the job was cancelled.
+pub fn name_error(path: &Path, e: JobError) -> JobError {
+    if e.kind == ErrorKind::Cancelled {
+        return e;
+    }
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    JobError::new(e.kind, format!("{name}: {}", e.message))
 }
 
 /// Files created by one job.

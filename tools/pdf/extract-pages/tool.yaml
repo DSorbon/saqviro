@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.extract-pages
+name: Extract PDF Pages
+category: pdf
+tool_version: 1
+description: Save some pages as a new PDF. Pages look like 1, 3-5.
+keywords: [pages, select, pick, copy, save]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-pages.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: pages, type: string, optional: true }
+presets:
+  - { id: default, name: Default }

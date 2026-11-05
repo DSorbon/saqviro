@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.compress
+name: Compress PDF
+category: pdf
+tool_version: 1
+description: Make PDFs smaller by reducing their images.
+keywords: [compress, smaller, reduce, shrink, size, email, optimize]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-compressed.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: dpi, type: integer, min: 36, max: 600, default: 150 }
+  - { id: quality, type: integer, min: 1, max: 100, default: 70 }
+presets:
+  - { id: balanced, name: Balanced, params: { dpi: 150, quality: 70 } }
+  - { id: smaller, name: Smaller, params: { dpi: 96, quality: 50 } }
+  - { id: print, name: Print quality, params: { dpi: 300, quality: 85 } }
+ui:
+  advanced: [dpi, quality]

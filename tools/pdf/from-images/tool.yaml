@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.from-images
+name: Images to PDF
+category: pdf
+tool_version: 1
+description: Turn images into one PDF, one page each.
+keywords: [scan, photos, pictures, convert, jpg to pdf, png to pdf]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}.pdf"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: page_size, type: enum, values: [fit, a4, letter], default: fit }
+presets:
+  - { id: fit, name: Fit image, params: { page_size: fit } }
+  - { id: a4, name: A4, params: { page_size: a4 } }
+  - { id: letter, name: Letter, params: { page_size: letter } }

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.password.remove
+name: Remove PDF Password
+category: pdf
+tool_version: 1
+description: Remove the password from a PDF when you know it.
+keywords: [decrypt, unlock, open, unprotect]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-unlocked.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: password, type: string, optional: true, secret: true }
+presets:
+  - { id: default, name: Default }

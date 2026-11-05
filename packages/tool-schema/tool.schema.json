@@ -242,6 +242,11 @@
           "type": "boolean",
           "default": false
         },
+        "secret": {
+          "description": "The value is a password: the UI hides it. Only for `string`.",
+          "type": "boolean",
+          "default": false
+        },
         "type": {
           "$ref": "#/$defs/ParamType"
         },

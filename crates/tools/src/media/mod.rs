@@ -2,17 +2,15 @@
 //! `docs/decisions/0003-media-engine.md` for why it works this way.
 
 use std::{
-    env,
     ffi::{OsStr, OsString},
-    io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Command, Stdio},
     sync::OnceLock,
-    thread,
-    time::Duration,
 };
 
 use saqviro_jobs::{ErrorKind, JobContext, JobError};
+
+use crate::process::{self, find_binary, hide_console, search_dirs};
 
 pub mod probe;
 pub mod tools;
@@ -23,9 +21,6 @@ use probe::Probe;
 /// (concat, HLS, DASH) are deliberately missing.
 const FORMATS: &str = "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,mpeg,mpegts,asf,flv,ogg,mp3,aac,wav,flac,aiff";
 
-/// How much of FFmpeg's stderr is kept, from the end.
-const STDERR_TAIL: usize = 32 * 1024;
-
 /// H.264 encoders from the operating system, tried in order.
 const H264_ENCODERS: &[&str] = if cfg!(target_os = "macos") {
     &["h264_videotoolbox"]
@@ -34,27 +29,6 @@ const H264_ENCODERS: &[&str] = if cfg!(target_os = "macos") {
 } else {
     &[]
 };
-
-/// Finds `name` in the first directory that has it.
-pub fn find_binary(dirs: impl IntoIterator<Item = PathBuf>, name: &str) -> Option<PathBuf> {
-    let file = format!("{name}{}", env::consts::EXE_SUFFIX);
-    dirs.into_iter().map(|d| d.join(&file)).find(|p| p.is_file())
-}
-
-fn search_dirs() -> Vec<PathBuf> {
-    let mut dirs: Vec<PathBuf> = env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(Path::to_path_buf))
-        .into_iter()
-        .collect();
-    // Release builds run only the binaries they ship with.
-    if cfg!(debug_assertions)
-        && let Some(path) = env::var_os("PATH")
-    {
-        dirs.extend(env::split_paths(&path));
-    }
-    dirs
-}
 
 /// Seconds of media written so far, from one line of `-progress` output.
 pub fn parse_progress(line: &str) -> Option<f64> {
@@ -80,75 +54,14 @@ pub fn failure(stderr: &str) -> JobError {
     }
 }
 
-fn keep_tail(mut pipe: impl Read) -> String {
-    let mut tail = Vec::new();
-    let mut chunk = [0; 8192];
-    while let Ok(n) = pipe.read(&mut chunk) {
-        if n == 0 {
-            break;
-        }
-        tail.extend_from_slice(&chunk[..n]);
-        if tail.len() > 2 * STDERR_TAIL {
-            tail.drain(..tail.len() - STDERR_TAIL);
-        }
-    }
-    String::from_utf8_lossy(&tail).into_owned()
-}
-
-fn hide_console(command: &mut Command) {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-    #[cfg(not(windows))]
-    let _ = command;
-}
-
-/// Waits for the child, killing it if the job is cancelled.
-fn wait(ctx: &JobContext, child: &mut Child) -> Result<ExitStatus, JobError> {
-    loop {
-        if ctx.is_cancelled() {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(JobError::cancelled());
-        }
-        if let Some(status) = child.try_wait()? {
-            return Ok(status);
-        }
-        thread::sleep(Duration::from_millis(50));
-    }
-}
-
-/// Runs a process to the end, passing each stdout line to `on_line`. Returns
-/// its stderr. Stops with an error if the job is cancelled or the process fails.
+/// Runs a process to the end and returns its stderr.
 fn supervise(ctx: &JobContext, command: &mut Command, on_line: impl FnMut(&str) + Send) -> Result<String, JobError> {
-    hide_console(command);
-    let mut child = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let stdout = child.stdout.take().expect("stdout is piped");
-    let stderr = child.stderr.take().expect("stderr is piped");
-
-    thread::scope(|scope| {
-        let mut on_line = on_line;
-        scope.spawn(move || {
-            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                on_line(&line);
-            }
-        });
-        let stderr = scope.spawn(move || keep_tail(stderr));
-        let status = wait(ctx, &mut child);
-        let stderr = stderr.join().unwrap_or_default();
-        if status?.success() {
-            Ok(stderr)
-        } else {
-            Err(failure(&stderr))
-        }
-    })
+    let (status, stderr) = process::supervise(ctx, command, on_line)?;
+    if status.success() {
+        Ok(stderr)
+    } else {
+        Err(failure(&stderr))
+    }
 }
 
 /// What this machine can encode video with.

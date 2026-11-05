@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.rotate-pages
+name: Rotate PDF Pages
+category: pdf
+tool_version: 1
+description: Rotate all pages, or only those you list.
+keywords: [turn, flip, sideways, landscape, portrait, orientation]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-rotated.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: angle, type: enum, values: ["90", "180", "270"], default: "90" }
+  - { id: pages, type: string, optional: true }
+presets:
+  - { id: right, name: Right, params: { angle: "90" } }
+  - { id: left, name: Left, params: { angle: "270" } }
+  - { id: flip, name: Upside down, params: { angle: "180" } }

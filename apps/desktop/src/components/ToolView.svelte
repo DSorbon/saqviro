@@ -96,6 +96,8 @@
       <input type="checkbox" bind:checked={values[p.id] as boolean} />
     {:else if p.type === "integer" || p.type === "number"}
       <input type="number" min={p.min} max={p.max} step={p.type === "integer" ? 1 : "any"} bind:value={values[p.id]} placeholder={p.optional ? "auto" : ""} />
+    {:else if p.secret}
+      <input type="password" autocomplete="off" bind:value={values[p.id]} />
     {:else}
       <input type="text" bind:value={values[p.id]} placeholder={p.optional ? "optional" : ""} />
     {/if}

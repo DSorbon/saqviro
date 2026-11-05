@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.merge
+name: Merge PDF
+category: pdf
+tool_version: 1
+description: Combine PDFs into one, in the order listed.
+keywords: [combine, join, append, together]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-merged.pdf"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

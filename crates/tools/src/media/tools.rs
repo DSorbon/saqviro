@@ -17,7 +17,7 @@ use super::{
     Encoders, Engine,
     probe::{AudioStream, Probe, VideoStream, describe},
 };
-use crate::output::{Outputs, render_name};
+use crate::output::{Outputs, file_stem, input_files, name_error, render_name};
 
 /// Lowest video bitrate worth producing, in bits per second.
 const MIN_VIDEO_BITRATE: u64 = 150_000;
@@ -422,37 +422,13 @@ fn file_ext(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-fn stem(path: &Path) -> String {
-    path.file_stem()
-        .map_or_else(|| "media".into(), |s| s.to_string_lossy().into_owned())
-}
-
-fn with_name(path: &Path, e: JobError) -> JobError {
-    if e.kind == ErrorKind::Cancelled {
-        return e;
-    }
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    JobError::new(e.kind, format!("{name}: {}", e.message))
-}
-
-fn files_of(input: JobInput) -> Result<Vec<PathBuf>, JobError> {
-    match input {
-        JobInput::Files(files) if !files.is_empty() => Ok(files),
-        JobInput::Files(_) => Err(invalid("add at least one file")),
-        JobInput::Text(_) => Err(invalid("this tool works on files")),
-    }
-}
-
 /// Runs `make` for each input file and moves the results next to the originals.
 fn batch(
     template: String,
     make: impl Fn(&Step) -> Result<Made, JobError> + Send + Sync + 'static,
 ) -> Arc<dyn Executor> {
     Arc::new(move |ctx: &JobContext, input: JobInput, params: &Params| {
-        let files = files_of(input)?;
+        let files = input_files(input)?;
         let engine = Engine::get()?;
         let mut outputs = Outputs::new();
         let mut results = Vec::with_capacity(files.len());
@@ -467,14 +443,14 @@ fn batch(
                 engine,
                 path,
                 ext: file_ext(path),
-                probe: engine.probe(ctx, path).map_err(|e| with_name(path, e))?,
+                probe: engine.probe(ctx, path).map_err(|e| name_error(path, e))?,
                 params,
                 temp,
                 span: (start, start + share),
             };
-            let made = make(&step).map_err(|e| with_name(path, e))?;
+            let made = make(&step).map_err(|e| name_error(path, e))?;
 
-            let name = render_name(&template, &[("stem", &stem(path)), ("ext", made.ext)]);
+            let name = render_name(&template, &[("stem", &file_stem(path)), ("ext", made.ext)]);
             let dir = path.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
             let size = fs::metadata(&made.file)?.len();
             let written = outputs.adopt(&dir, &name, &made.file)?;
@@ -768,12 +744,12 @@ pub fn normalize(template: String) -> Arc<dyn Executor> {
 /// Video Info and Audio Info.
 pub fn info() -> Arc<dyn Executor> {
     Arc::new(|ctx: &JobContext, input: JobInput, _: &Params| {
-        let files = files_of(input)?;
+        let files = input_files(input)?;
         let engine = Engine::get()?;
         let mut sections = Vec::with_capacity(files.len());
         for (i, path) in files.iter().enumerate() {
             ctx.check_cancelled()?;
-            let probe = engine.probe(ctx, path).map_err(|e| with_name(path, e))?;
+            let probe = engine.probe(ctx, path).map_err(|e| name_error(path, e))?;
             sections.push(describe(path, &probe));
             ctx.progress((i + 1) as f32 / files.len() as f32);
         }

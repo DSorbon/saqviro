@@ -11,6 +11,8 @@ pub mod developer;
 pub mod images;
 pub mod media;
 pub mod output;
+pub mod pdf;
+pub mod process;
 
 /// Ids of every tool implemented in this crate.
 pub const IMPLEMENTED: &[&str] = &[
@@ -29,6 +31,18 @@ pub const IMPLEMENTED: &[&str] = &[
     "image.to-avif",
     "image.to-webp",
     "image.webp-to-jpg",
+    "pdf.compress",
+    "pdf.delete-pages",
+    "pdf.extract-pages",
+    "pdf.from-images",
+    "pdf.merge",
+    "pdf.metadata.remove",
+    "pdf.password.add",
+    "pdf.password.remove",
+    "pdf.reorder-pages",
+    "pdf.rotate-pages",
+    "pdf.split",
+    "pdf.to-images",
     "video.compress",
     "video.convert",
     "video.extract-audio",
@@ -49,6 +63,7 @@ pub const NEEDS_FEATURE: &[(&str, &str)] = &[("image.heic-to-jpg", "heic")];
 pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
     use images::{Format, tools as img};
     use media::tools as media;
+    use pdf::tools as pdf;
 
     let name = tool
         .outputs
@@ -66,6 +81,18 @@ pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
         "image.compress" => img::compress(name),
         "image.rotate" => img::rotate(name),
         "image.metadata.remove" => img::remove_metadata(name),
+        "pdf.compress" => pdf::compress(name),
+        "pdf.delete-pages" => pdf::delete_pages(name),
+        "pdf.extract-pages" => pdf::extract_pages(name),
+        "pdf.from-images" => pdf::from_images(name),
+        "pdf.merge" => pdf::merge(name),
+        "pdf.metadata.remove" => pdf::remove_metadata(name),
+        "pdf.password.add" => pdf::add_password(name),
+        "pdf.password.remove" => pdf::remove_password(name),
+        "pdf.reorder-pages" => pdf::reorder_pages(name),
+        "pdf.rotate-pages" => pdf::rotate_pages(name),
+        "pdf.split" => pdf::split(name),
+        "pdf.to-images" => pdf::to_images(name),
         "video.compress" => media::compress(name),
         "video.convert" => media::convert(name),
         "video.extract-audio" | "audio.convert" => media::audio_to(name),

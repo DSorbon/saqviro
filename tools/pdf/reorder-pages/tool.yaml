@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.reorder-pages
+name: Reorder PDF Pages
+category: pdf
+tool_version: 1
+description: List pages in the new order. The rest follow them.
+keywords: [order, sort, move, rearrange, reverse, pages]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-reordered.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: order, type: string, optional: true }
+  - { id: reverse, type: boolean, default: false }
+presets:
+  - { id: custom, name: Custom order, params: { reverse: false } }
+  - { id: reverse, name: Reverse, params: { reverse: true } }

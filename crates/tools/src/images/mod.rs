@@ -139,17 +139,21 @@ fn image_error(path: &Path, e: ImageError) -> JobError {
 }
 
 pub fn decode(path: &Path) -> Result<Picture, JobError> {
-    let bytes = read(path)?;
-    let format = Format::detect(&bytes).ok_or_else(|| {
+    decode_bytes(path, &read(path)?)
+}
+
+/// Decodes `bytes`. `path` names them in error messages.
+pub fn decode_bytes(path: &Path, bytes: &[u8]) -> Result<Picture, JobError> {
+    let format = Format::detect(bytes).ok_or_else(|| {
         JobError::new(
             ErrorKind::UnsupportedFormat,
             format!("{} is not an image Saqviro can read", file_name(path)),
         )
     })?;
     if format == Format::Heic {
-        return heic(path, &bytes);
+        return heic(path, bytes);
     }
-    if format == Format::Jpeg && !jpeg::is_complete(&bytes) {
+    if format == Format::Jpeg && !jpeg::is_complete(bytes) {
         return Err(JobError::new(
             ErrorKind::InvalidInput,
             format!("{} is damaged or incomplete", file_name(path)),
@@ -162,7 +166,7 @@ pub fn decode(path: &Path) -> Result<Picture, JobError> {
         )
     })?;
 
-    let mut reader = ImageReader::with_format(Cursor::new(&bytes), image_format);
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), image_format);
     let mut limits = Limits::default();
     limits.max_image_width = Some(MAX_SIDE);
     limits.max_image_height = Some(MAX_SIDE);
@@ -200,7 +204,7 @@ fn encode_error(e: impl std::fmt::Display) -> JobError {
 }
 
 /// Blends transparent pixels onto white, for formats without alpha.
-fn on_white(img: &DynamicImage) -> RgbImage {
+pub fn on_white(img: &DynamicImage) -> RgbImage {
     if !img.color().has_alpha() {
         return img.to_rgb8();
     }

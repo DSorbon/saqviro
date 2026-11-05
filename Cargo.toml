@@ -10,6 +10,8 @@ repository = "https://github.com/saqviro/saqviro"
 rust-version = "1.89"
 
 [workspace.dependencies]
+lopdf = "0.47"
+pdfium-render = { version = "0.9", default-features = false, features = ["pdfium_8125", "image_025"] }
 saqviro-core = { path = "crates/core" }
 saqviro-jobs = { path = "crates/jobs" }
 saqviro-tools = { path = "crates/tools" }
