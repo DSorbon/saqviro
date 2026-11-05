@@ -44,7 +44,7 @@ jobs:
       - uses: ilammy/setup-nasm@v1
       - name: Install tools (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libheif-dev libheif-plugin-libde265 cmake
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libheif-dev libheif-plugin-libde265 cmake xvfb
       - name: Install tools (macOS)
         if: runner.os == 'macOS'
         run: brew install cmake pkgconf
@@ -69,6 +69,9 @@ jobs:
       - name: Check the app as another computer would
         if: runner.os == 'macOS'
         run: scripts/check-bundle.sh target/release/bundle/dmg/*.dmg
+      - name: Install it and run it
+        if: runner.os != 'macOS'
+        run: scripts/check-install.sh
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}

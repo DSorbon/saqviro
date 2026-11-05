@@ -47,8 +47,8 @@ printf '%%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pa
 mkdir "$work/out"
 env -i "$contents/MacOS/saqviro-pdf-render" "$work/page.pdf" "$work/out" 72 png 85 >/dev/null || fail "PDF rendering does not work"
 [ -f "$work/out/1.png" ] || fail "PDF rendering wrote nothing"
-env -i "$contents/MacOS/ffmpeg" -v error -f lavfi -i sine=d=1 "$work/out/tone.mp3" || fail "FFmpeg does not work"
-env -i "$contents/MacOS/qpdf" --warning-exit-0 --no-warn --show-npages "$work/page.pdf" >/dev/null || fail "qpdf does not work"
+env -i "$contents/MacOS/saqviro-ffmpeg" -v error -f lavfi -i sine=d=1 "$work/out/tone.mp3" || fail "FFmpeg does not work"
+env -i "$contents/MacOS/saqviro-qpdf" --warning-exit-0 --no-warn --show-npages "$work/page.pdf" >/dev/null || fail "qpdf does not work"
 
 env -i "$contents/MacOS/saqviro-desktop" >"$work/start.log" 2>&1 &
 pid=$!

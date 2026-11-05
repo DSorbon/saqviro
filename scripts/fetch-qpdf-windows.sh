@@ -17,5 +17,5 @@ curl -fsSLo qpdf.zip \
 echo "$SHA256  qpdf.zip" | sha256sum -c -
 unzip -q qpdf.zip
 mkdir -p "$out"
-cp qpdf-*/bin/qpdf.exe "$out/qpdf-$triple.exe"
+cp qpdf-*/bin/qpdf.exe "$out/saqviro-qpdf-$triple.exe"
 cp qpdf-*/bin/*.dll "$out/" 2>/dev/null || true

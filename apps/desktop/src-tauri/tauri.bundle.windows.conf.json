@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": {
+      "binaries/THIRD-PARTY-NOTICES.html": "binaries/THIRD-PARTY-NOTICES.html",
+      "binaries/*.dll": "./"
+    }
+  }
+}

@@ -57,6 +57,6 @@ if [ "$(uname -s)" = Darwin ] && otool -L build/qpdf/qpdf | grep -q /opt/homebre
   echo "qpdf links Homebrew libraries, so it would not run elsewhere" >&2
   exit 1
 fi
-cp build/qpdf/qpdf "$out/qpdf-$triple"
-"$out/qpdf-$triple" --version | head -1
+cp build/qpdf/qpdf "$out/saqviro-qpdf-$triple"
+"$out/saqviro-qpdf-$triple" --version | head -1
 echo "Built into $out"

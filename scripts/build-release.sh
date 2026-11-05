@@ -23,7 +23,8 @@ case "$(uname -s)" in
       config+=(--config '{"bundle":{"macOS":{"hardenedRuntime":true}}}')
     fi
     ;;
-  *) config+=(--config src-tauri/tauri.bundle.other.conf.json) ;;
+  MINGW* | MSYS*) config+=(--config src-tauri/tauri.bundle.windows.conf.json) ;;
+  *) config+=(--config src-tauri/tauri.bundle.linux.conf.json) ;;
 esac
 # The two go together: an app built with the public key needs this section to
 # start at all, and signing needs the private key.

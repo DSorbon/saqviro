@@ -10,7 +10,7 @@ use std::{
 
 use saqviro_jobs::{ErrorKind, JobContext, JobError};
 
-use crate::process::{find_binary, search_dirs, supervise};
+use crate::process::{engine, supervise};
 
 pub mod edit;
 pub mod pages;
@@ -57,7 +57,7 @@ pub struct Qpdf {
 impl Qpdf {
     pub fn get() -> Result<&'static Self, JobError> {
         static QPDF: OnceLock<Option<Qpdf>> = OnceLock::new();
-        QPDF.get_or_init(|| find_binary(search_dirs(), "qpdf").map(|binary| Self { binary }))
+        QPDF.get_or_init(|| engine("qpdf").map(|binary| Self { binary }))
             .as_ref()
             .ok_or_else(|| JobError::new(ErrorKind::EngineMissing, "qpdf is missing from this installation"))
     }

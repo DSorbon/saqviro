@@ -32,10 +32,14 @@ a process.
 
 ## Finding the binaries
 
-Release builds look only next to the app binary. Debug builds also search
-`PATH`, so development and tests can use a system FFmpeg. Release builds must
-never search `PATH`: that would run whatever `ffmpeg` the user's environment
-provides, and could bring in a GPL build.
+Shipped engines are called `saqviro-ffmpeg`, `saqviro-ffprobe` and
+`saqviro-qpdf`. Linux packages put them in `/usr/bin`, where plain names would
+collide with system packages.
+
+Release builds accept only those names, next to the app binary. Debug builds
+also search `PATH` for the plain names, so development and tests can use a
+system FFmpeg. Release builds must never do that: it would run whatever
+`ffmpeg` the user's environment provides, and could bring in a GPL build.
 
 ## Consequences
 

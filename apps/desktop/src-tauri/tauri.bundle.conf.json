@@ -1,5 +1,5 @@
 {
   "bundle": {
-    "externalBin": ["binaries/ffmpeg", "binaries/ffprobe", "binaries/qpdf", "binaries/saqviro-pdf-render"]
+    "externalBin": ["binaries/saqviro-ffmpeg", "binaries/saqviro-ffprobe", "binaries/saqviro-qpdf", "binaries/saqviro-pdf-render"]
   }
 }

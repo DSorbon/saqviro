@@ -6,7 +6,7 @@ use saqviro_tools::media::{
     probe::{Probe, describe},
     tools::{Container, Range, parse_loudness, parse_time, plan_video},
 };
-use saqviro_tools::process::find_binary;
+use saqviro_tools::process::{find_binary, find_engine};
 use serde_json::json;
 
 fn params(value: serde_json::Value) -> Params {
@@ -213,4 +213,21 @@ fn describes_a_file_for_people() {
     ] {
         assert!(text.contains(part), "{part} missing from:\n{text}");
     }
+}
+
+#[test]
+fn a_release_never_takes_a_system_engine() {
+    let dir = tempfile::tempdir().unwrap();
+    let suffix = std::env::consts::EXE_SUFFIX;
+    let plain = dir.path().join(format!("ffmpeg{suffix}"));
+    std::fs::write(&plain, "").unwrap();
+    let dirs = [dir.path().to_path_buf()];
+
+    assert_eq!(find_engine(&dirs, "ffmpeg", false), None);
+    assert_eq!(find_engine(&dirs, "ffmpeg", true), Some(plain));
+
+    let ours = dir.path().join(format!("saqviro-ffmpeg{suffix}"));
+    std::fs::write(&ours, "").unwrap();
+    assert_eq!(find_engine(&dirs, "ffmpeg", false), Some(ours.clone()));
+    assert_eq!(find_engine(&dirs, "ffmpeg", true), Some(ours));
 }

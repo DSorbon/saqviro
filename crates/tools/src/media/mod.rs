@@ -10,7 +10,7 @@ use std::{
 
 use saqviro_jobs::{ErrorKind, JobContext, JobError};
 
-use crate::process::{self, find_binary, hide_console, search_dirs};
+use crate::process::{self, hide_console};
 
 pub mod probe;
 pub mod tools;
@@ -86,8 +86,8 @@ impl Engine {
         ENGINE
             .get_or_init(|| {
                 Some(Self {
-                    ffmpeg: find_binary(search_dirs(), "ffmpeg")?,
-                    ffprobe: find_binary(search_dirs(), "ffprobe")?,
+                    ffmpeg: process::engine("ffmpeg")?,
+                    ffprobe: process::engine("ffprobe")?,
                     encoders: OnceLock::new(),
                 })
             })

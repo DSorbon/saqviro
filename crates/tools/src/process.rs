@@ -21,6 +21,20 @@ pub fn find_binary(dirs: impl IntoIterator<Item = PathBuf>, name: &str) -> Optio
     dirs.into_iter().map(|d| d.join(&file)).find(|p| p.is_file())
 }
 
+/// Finds an engine shipped with the app, under a name of its own so that it
+/// never collides with a system package. With `allow_system`, for development,
+/// the plain name is accepted too. A release must never take it: next to
+/// `/usr/bin/saqviro-desktop` it would be the system's `ffmpeg`.
+pub fn find_engine(dirs: &[PathBuf], name: &str, allow_system: bool) -> Option<PathBuf> {
+    find_binary(dirs.iter().cloned(), &format!("saqviro-{name}"))
+        .or_else(|| allow_system.then(|| find_binary(dirs.iter().cloned(), name)).flatten())
+}
+
+/// [`find_engine`] for this process.
+pub fn engine(name: &str) -> Option<PathBuf> {
+    find_engine(&search_dirs(), name, cfg!(debug_assertions))
+}
+
 /// Where engines are looked for: next to the app, and in debug builds also
 /// on `PATH`. Release builds run only the binaries they ship with.
 pub fn search_dirs() -> Vec<PathBuf> {

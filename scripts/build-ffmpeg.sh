@@ -81,7 +81,8 @@ exe=""
 case "$(uname -s)" in
   Darwin) platform=(--enable-videotoolbox --enable-audiotoolbox) ;;
   MINGW* | MSYS*)
-    platform=(--enable-mediafoundation)
+    # Media Foundation needs d3d11va, and -static keeps MSYS DLLs out.
+    platform=(--enable-mediafoundation --enable-d3d11va --extra-ldexeflags=-static)
     exe=.exe
     ;;
 esac
@@ -118,6 +119,6 @@ for tool in ffmpeg ffprobe; do
     echo "$tool links libraries that exist only on this machine" >&2
     exit 1
   fi
-  cp "$built" "$out/$tool-$triple$exe"
+  cp "$built" "$out/saqviro-$tool-$triple$exe"
 done
 echo "Built into $out"
