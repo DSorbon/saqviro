@@ -17,7 +17,7 @@ jobs:
         include:
           - { os: macos-14, name: macos-arm64, bundles: "app,dmg" }
           - { os: macos-13, name: macos-x64, bundles: "app,dmg" }
-          - { os: ubuntu-22.04, name: linux-x64, bundles: "deb,appimage" }
+          - { os: ubuntu-24.04, name: linux-x64, bundles: "deb,appimage" }
           - { os: windows-latest, name: windows-x64, bundles: "nsis" }
     runs-on: ${{ matrix.os }}
     defaults:
@@ -45,7 +45,7 @@ jobs:
       - uses: ilammy/setup-nasm@v1
       - name: Install tools (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libheif-dev cmake
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libheif-dev libheif-plugin-libde265 cmake
       - name: Install tools (macOS)
         if: runner.os == 'macOS'
         run: brew install cmake pkgconf

@@ -8,7 +8,7 @@ A free, open-source desktop toolbox for Windows, macOS and Linux. Convert, compr
 
 ## Development
 
-Requirements: [Rust](https://rustup.rs) (stable), Node.js 24, pnpm, the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS, and on macOS and Linux libheif 1.17+ with pkg-config for HEIC (`brew install libheif pkgconf`, `apt install libheif-dev`). Windows builds do not include HEIC yet. Video, audio and PDF tools need FFmpeg and qpdf on your `PATH` during development (`brew install ffmpeg qpdf`, `apt install ffmpeg qpdf`), and `scripts/fetch-pdfium.sh` once for PDF rendering; releases ship their own builds. On x86_64, [nasm](https://nasm.us) speeds up the JPEG and AVIF encoders.
+Requirements: [Rust](https://rustup.rs) (stable), Node.js 24, pnpm, the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS, and on macOS and Linux libheif 1.17+ with pkg-config for HEIC (`brew install libheif pkgconf`, `apt install libheif-dev libheif-plugin-libde265`). Windows builds do not include HEIC yet. Video, audio and PDF tools need FFmpeg and qpdf on your `PATH` during development (`brew install ffmpeg qpdf`, `apt install ffmpeg qpdf`), and `scripts/fetch-pdfium.sh` once for PDF rendering; releases ship their own builds. On x86_64, [nasm](https://nasm.us) speeds up the JPEG and AVIF encoders.
 
 ```bash
 pnpm install
