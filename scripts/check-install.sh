@@ -50,7 +50,12 @@ else
   xvfb-run -a "$dir/saqviro-desktop" &
 fi
 pid=$!
-sleep 8
-kill -0 "$pid" 2>/dev/null || fail "the app does not start"
+sleep 15
+if [ "$exe" = .exe ]; then
+  kill -0 "$pid" 2>/dev/null || fail "the app does not start"
+else
+  # $pid is xvfb-run, which says nothing about the app.
+  pgrep -x saqviro-desktop >/dev/null || fail "the app does not start"
+fi
 kill "$pid" || true
 echo "OK"

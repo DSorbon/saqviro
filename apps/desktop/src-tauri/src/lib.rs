@@ -176,8 +176,16 @@ fn open_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: S
 
 /// Set when building a release. Without it the app has no way to trust an
 /// update, so it does not offer any.
-const UPDATE_KEY: Option<&str> = option_env!("SAQVIRO_UPDATER_PUBKEY");
+const UPDATE_KEY: Option<&str> = update_key(option_env!("SAQVIRO_UPDATER_PUBKEY"));
 const UPDATE_MANIFEST: &str = "https://github.com/saqviro/saqviro/releases/latest/download/latest.json";
+
+/// CI passes a variable nobody has set as an empty string.
+const fn update_key(key: Option<&'static str>) -> Option<&'static str> {
+    match key {
+        Some(key) if !key.is_empty() => Some(key),
+        _ => None,
+    }
+}
 
 #[derive(Debug, Serialize)]
 struct AvailableUpdate {
@@ -307,6 +315,13 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn an_empty_update_key_is_no_key() {
+        assert_eq!(update_key(None), None);
+        assert_eq!(update_key(Some("")), None);
+        assert_eq!(update_key(Some("key")), Some("key"));
+    }
 
     fn jobs() -> (JobManager, tempfile::TempDir) {
         let root = tempfile::tempdir().unwrap();
