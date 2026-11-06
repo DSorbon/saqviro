@@ -2,13 +2,15 @@
   import type { Tool } from "../lib/types";
   import { starters, type Workflow } from "../lib/workflow";
 
-  let { tools, workflows, onOpen, onNew, onCopy, onImport }: {
+  let { tools, workflows, onOpen, onNew, onTry, onImport, deleted = null, onUndo }: {
     tools: Tool[];
     workflows: Workflow[];
     onOpen: (workflow: Workflow) => void;
     onNew: () => void;
-    onCopy: (workflow: Workflow) => void;
+    onTry: (workflow: Workflow) => void;
     onImport: (text: string) => boolean;
+    deleted?: Workflow | null;
+    onUndo?: () => void;
   } = $props();
 
   let problem = $state("");
@@ -41,6 +43,9 @@
   </header>
   <p class="muted">Run several tools in a row. Only the final result is saved.</p>
   {#if problem}<p class="error" role="alert">{problem}</p>{/if}
+  {#if deleted}
+    <p class="undo" role="status">“{deleted.name}” deleted. <button onclick={onUndo}>Undo</button></p>
+  {/if}
 
   {#if workflows.length > 0}
     <ul aria-label="Your workflows">
@@ -50,7 +55,7 @@
 
   <h2>Ready to use</h2>
   <ul aria-label="Ready to use">
-    {#each starters as workflow (workflow.id)}{@render row(workflow, () => onCopy(workflow))}{/each}
+    {#each starters as workflow (workflow.id)}{@render row(workflow, () => onTry(workflow))}{/each}
   </ul>
 </article>
 
@@ -68,5 +73,6 @@
   .actions { display: flex; gap: var(--space-2); }
   .actions button:not(.primary) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   .error { color: var(--danger); }
+  .undo button { padding: 0; border: 0; background: none; color: var(--accent); cursor: default; }
   .primary { padding: 6px var(--space-3); border: 0; border-radius: var(--radius); background: var(--accent); color: var(--accent-text); font-weight: 600; cursor: default; }
 </style>

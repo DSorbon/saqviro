@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatOrder, formatPages, moveTo, parsePages } from "./pages";
+import { formatOrder, formatPages, moveTo, parsePages, pageHint } from "./pages";
 
 describe("formatPages", () => {
   it("joins runs of pages", () => {
@@ -23,5 +23,12 @@ describe("order", () => {
   it("writes pages in their new order", () => {
     expect(formatOrder(moveTo([1, 2, 3, 4], 0, 2))).toBe("2,3,1,4");
     expect(formatOrder(moveTo([1, 2, 3, 4], 3, 0))).toBe("4,1,2,3");
+  });
+});
+
+describe("pageHint", () => {
+  it("says what clicking a page does", () => {
+    expect(pageHint("pdf.delete-pages")).toEqual({ text: "Click the pages to remove.", removes: true });
+    expect(pageHint("pdf.extract-pages").text).toBe("Click the pages to keep.");
   });
 });

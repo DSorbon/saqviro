@@ -17,6 +17,7 @@ vi.mock("../lib/api", () => ({
   runWorkflow: api.runWorkflow,
   cancelJob: api.cancelJob,
   pickFiles: api.pickFiles,
+  pickFolder: vi.fn(),
   openFile: vi.fn(),
   revealFile: vi.fn(),
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
@@ -79,14 +80,64 @@ beforeEach(() => {
 describe("WorkflowView", () => {
   it("adds a step with the tool's defaults", async () => {
     const { current } = show(workflow([]));
-    await fireEvent.change(screen.getByRole("combobox", { name: "Add a step" }), { target: { value: "image.to-webp" } });
+    await fireEvent.focus(screen.getByRole("searchbox", { name: "Add a step" }));
+    await fireEvent.click(screen.getByRole("button", { name: "To WebP" }));
     expect(current().steps).toEqual([{ tool: "image.to-webp", params: { quality: 80 } }]);
   });
 
-  it("only offers tools that can use the last result", () => {
+  it("only offers tools that can use the last result", async () => {
     show(workflow([{ tool: "image.resize" }]));
-    const names = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(names).toEqual(["Choose a tool…", "Resize", "To WebP"]);
+    await fireEvent.focus(screen.getByRole("searchbox", { name: "Add a step" }));
+    expect(screen.getByRole("button", { name: "To WebP" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Merge PDF" })).toBeNull();
+  });
+
+  it("finds a step by searching, and adds the first match with Enter", async () => {
+    const { current } = show(workflow([]));
+    const search = screen.getByRole("searchbox", { name: "Add a step" });
+    await fireEvent.input(search, { target: { value: "webp" } });
+    expect(screen.queryByRole("button", { name: "Resize" })).toBeNull();
+    await fireEvent.keyDown(search, { key: "Enter" });
+    expect(current().steps.map((s) => s.tool)).toEqual(["image.to-webp"]);
+  });
+
+  it("offers a step's presets and shows the one in use", async () => {
+    const scaled = tool("image.scale", "Scale", {
+      inputs: [{ type: "image" }],
+      outputs: [{ type: "image" }],
+      parameters: [{ id: "width", type: "integer", default: 100 }],
+      presets: [{ id: "s", name: "Small", params: { width: 100 } }, { id: "l", name: "Large", params: { width: 900 } }],
+    });
+    let current = withDefaults({ ...blankWorkflow("w"), steps: [{ tool: "image.scale" }] }, [scaled]);
+    render(WorkflowView, {
+      tools: [scaled], workflow: current, files: [],
+      onChange: (w: Workflow) => (current = w), onDelete: vi.fn(), onCopy: vi.fn(), onBack: vi.fn(),
+    });
+    const preset = screen.getByRole("combobox", { name: "Preset of step 1" }) as HTMLSelectElement;
+    expect(preset.value).toBe("s");
+    await fireEvent.change(preset, { target: { value: "l" } });
+    expect(current.steps[0]!.params).toEqual({ width: 900 });
+  });
+
+  it("says which step is missing a setting and will not run", () => {
+    const needy = tool("pdf.pick", "Pick", {
+      inputs: [{ type: "pdf" }],
+      outputs: [{ type: "pdf" }],
+      parameters: [{ id: "pages", type: "string", optional: true }],
+      ui: { one_of: ["pages"] },
+    });
+    render(WorkflowView, {
+      tools: [needy], workflow: withDefaults({ ...blankWorkflow("w"), steps: [{ tool: "pdf.pick" }] }, [needy]), files: ["/a.pdf"],
+      onChange: vi.fn(), onDelete: vi.fn(), onCopy: vi.fn(), onBack: vi.fn(),
+    });
+    expect(screen.getByText("Step 1: Fill in Pages")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("keeps the keyboard on a step after moving it", async () => {
+    show(workflow([{ tool: "image.resize" }, { tool: "image.to-webp" }, { tool: "image.resize" }]));
+    await fireEvent.click(screen.getByRole("button", { name: "Move step 2 up" }));
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Move step 1 down"));
   });
 
   it("moves and removes steps", async () => {

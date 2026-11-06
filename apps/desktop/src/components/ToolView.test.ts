@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   runTool: vi.fn(),
   cancelJob: vi.fn(),
   pickFiles: vi.fn(),
+  pickFolder: vi.fn(),
   revealFile: vi.fn(),
   openFile: vi.fn(),
   saveImage: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("../lib/api", () => ({
   runTool: api.runTool,
   cancelJob: api.cancelJob,
   pickFiles: api.pickFiles,
+  pickFolder: api.pickFolder,
   revealFile: api.revealFile,
   openFile: api.openFile,
   saveImage: api.saveImage,
@@ -348,5 +350,84 @@ describe("ToolView with page pictures", () => {
   it("shows no pictures for several files", () => {
     render(ToolView, { tool: deletePages, files: ["/a.pdf", "/b.pdf"] });
     expect(api.pdfThumbnails).not.toHaveBeenCalledWith("/a.pdf");
+  });
+});
+
+describe("ToolView helps with what is missing", () => {
+  const pick = tool("pdf.extract-pages", "Extract Pages", {
+    inputs: [{ type: "pdf", extensions: ["pdf"] }],
+    parameters: [{ id: "pages", type: "string", optional: true }],
+    ui: { one_of: ["pages"] },
+  });
+
+  it("will not run without a field the tool needs, and says so", async () => {
+    render(ToolView, { tool: pick, files: ["/a.pdf"] });
+    expect(screen.getByText("Fill in Pages")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+    await fireEvent.input(screen.getByRole("textbox"), { target: { value: "1" } });
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("says when a number is out of range, in words", async () => {
+    render(ToolView, { tool: compress, files: ["/a.jpg"] });
+    await fireEvent.input(screen.getByRole("spinbutton", { hidden: true }), { target: { value: "500" } });
+    expect(screen.getAllByText("Must be from 1 to 100").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("explains why page pictures are gone with two files", () => {
+    const pages = tool("pdf.delete-pages", "Delete Pages", {
+      inputs: [{ type: "pdf", extensions: ["pdf"] }],
+      parameters: [{ id: "pages", type: "string", optional: true }],
+      ui: { preview: "pages-select" },
+    });
+    render(ToolView, { tool: pages, files: ["/a.pdf", "/b.pdf"] });
+    expect(screen.getByText("Page pictures show when only one file is chosen.")).toBeTruthy();
+  });
+
+  it("marks the preset the fields stand at", async () => {
+    render(ToolView, { tool: json, files: [] });
+    await fireEvent.change(screen.getByRole("combobox", { hidden: true }), { target: { value: "minify" } });
+    expect(screen.getByRole("radio", { name: "Minify" }).getAttribute("aria-checked")).toBe("true");
+  });
+});
+
+describe("ToolView and folders", () => {
+  const size = tool("files.folder-size", "Folder Size", { inputs: [{ type: "any", extensions: ["*"] }] });
+
+  it("lets a tool for anything take a folder without dragging", async () => {
+    api.pickFolder.mockResolvedValue("/photos");
+    render(ToolView, { tool: size, files: [] });
+    await fireEvent.click(screen.getByRole("button", { name: "Choose folder…" }));
+    expect(await screen.findByText("photos")).toBeTruthy();
+  });
+
+  it("offers no folders to a tool that takes images", () => {
+    render(ToolView, { tool: compress, files: [] });
+    expect(screen.queryByRole("button", { name: "Choose folder…" })).toBeNull();
+  });
+});
+
+describe("ToolView out of sight", () => {
+  it("does not run on the shortcut", async () => {
+    render(ToolView, { tool: compress, files: ["/a.jpg"], active: false });
+    await fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+    expect(api.runTool).not.toHaveBeenCalled();
+  });
+
+  it("puts the keyboard on the tool when it opens", () => {
+    render(ToolView, { tool: compress, files: [] });
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: compress.name }));
+  });
+
+  it("does not miss a job that ends before its id comes back", async () => {
+    api.runTool.mockImplementation(async () => {
+      emit({ status: "completed", output: { kind: "text", value: "early" } });
+      return 7;
+    });
+    render(ToolView, { tool: json, files: [] });
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[]" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(((await screen.findByLabelText("Result")) as HTMLTextAreaElement).value).toBe("early");
   });
 });

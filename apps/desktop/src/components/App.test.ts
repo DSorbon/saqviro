@@ -31,6 +31,7 @@ vi.mock("../lib/api", () => ({
   adviseFiles: api.adviseFiles,
   runTool: api.runTool,
   pickFiles: async () => [],
+  pickFolder: async () => null,
   cancelJob: async () => true,
   revealFile: async () => undefined,
   openFile: async () => undefined,
@@ -278,5 +279,110 @@ describe("Smart Drop advice", () => {
     await screen.findByText("Compress PDF");
     api.drop!(["/a.pdf"]);
     expect(await screen.findByText("a.pdf")).toBeTruthy();
+  });
+});
+
+describe("a job out of sight", () => {
+  const emit = (over: Partial<JobSnapshot>) =>
+    api.jobListeners.forEach((l) =>
+      l({ id: 7, tool_id: "pdf.compress", status: "running", progress: 0, output: null, error: null, started_at: 0, finished_at: null, ...over }),
+    );
+
+  async function runCompress() {
+    render(App);
+    await screen.findByText("Popular");
+    await api.drop!(["/docs/a.pdf"]);
+    await fireEvent.click(await screen.findByRole("button", { name: /Compress PDF/ }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(false));
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await screen.findByRole("button", { name: "Cancel" });
+  }
+
+  it("keeps running, shows progress and can be gone back to", async () => {
+    await runCompress();
+    await fireEvent.click(nav().getByRole("button", { name: "Home" }));
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+
+    emit({ progress: 0.5 });
+    const chip = await screen.findByRole("button", { name: "Compress PDF: 50%" });
+    await fireEvent.click(chip);
+    expect(await screen.findByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
+
+  it("keeps the result until it has been seen", async () => {
+    await runCompress();
+    await fireEvent.click(nav().getByRole("button", { name: "Home" }));
+    emit({
+      status: "completed",
+      finished_at: 1000,
+      output: { kind: "files", value: [{ path: "/docs/a-small.pdf", size: 1, source_size: 2 }] },
+    });
+    await fireEvent.click(await screen.findByRole("button", { name: "Compress PDF: done" }));
+    expect(await screen.findByText("a-small.pdf")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Compress PDF: done" })).toBeNull();
+  });
+
+  it("survives typing in the search box", async () => {
+    await runCompress();
+    await fireEvent.input(screen.getByRole("searchbox", { name: "Search tools" }), { target: { value: "merge" } });
+    await fireEvent.input(screen.getByRole("searchbox", { name: "Search tools" }), { target: { value: "" } });
+    expect(await screen.findByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
+
+  it("needs no reminder when it ends in view", async () => {
+    await runCompress();
+    expect(screen.queryByRole("status", { name: "Running in the background" })).toBeNull();
+    emit({ status: "completed", finished_at: 1000, output: { kind: "text", value: "ok" } });
+    await vi.waitFor(() => expect(screen.queryByRole("status", { name: "Running in the background" })).toBeNull());
+  });
+});
+
+describe("files waiting for a tool", () => {
+  it("say so everywhere and can be forgotten", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await api.drop!(["/docs/a.pdf"]);
+    await fireEvent.click(await screen.findByRole("button", { name: /Compress PDF/ }));
+    expect(await screen.findByText("a.pdf waiting for a tool")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Forget the dropped files" }));
+    expect(screen.queryByText("a.pdf waiting for a tool")).toBeNull();
+    expect(nav().getByRole("button", { name: "Images" })).toBeTruthy();
+  });
+
+  it("do not follow the user once a tool has run on them", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await api.drop!(["/docs/a.pdf"]);
+    await fireEvent.click(await screen.findByRole("button", { name: /Compress PDF/ }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(false));
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await vi.waitFor(() => expect(nav().queryByRole("button", { name: "Images" })).toBeTruthy());
+    await fireEvent.click(nav().getByRole("button", { name: "PDF" }));
+    await fireEvent.click(await screen.findByRole("button", { name: /Merge PDF/ }));
+    const merge = (await screen.findByRole("heading", { name: "Merge PDF" })).closest("article")!;
+    expect(within(merge as HTMLElement).queryByText("a.pdf")).toBeNull();
+  });
+});
+
+describe("ready-made workflows", () => {
+  it("can be looked at without becoming the user's own", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await fireEvent.click(nav().getByRole("button", { name: "Workflows" }));
+    const starter = within(screen.getByRole("list", { name: "Ready to use" })).getAllByRole("button")[0]!;
+    await fireEvent.click(starter);
+    await fireEvent.click(await screen.findByRole("button", { name: /‹ Workflows/ }));
+    expect(screen.queryByRole("list", { name: "Your workflows" })).toBeNull();
+  });
+
+  it("can be brought back after deleting", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await fireEvent.click(nav().getByRole("button", { name: "Workflows" }));
+    await fireEvent.click(screen.getByRole("button", { name: "New workflow" }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    expect(await screen.findByRole("list", { name: "Your workflows" })).toBeTruthy();
   });
 });

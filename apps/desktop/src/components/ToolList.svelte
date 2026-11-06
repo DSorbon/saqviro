@@ -7,9 +7,15 @@
     selected?: number;
     tiles?: boolean;
   } = $props();
+
+  let list: HTMLElement;
+
+  $effect(() => {
+    if (selected >= 0) list.querySelector(".selected")?.scrollIntoView?.({ block: "nearest" });
+  });
 </script>
 
-<ul class:tiles>
+<ul class:tiles bind:this={list}>
   {#each tools as tool, i (tool.id)}
     <li>
       <button class:selected={i === selected} aria-current={i === selected ? "true" : undefined} onclick={() => onOpen(tool)}>

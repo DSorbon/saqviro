@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { pdfThumbnails, type Thumbnails } from "../lib/api";
-  import { formatOrder, formatPages, moveTo, parsePages } from "../lib/pages";
+  import { formatOrder, formatPages, moveTo, pageHint, parsePages } from "../lib/pages";
 
-  let { path, mode, value, disabled = false, onChange }: {
+  let { path, mode, toolId = "", value, disabled = false, onChange }: {
     path: string;
     mode: "order" | "select";
+    toolId?: string;
     value: string;
     disabled?: boolean;
     onChange: (value: string) => void;
@@ -28,6 +30,8 @@
     );
   });
 
+  const hint = $derived(pageHint(toolId));
+  let grid = $state<HTMLElement>();
   const chosen = $derived(shown ? parsePages(value, shown.count) : []);
   // The rest of a very long document keeps its place at the end.
   const rest = $derived(shown ? Array.from({ length: shown.count - order.length }, (_, i) => order.length + i + 1) : []);
@@ -55,17 +59,21 @@
     if (mode !== "order" || step === 0) return;
     e.preventDefault();
     reorder(at, at + step);
+    dragging = null;
+    // Moving a page takes the keyboard focus away from it.
+    void tick().then(() => grid?.querySelector<HTMLElement>(`[data-at="${at + step}"]`)?.focus());
   }
 </script>
 
 <svelte:window onpointerup={() => (dragging = null)} />
 
 {#if shown && shown.pages.length > 0}
-  <div class="pages" role="group" aria-label="Pages" onpointermove={over}>
+  <div class="pages" role="group" aria-label="Pages" onpointermove={over} bind:this={grid}>
     {#each order as page, at (page)}
       <button
         data-at={at}
         class:chosen={mode === "select" && chosen.includes(page)}
+        class:removes={hint.removes}
         aria-pressed={mode === "select" ? chosen.includes(page) : undefined}
         aria-label="Page {page}"
         {disabled}
@@ -79,7 +87,7 @@
     {/each}
   </div>
   <p class="muted">
-    {#if mode === "order"}Drag pages into the order you want.{:else if chosen.length > 0}Pages {formatPages(chosen)}{:else}Click the pages you want.{/if}
+    {#if mode === "order"}Drag pages into the order you want.{:else if chosen.length > 0}{hint.removes ? "Removing pages" : "Pages"} {formatPages(chosen)}{:else}{hint.text}{/if}
     {#if rest.length > 0}Pages after {order.length} stay at the end.{/if}
   </p>
 {/if}
@@ -89,6 +97,8 @@
   button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--space-1); border: 2px solid transparent; border-radius: var(--radius); background: none; color: var(--text-muted); cursor: default; }
   button:hover:not(:disabled) { background: var(--hover); }
   button.chosen { border-color: var(--accent); color: var(--text); }
+  button.chosen.removes { border-color: var(--danger); }
+  button.chosen.removes img { opacity: 0.4; }
   img { max-width: 100%; max-height: 100px; box-shadow: 0 0 0 1px var(--border); user-select: none; pointer-events: none; }
   span { font-size: var(--text-caption); }
   p { margin: 0; font-size: var(--text-caption); }

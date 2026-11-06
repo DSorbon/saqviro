@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isAdvanced, paramLabel } from "../lib/params";
+  import { isAdvanced, isNeeded, paramLabel, paramProblem, placeholder, valueLabel } from "../lib/params";
   import type { Parameter, ParamValue, Tool } from "../lib/types";
 
   let { tool, values = $bindable() }: { tool: Tool; values: Record<string, ParamValue> } = $props();
@@ -10,23 +10,25 @@
 </script>
 
 {#snippet field(p: Parameter)}
+  {@const problem = paramProblem(p, values[p.id])}
   <label>
     <span>{paramLabel(p.id)}</span>
     {#if p.type === "enum"}
       <select bind:value={values[p.id]}>
-        {#each p.values ?? [] as v (v)}<option value={v}>{v}</option>{/each}
+        {#each p.values ?? [] as v (v)}<option value={v}>{valueLabel(p.id, v)}</option>{/each}
       </select>
     {:else if p.type === "boolean"}
       <input type="checkbox" bind:checked={values[p.id] as boolean} />
     {:else if p.type === "integer" || p.type === "number"}
-      <input type="number" min={p.min} max={p.max} step={p.type === "integer" ? 1 : "any"} bind:value={values[p.id]} placeholder={p.optional ? "auto" : ""} />
+      <input type="number" min={p.min} max={p.max} step={p.type === "integer" ? 1 : "any"} bind:value={values[p.id]} placeholder={p.optional ? "auto" : ""} aria-invalid={problem !== null} />
     {:else if p.multiline}
       <textarea spellcheck="false" bind:value={values[p.id]}></textarea>
     {:else if p.secret}
       <input type="password" autocomplete="off" bind:value={values[p.id]} />
     {:else}
-      <input type="text" bind:value={values[p.id]} placeholder={p.optional ? "optional" : ""} />
+      <input type="text" bind:value={values[p.id]} placeholder={placeholder(p, isNeeded(tool, p))} />
     {/if}
+    {#if problem}<span class="problem">{problem}</span>{/if}
   </label>
 {/snippet}
 
@@ -52,5 +54,7 @@
   input:not([type="checkbox"]), select { padding: 6px var(--space-2); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
   input[type="checkbox"] { align-self: flex-start; }
   textarea { width: 100%; min-height: 140px; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
+  input[aria-invalid="true"] { border-color: var(--danger); }
+  .problem { color: var(--danger); }
   summary { color: var(--text-muted); cursor: default; margin-bottom: var(--space-3); }
 </style>

@@ -35,5 +35,5 @@ export interface Tool {
   parameters?: Parameter[];
   presets: Preset[];
   capabilities?: { batch?: boolean; destructive?: boolean };
-  ui?: { advanced?: string[]; preview?: string };
+  ui?: { advanced?: string[]; one_of?: string[]; preview?: string };
 }

@@ -35,3 +35,15 @@ export function moveTo<T>(list: T[], from: number, to: number): T[] {
   next.splice(to, 0, item!);
   return next;
 }
+
+/** What clicking a page does in this tool. */
+export function pageHint(toolId: string): { text: string; removes: boolean } {
+  switch (toolId) {
+    case "pdf.delete-pages":
+      return { text: "Click the pages to remove.", removes: true };
+    case "pdf.rotate-pages":
+      return { text: "Click the pages to rotate, or none for all of them.", removes: false };
+    default:
+      return { text: "Click the pages to keep.", removes: false };
+  }
+}

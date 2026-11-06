@@ -40,6 +40,9 @@ export function inputKind(tool: Tool): "text" | "files" | "none" {
   return type === "text" ? "text" : "files";
 }
 
+/** Tools that take anything can also take a folder. */
+export const takesFolders = (tool: Tool | undefined) => tool?.inputs[0]?.type === "any";
+
 export function canRun(tool: Tool, text: string, files: string[]): boolean {
   const kind = inputKind(tool);
   if (kind === "none" || tool.inputs[0]?.optional) return true;
@@ -51,6 +54,18 @@ export function imageSource(image: { ext: string; data: string }): string {
   const type = image.ext === "svg" ? "image/svg+xml" : `image/${image.ext}`;
   return `data:${type};base64,${image.data}`;
 }
+
+/** A job that has just been accepted. */
+export const queued = (id: number, toolId: string): JobSnapshot => ({
+  id,
+  tool_id: toolId,
+  status: "queued",
+  progress: 0,
+  output: null,
+  error: null,
+  started_at: null,
+  finished_at: null,
+});
 
 export function isActive(job: JobSnapshot): boolean {
   return job.status === "queued" || job.status === "running";
@@ -75,6 +90,20 @@ export function statusLine(job: JobSnapshot): string {
       return "Cancelled";
     case "failed":
       return job.error ? errorText(job.error) : "Failed";
+  }
+}
+
+/** The state of a job the user is not looking at. */
+export function activityText(job: JobSnapshot): string {
+  switch (job.status) {
+    case "completed":
+      return "done";
+    case "failed":
+      return "failed";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return job.progress > 0 ? `${Math.round(job.progress * 100)}%` : "working…";
   }
 }
 
