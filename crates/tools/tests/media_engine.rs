@@ -1,10 +1,12 @@
 //! The parts of the media engine that need no FFmpeg.
 
-use saqviro_jobs::{ErrorKind, Params};
+use std::sync::Mutex;
+
+use saqviro_jobs::{ErrorKind, JobError, Params};
 use saqviro_tools::media::{
     Encoders, failure, parse_progress,
     probe::{Probe, describe},
-    tools::{Container, Range, parse_loudness, parse_time, plan_video},
+    tools::{Container, Range, encode_with, parse_loudness, parse_time, plan_video},
 };
 use saqviro_tools::process::{find_binary, find_engine};
 use serde_json::json;
@@ -230,4 +232,38 @@ fn a_release_never_takes_a_system_engine() {
     std::fs::write(&ours, "").unwrap();
     assert_eq!(find_engine(&dirs, "ffmpeg", false), Some(ours.clone()));
     assert_eq!(find_engine(&dirs, "ffmpeg", true), Some(ours));
+}
+
+#[test]
+fn falls_back_to_vp9_when_h264_gives_up() {
+    let used = Mutex::new(Vec::new());
+    let plan = encode_with(MAC, Container::Mp4, |plan| {
+        used.lock().unwrap().push(plan.encoder);
+        if plan.encoder == "libvpx-vp9" {
+            Ok(plan.clone())
+        } else {
+            Err(JobError::new(ErrorKind::ProcessFailed, "no packets"))
+        }
+    })
+    .unwrap();
+    assert_eq!(*used.lock().unwrap(), [MAC.h264.unwrap(), "libvpx-vp9"]);
+    assert_eq!(plan.container, Container::Webm);
+    assert!(plan.note.unwrap().contains("could not take this video"));
+}
+
+#[test]
+fn tries_one_encoder_when_the_failure_is_not_the_encoder() {
+    let tries = Mutex::new(0);
+    let failed: Result<(), _> = encode_with(MAC, Container::Mp4, |_| {
+        *tries.lock().unwrap() += 1;
+        Err(JobError::new(ErrorKind::DiskFull, "not enough disk space"))
+    });
+    assert_eq!(failed.unwrap_err().kind, ErrorKind::DiskFull);
+    assert_eq!(*tries.lock().unwrap(), 1);
+
+    let none = Encoders { vp9: false, ..MAC };
+    let failed: Result<(), _> = encode_with(none, Container::Mp4, |_| {
+        Err(JobError::new(ErrorKind::ProcessFailed, "no packets"))
+    });
+    assert_eq!(failed.unwrap_err().message, "no packets");
 }

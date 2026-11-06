@@ -649,7 +649,12 @@ fn crops_video_to_an_area_and_stops_at_the_edge() {
     let source = video(dir.path(), "a.mp4", "320x180", 1);
     let params = json!({ "aspect": "area", "x": 300, "y": 100, "width": 999, "height": 50 });
     let (done, _) = run("video.crop", std::slice::from_ref(&source), params);
-    assert_eq!(size_of(&one(&done).path), (20, 50));
+    let out = one(&done);
+    assert_eq!(size_of(&out.path), (20, 50));
+    if cfg!(windows) {
+        assert_eq!(name(&out), "a-cropped.webm");
+        assert!(out.note.is_some());
+    }
 
     let (done, _) = run("video.crop", &[source], json!({ "aspect": "area", "x": 320 }));
     assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);

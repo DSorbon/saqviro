@@ -187,6 +187,27 @@ pub fn plan_video(encoders: Encoders, wanted: Container) -> Result<VideoPlan, Jo
     }
 }
 
+/// Runs `encode` with the planned encoder, then once more with VP9 if H.264
+/// gave up. The encoder in Windows refuses frames with a side of 32 or less.
+pub fn encode_with<T>(
+    encoders: Encoders,
+    wanted: Container,
+    encode: impl Fn(&VideoPlan) -> Result<T, JobError>,
+) -> Result<T, JobError> {
+    let plan = plan_video(encoders, wanted)?;
+    let result = encode(&plan);
+    if plan.encoder == "libvpx-vp9" || !result.as_ref().is_err_and(|e| e.kind == ErrorKind::ProcessFailed) {
+        return result;
+    }
+    let Ok(mut other) = plan_video(Encoders { h264: None, ..encoders }, wanted) else {
+        return result;
+    };
+    if other.note.is_some() {
+        other.note = Some("The H.264 encoder could not take this video, so it was saved as WebM (VP9).".to_owned());
+    }
+    encode(&other)
+}
+
 fn encoder_args(encoder: &str, bit_rate: u64) -> Vec<String> {
     let mut args: Vec<String> = ["-c:v", encoder, "-b:v", &bit_rate.to_string(), "-pix_fmt", "yuv420p"]
         .map(str::to_owned)
@@ -415,7 +436,6 @@ impl Step<'_> {
         length: Option<f64>,
     ) -> Result<Made, JobError> {
         let video = self.video()?;
-        let plan = plan_video(self.engine.encoders(), wanted)?;
         let mut args = vec!["-map".to_owned(), format!("0:{}", video.index)];
         let audio = self.probe.audio.first();
         if let Some(audio) = audio {
@@ -425,12 +445,15 @@ impl Step<'_> {
         if let Some(filter) = filter {
             args.extend(["-vf".into(), filter.into()]);
         }
-        args.extend(encoder_args(plan.encoder, bit_rate.max(MIN_VIDEO_BITRATE)));
-        args.extend(video_audio_args(plan.container, audio, keep_audio));
-        if let (Some(filter), Some(_)) = (audio_filter, audio) {
-            args.extend(["-af".into(), filter.into()]);
-        }
-        self.write(before_input, &args, plan.container.ext(), length, plan.note)
+        encode_with(self.engine.encoders(), wanted, |plan| {
+            let mut args = args.clone();
+            args.extend(encoder_args(plan.encoder, bit_rate.max(MIN_VIDEO_BITRATE)));
+            args.extend(video_audio_args(plan.container, audio, keep_audio));
+            if let (Some(filter), Some(_)) = (audio_filter, audio) {
+                args.extend(["-af".into(), filter.into()]);
+            }
+            self.write(before_input, &args, plan.container.ext(), length, plan.note.clone())
+        })
     }
 }
 
@@ -1082,7 +1105,6 @@ pub fn merge_video(template: String) -> Arc<dyn Executor> {
             .ok_or_else(|| invalid("this file has no video"))?;
         let (width, height) = (first.width / 2 * 2, first.height / 2 * 2);
         let fps = first.fps.unwrap_or(30.0).min(60.0);
-        let plan = plan_video(engine.encoders(), Container::Mp4)?;
         let bit_rate = sources
             .probes
             .iter()
@@ -1091,36 +1113,38 @@ pub fn merge_video(template: String) -> Arc<dyn Executor> {
             .unwrap_or(MIN_VIDEO_BITRATE);
         let with_audio = sources.probes.iter().any(|p| !p.audio.is_empty());
 
-        let file = ctx.temp_dir()?.join(format!("merged.{}", plan.container.ext()));
-        let mut args = sources.inputs();
-        args.extend([
-            "-filter_complex".into(),
-            merge_graph(&sources.probes, width, height, fps).into(),
-        ]);
-        args.extend(["-map".into(), "[v]".into()]);
-        args.extend(to_os(&encoder_args(plan.encoder, bit_rate.max(MIN_VIDEO_BITRATE))));
-        if with_audio {
-            let audio = if plan.container == Container::Webm {
-                "libopus"
-            } else {
-                "aac"
-            };
-            args.extend(["-map".into(), "[a]".into(), "-c:a".into(), audio.into()]);
-            args.extend(["-b:a".into(), format!("{VIDEO_AUDIO_KBPS}k").into()]);
-        }
-        if plan.container == Container::Mp4 {
-            args.extend(["-movflags".into(), "+faststart".into()]);
-        }
-        args.extend(["-y".into(), file.clone().into_os_string()]);
-        run_many(ctx, engine, args, sources.total)?;
-        deliver_one(
-            ctx,
-            &template,
-            &sources.paths[0],
-            &file,
-            plan.container.ext(),
-            plan.note,
-        )
+        encode_with(engine.encoders(), Container::Mp4, |plan| {
+            let file = ctx.temp_dir()?.join(format!("merged.{}", plan.container.ext()));
+            let mut args = sources.inputs();
+            args.extend([
+                "-filter_complex".into(),
+                merge_graph(&sources.probes, width, height, fps).into(),
+            ]);
+            args.extend(["-map".into(), "[v]".into()]);
+            args.extend(to_os(&encoder_args(plan.encoder, bit_rate.max(MIN_VIDEO_BITRATE))));
+            if with_audio {
+                let audio = if plan.container == Container::Webm {
+                    "libopus"
+                } else {
+                    "aac"
+                };
+                args.extend(["-map".into(), "[a]".into(), "-c:a".into(), audio.into()]);
+                args.extend(["-b:a".into(), format!("{VIDEO_AUDIO_KBPS}k").into()]);
+            }
+            if plan.container == Container::Mp4 {
+                args.extend(["-movflags".into(), "+faststart".into()]);
+            }
+            args.extend(["-y".into(), file.clone().into_os_string()]);
+            run_many(ctx, engine, args, sources.total)?;
+            deliver_one(
+                ctx,
+                &template,
+                &sources.paths[0],
+                &file,
+                plan.container.ext(),
+                plan.note.clone(),
+            )
+        })
     })
 }
 
@@ -1383,31 +1407,33 @@ pub fn watermark(template: String) -> Arc<dyn Executor> {
             .save(&picture)
             .map_err(|e| JobError::new(ErrorKind::Unknown, format!("could not draw the text: {e}")))?;
 
-        let plan = plan_video(step.engine.encoders(), same_container(&step.ext))?;
         let bit_rate = same_quality_bit_rate(&step.probe, video).max(MIN_VIDEO_BITRATE);
         let audio = step.probe.audio.first();
-        let file = step.temp.join(format!("result.{}", plan.container.ext()));
-        let mut after: Vec<OsString> = ["-i".into(), picture.into_os_string()].into();
-        after.extend([
+        let mut inputs: Vec<OsString> = ["-i".into(), picture.into_os_string()].into();
+        inputs.extend([
             "-filter_complex".into(),
             "[0:v:0][1:v]overlay=0:0:format=auto[v]".into(),
             "-map".into(),
             "[v]".into(),
         ]);
         if let Some(audio) = audio {
-            after.extend(["-map".into(), format!("0:{}", audio.index).into()]);
+            inputs.extend(["-map".into(), format!("0:{}", audio.index).into()]);
         }
-        after.extend(to_os(&encoder_args(plan.encoder, bit_rate)));
-        after.extend(to_os(&video_audio_args(plan.container, audio, true)));
-        if matches!(plan.container, Container::Mp4 | Container::Mov) {
-            after.extend(["-movflags".into(), "+faststart".into()]);
-        }
-        after.extend(["-y".into(), file.clone().into_os_string()]);
-        step.ffmpeg("error", &[], after, step.probe.duration, step.span)?;
-        Ok(Made {
-            file,
-            ext: plan.container.ext(),
-            note: plan.note,
+        encode_with(step.engine.encoders(), same_container(&step.ext), |plan| {
+            let file = step.temp.join(format!("result.{}", plan.container.ext()));
+            let mut after = inputs.clone();
+            after.extend(to_os(&encoder_args(plan.encoder, bit_rate)));
+            after.extend(to_os(&video_audio_args(plan.container, audio, true)));
+            if matches!(plan.container, Container::Mp4 | Container::Mov) {
+                after.extend(["-movflags".into(), "+faststart".into()]);
+            }
+            after.extend(["-y".into(), file.clone().into_os_string()]);
+            step.ffmpeg("error", &[], after, step.probe.duration, step.span)?;
+            Ok(Made {
+                file,
+                ext: plan.container.ext(),
+                note: plan.note.clone(),
+            })
         })
     })
 }
