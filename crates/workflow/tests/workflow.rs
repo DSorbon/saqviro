@@ -191,7 +191,7 @@ fn says_which_step_does_not_fit() {
     assert!(
         found[0]
             .message
-            .contains("Merge PDF cannot use what Resize Images makes"),
+            .contains("Merge PDFs cannot use what Resize Images makes"),
         "{}",
         found[0]
     );
