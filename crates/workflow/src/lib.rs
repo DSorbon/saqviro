@@ -83,6 +83,17 @@ pub fn prepare(
     prepare_with(registry, steps, available, false)
 }
 
+/// True if this tool should run file by file, so that one bad file costs only
+/// its own result. Tools that report on all their files together do not.
+pub fn runs_file_by_file(tool: &ToolManifest, input: &JobInput) -> bool {
+    let reports = tool
+        .outputs
+        .first()
+        .is_some_and(|o| matches!(o.data_type, DataType::Text | DataType::Json));
+    let many = matches!(input, JobInput::Files(files) if files.len() > 1);
+    many && tool.capabilities.batch && !tool.capabilities.destructive && !reports
+}
+
 /// Like `prepare`. With `keep_going`, each file goes through all the steps on
 /// its own, and a file that fails is left out and named in a note.
 pub fn prepare_with(

@@ -77,6 +77,28 @@ fn tools_for_files(registry: State<'_, Registry>, paths: Vec<String>) -> Vec<Str
         .collect()
 }
 
+/// Queues a tool. One bad file in a batch costs only its own result.
+fn start_tool(
+    registry: &Registry,
+    jobs: &JobManager,
+    tool_id: &str,
+    input: JobInput,
+    params: Params,
+    output_dir: Option<PathBuf>,
+) -> Result<JobId, JobError> {
+    if registry
+        .get(tool_id)
+        .is_some_and(|tool| saqviro_workflow::runs_file_by_file(tool, &input))
+    {
+        let steps = [saqviro_workflow::Step {
+            tool: tool_id.to_owned(),
+            params,
+        }];
+        return start_workflow(registry, jobs, tool_id, &steps, input, output_dir, true);
+    }
+    start_job(registry, jobs, tool_id, input, &params, output_dir)
+}
+
 #[tauri::command]
 fn run_tool(
     registry: State<'_, Registry>,
@@ -86,13 +108,14 @@ fn run_tool(
     params: Params,
     output_dir: Option<PathBuf>,
 ) -> Result<JobId, JobError> {
-    start_job(&registry, &jobs, &tool_id, input, &params, output_dir)
+    start_tool(&registry, &jobs, &tool_id, input, params, output_dir)
 }
 
 /// Checks a workflow and queues it as one job.
 fn start_workflow(
     registry: &Registry,
     jobs: &JobManager,
+    name: &str,
     steps: &[saqviro_workflow::Step],
     input: JobInput,
     output_dir: Option<PathBuf>,
@@ -102,7 +125,7 @@ fn start_workflow(
         let message = issues.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
         JobError::new(ErrorKind::InvalidInput, message)
     })?;
-    Ok(jobs.submit_to("workflow", executor, input, Params::new(), output_dir))
+    Ok(jobs.submit_to(name, executor, input, Params::new(), output_dir))
 }
 
 #[tauri::command]
@@ -114,7 +137,7 @@ fn run_workflow(
     output_dir: Option<PathBuf>,
     keep_going: bool,
 ) -> Result<JobId, JobError> {
-    start_workflow(&registry, &jobs, &steps, input, output_dir, keep_going)
+    start_workflow(&registry, &jobs, "workflow", &steps, input, output_dir, keep_going)
 }
 
 /// A small picture of an image, for choosing an area of it.
@@ -502,6 +525,40 @@ mod tests {
         assert_eq!(done.output, Some(JobOutput::Text("[\n  1\n]\n".into())));
     }
 
+    const PNG: &[u8] = &[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0, 144, 119,
+        83, 222, 0, 0, 0, 12, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 0, 0, 3, 1, 1, 0, 201, 254, 146, 239, 0, 0,
+        0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ];
+
+    #[test]
+    fn one_bad_file_costs_a_batch_only_its_own_result() {
+        let (jobs, _root) = jobs();
+        let dir = tempfile::tempdir().unwrap();
+        let good = dir.path().join("good.png");
+        let bad = dir.path().join("bad.png");
+        // One red pixel.
+        std::fs::write(&good, PNG).unwrap();
+        std::fs::write(&bad, "not a picture").unwrap();
+        let input = JobInput::Files(vec![bad, good]);
+        let id = start_tool(
+            &bundled_registry(),
+            &jobs,
+            "image.grayscale",
+            input,
+            params(json!({})),
+            None,
+        )
+        .unwrap();
+        let done = jobs.wait(id).unwrap();
+        assert_eq!(done.status, JobStatus::Completed, "{:?}", done.error);
+        let Some(JobOutput::Files(files)) = done.output else {
+            panic!("expected files");
+        };
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].note.as_deref(), Some("1 failed: bad.png"));
+    }
+
     #[test]
     fn runs_a_workflow_and_refuses_a_broken_one() {
         let (jobs, _root) = jobs();
@@ -512,12 +569,12 @@ mod tests {
         };
         let input = || JobInput::Text("b\na\na".into());
         let steps = [step("text.lines.dedupe"), step("text.lines.reverse")];
-        let id = start_workflow(&registry, &jobs, &steps, input(), None, false).unwrap();
+        let id = start_workflow(&registry, &jobs, "workflow", &steps, input(), None, false).unwrap();
         let done = jobs.wait(id).unwrap();
         assert_eq!(done.output, Some(JobOutput::Text("a\nb".into())));
 
         let steps = [step("text.lines.dedupe"), step("image.resize")];
-        let err = start_workflow(&registry, &jobs, &steps, input(), None, false).unwrap_err();
+        let err = start_workflow(&registry, &jobs, "workflow", &steps, input(), None, false).unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidInput);
         assert!(err.message.starts_with("step 2: "), "{}", err.message);
     }

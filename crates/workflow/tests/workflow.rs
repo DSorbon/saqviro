@@ -6,7 +6,7 @@ use std::{
 
 use saqviro_core::registry::Registry;
 use saqviro_jobs::{Config, ErrorKind, Executor, JobInput, JobManager, JobOutput, JobSnapshot, JobStatus, Params};
-use saqviro_workflow::{Issue, Step, Workflow, can_follow, prepare, prepare_with};
+use saqviro_workflow::{Issue, Step, Workflow, can_follow, prepare, prepare_with, runs_file_by_file};
 use serde_json::{Value, json};
 
 fn registry() -> Registry {
@@ -326,4 +326,19 @@ fn folders_with_folders_in_them_feed_the_next_step() {
         panic!("{:?}", done.error)
     };
     assert!(text.contains("a.txt") && text.contains("b.txt"), "{text}");
+}
+
+#[test]
+fn only_tools_that_handle_files_apart_run_file_by_file() {
+    let registry = registry();
+    let tool = |id: &str| registry.get(id).unwrap();
+    let two = JobInput::Files(vec!["a".into(), "b".into()]);
+    let one = JobInput::Files(vec!["a".into()]);
+    assert!(runs_file_by_file(tool("image.convert"), &two));
+    assert!(!runs_file_by_file(tool("image.convert"), &one));
+    assert!(!runs_file_by_file(tool("pdf.merge"), &two), "one result from all files");
+    assert!(
+        !runs_file_by_file(tool("files.duplicates"), &two),
+        "compares the files with each other"
+    );
 }
