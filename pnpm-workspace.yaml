@@ -1,2 +1,6 @@
 packages:
   - apps/*
+
+# Vite 8 builds with Rolldown, so esbuild's install script has nothing to do.
+allowBuilds:
+  esbuild: false
