@@ -14,7 +14,7 @@ use saqviro_core::{
     registry::Registry,
 };
 use saqviro_jobs::{Config, Executor, JobInput, JobManager, JobOutput, JobSnapshot, JobStatus, Params};
-use saqviro_tools::{catalog, is_available};
+use saqviro_tools::{catalog, is_available, output::Outputs};
 use saqviro_workflow::{Workflow, prepare_with};
 use serde_json::{Number, Value};
 
@@ -165,6 +165,7 @@ fn execute(
     params: Params,
     out: Option<PathBuf>,
 ) -> Result<(), String> {
+    let result_dir = out.clone().unwrap_or_else(|| PathBuf::from("."));
     let temp = tempfile::tempdir().map_err(|e| e.to_string())?;
     let config = Config {
         temp_root: temp.path().join("jobs"),
@@ -186,10 +187,10 @@ fn execute(
     if let Some(error) = done.error {
         return Err(error.message);
     }
-    print_output(done.output, id)
+    print_output(done.output, id, result_dir)
 }
 
-fn print_output(output: Option<JobOutput>, id: &str) -> Result<(), String> {
+fn print_output(output: Option<JobOutput>, id: &str, dir: PathBuf) -> Result<(), String> {
     use saqviro_jobs::OutputImage;
     let mut stdout = io::stdout();
     let wrote = match output {
@@ -204,8 +205,10 @@ fn print_output(output: Option<JobOutput>, id: &str) -> Result<(), String> {
         Some(JobOutput::Image(OutputImage { ext, data })) => {
             let name = format!("{}.{ext}", id.replace('.', "-"));
             let bytes = decode(&data)?;
-            fs::write(&name, bytes).map_err(|e| e.to_string())?;
-            writeln!(stdout, "{name}")
+            let mut outputs = Outputs::new();
+            let path = outputs.write(&dir, &name, &bytes).map_err(|e| e.message)?;
+            outputs.finish();
+            writeln!(stdout, "{}", path.display())
         }
         None => Ok(()),
     };

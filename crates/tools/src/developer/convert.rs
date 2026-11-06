@@ -1,6 +1,6 @@
 //! Conversions between data formats.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use saqviro_jobs::Params;
 use serde_json::{Map, Value};
@@ -51,10 +51,29 @@ fn typed(cell: &str) -> Value {
         "true" => Value::Bool(true),
         "false" => Value::Bool(false),
         _ if looks_padded => Value::String(cell.into()),
-        _ => {
-            serde_json::from_str::<serde_json::Number>(cell).map_or_else(|_| Value::String(cell.into()), Value::Number)
-        }
+        // A number JSON cannot hold exactly stays as written.
+        _ => match serde_json::from_str::<serde_json::Number>(cell) {
+            Ok(number) if number.to_string() == cell => Value::Number(number),
+            _ => Value::String(cell.into()),
+        },
     }
+}
+
+/// Headers with repeated names told apart, so no column overwrites another.
+fn column_names(headers: &csv::StringRecord) -> Vec<String> {
+    let mut seen = HashSet::new();
+    headers
+        .iter()
+        .map(|name| {
+            let mut unique = name.to_owned();
+            let mut n = 2;
+            while !seen.insert(unique.clone()) {
+                unique = format!("{name}_{n}");
+                n += 1;
+            }
+            unique
+        })
+        .collect()
 }
 
 pub fn csv_to_json(text: &str, params: &Params) -> Result<String, String> {
@@ -62,21 +81,23 @@ pub fn csv_to_json(text: &str, params: &Params) -> Result<String, String> {
         .delimiter(delimiter(params, text))
         .flexible(true)
         .from_reader(text.as_bytes());
-    let headers = reader.headers().map_err(|e| e.to_string())?.clone();
+    let headers = column_names(reader.headers().map_err(|e| e.to_string())?);
     let convert = params::flag(params, "typed_values");
     let mut rows = Vec::new();
     for record in reader.records() {
         let record = record.map_err(|e| e.to_string())?;
-        let row: Map<String, Value> = headers
+        let row: Map<String, Value> = record
             .iter()
-            .zip(record.iter())
-            .map(|(key, cell)| {
+            .enumerate()
+            .map(|(i, cell)| {
                 let value = if convert {
                     typed(cell)
                 } else {
                     Value::String(cell.into())
                 };
-                (key.to_owned(), value)
+                // A row longer than the header keeps its extra cells.
+                let key = headers.get(i).cloned().unwrap_or_else(|| format!("column_{}", i + 1));
+                (key, value)
             })
             .collect();
         rows.push(Value::Object(row));
@@ -100,12 +121,13 @@ pub fn json_to_csv(text: &str, params: &Params) -> Result<String, String> {
         _ => return Err("give an array of objects".into()),
     };
     let mut columns: Vec<&str> = Vec::new();
+    let mut seen = HashSet::new();
     for row in rows {
         let Value::Object(row) = row else {
             return Err("every item of the array must be an object".into());
         };
         for key in row.keys() {
-            if !columns.contains(&key.as_str()) {
+            if seen.insert(key.as_str()) {
                 columns.push(key);
             }
         }
@@ -155,18 +177,19 @@ fn property(key: &str) -> String {
 struct Types {
     /// Finished declarations; nested types come first.
     done: Vec<String>,
-    names: Vec<String>,
+    names: HashSet<String>,
+    /// The last number given to each wanted name.
+    used: HashMap<String, usize>,
 }
 
 impl Types {
     fn free_name(&mut self, wanted: &str) -> String {
         let mut name = wanted.to_owned();
-        let mut n = 2;
-        while self.names.contains(&name) {
+        let n = self.used.entry(wanted.to_owned()).or_insert(1);
+        while !self.names.insert(name.clone()) {
+            *n += 1;
             name = format!("{wanted}{n}");
-            n += 1;
         }
-        self.names.push(name.clone());
         name
     }
 
@@ -175,9 +198,10 @@ impl Types {
     fn interface(&mut self, wanted: &str, objects: &[&Map<String, Value>]) -> String {
         let name = self.free_name(wanted);
         let mut keys: Vec<&String> = Vec::new();
+        let mut seen = HashSet::new();
         for object in objects {
             for key in object.keys() {
-                if !keys.contains(&key) {
+                if seen.insert(key) {
                     keys.push(key);
                 }
             }

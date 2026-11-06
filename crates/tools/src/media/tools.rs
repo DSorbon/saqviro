@@ -809,11 +809,9 @@ pub fn crop(template: String) -> Arc<dyn Executor> {
                 param_u32(step.params, "x").unwrap_or(0),
                 param_u32(step.params, "y").unwrap_or(0),
             );
-            if x >= video.width || y >= video.height {
-                return Err(invalid(format!(
-                    "the area starts outside the {}×{} frame",
-                    video.width, video.height
-                )));
+            let (width, height) = video.shown_size();
+            if x >= width || y >= height {
+                return Err(invalid(format!("the area starts outside the {width}×{height} frame")));
             }
             let side = |id: &str, whole: &str, from: u32| match param_u32(step.params, id) {
                 Some(size) => even(&format!("min({size},{whole}-{from})")),
@@ -1224,14 +1222,16 @@ pub fn remove_silence(template: String) -> Arc<dyn Executor> {
 /// Silent stretches from FFmpeg's `silencedetect` log, in seconds. A stretch
 /// that runs to the end of the file has no end in the log.
 pub fn parse_silence(log: &str, duration: Option<f64>) -> Vec<(f64, f64)> {
-    let value =
-        |line: &str, key: &str| -> Option<f64> { line.split(key).nth(1)?.split_whitespace().next()?.parse().ok() };
+    let value = |line: &str, key: &str| -> Option<f64> {
+        let rest = line.split(key).nth(1)?.trim_start_matches([':', '=', ' ']);
+        rest.split_whitespace().next()?.parse().ok()
+    };
     let mut found = Vec::new();
     let mut start = None;
     for line in log.lines() {
-        if let Some(at) = value(line, "silence_start: ") {
+        if let Some(at) = value(line, "silence_start") {
             start = Some(at);
-        } else if let (Some(from), Some(to)) = (start, value(line, "silence_end: ")) {
+        } else if let (Some(from), Some(to)) = (start, value(line, "silence_end")) {
             found.push((from, to));
             start = None;
         }
@@ -1262,7 +1262,8 @@ pub fn detect_silence() -> Arc<dyn Executor> {
         for (i, path) in files.iter().enumerate() {
             ctx.check_cancelled()?;
             let probe = engine.probe(ctx, path).map_err(|e| name_error(path, e))?;
-            let filter = format!("silencedetect=noise={threshold}dB:d={seconds}");
+            // On stdout, because stderr only keeps the end of a long log.
+            let filter = format!("silencedetect=noise={threshold}dB:d={seconds},ametadata=print:file=-");
             let mut args = Engine::input(path);
             args.extend([
                 "-vn".into(),
@@ -1272,7 +1273,15 @@ pub fn detect_silence() -> Arc<dyn Executor> {
                 "null".into(),
                 "-".into(),
             ]);
-            let log = engine.run(ctx, "info", args, |_| {}).map_err(|e| name_error(path, e))?;
+            let mut log = String::new();
+            engine
+                .run_lines(ctx, "error", args, |line| {
+                    if line.contains("silence_") {
+                        log.push_str(line);
+                        log.push('\n');
+                    }
+                })
+                .map_err(|e| name_error(path, e))?;
             let found = parse_silence(&log, probe.duration);
             let mut lines = vec![
                 path.file_name()
@@ -1368,7 +1377,7 @@ pub fn watermark(template: String) -> Arc<dyn Executor> {
     batch(template, |step| {
         let video = step.video()?;
         let mark = crate::images::overlay::Watermark::from_params(step.params)?;
-        let layer = mark.layer((video.width, video.height))?;
+        let layer = mark.layer(video.shown_size())?;
         let picture = step.temp.join("mark.png");
         layer
             .save(&picture)

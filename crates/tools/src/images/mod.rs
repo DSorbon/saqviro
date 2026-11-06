@@ -18,7 +18,7 @@ pub mod overlay;
 pub mod tools;
 
 /// Larger images are rejected before any pixel memory is allocated.
-const MAX_SIDE: u32 = 32_768;
+pub(crate) const MAX_SIDE: u32 = 32_768;
 const MAX_ALLOC: u64 = 2 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,6 +230,19 @@ fn eight_bit(img: &DynamicImage) -> DynamicImage {
 /// `quality` is 1–100 and is ignored for PNG.
 pub fn encode(img: &DynamicImage, icc: Option<&[u8]>, format: Format, quality: u8) -> Result<Vec<u8>, JobError> {
     let quality = quality.clamp(1, 100);
+    let largest = match format {
+        Format::Jpeg => Some((65_500, "JPG")),
+        Format::Webp => Some((16_383, "WebP")),
+        _ => None,
+    };
+    if let Some((limit, name)) = largest
+        && img.width().max(img.height()) > limit
+    {
+        return Err(JobError::new(
+            ErrorKind::InvalidInput,
+            format!("this picture is too large for {name}: the limit is {limit} pixels a side"),
+        ));
+    }
     match format {
         Format::Jpeg => encode_jpeg(&on_white(img), icc, quality),
         Format::Png => {

@@ -24,6 +24,10 @@ fn escaped(text: &str) -> String {
 pub fn load_fonts(options: &mut usvg::Options<'_>) {
     let fonts = options.fontdb_mut();
     fonts.load_system_fonts();
+    // Without fontconfig the usual search finds nothing on Linux.
+    if fonts.is_empty() && cfg!(target_os = "linux") {
+        fonts.load_fonts_dir("/usr/share/fonts");
+    }
     let has = |family: &str| fonts.faces().any(|f| f.families.iter().any(|(name, _)| name == family));
     let wanted = ["Arial", "Helvetica", "Noto Sans", "DejaVu Sans", "Liberation Sans"];
     let found = wanted.into_iter().find(|f| has(f)).map(str::to_owned);
@@ -89,7 +93,7 @@ impl Watermark {
             text = escaped(&self.text),
         );
         let mut options = usvg::Options::default();
-        options.fontdb_mut().load_system_fonts();
+        load_fonts(&mut options);
         let tree =
             usvg::Tree::from_str(&svg, &options).map_err(|e| invalid(format!("could not draw the text: {e}")))?;
         let (w, h) = (width.ceil() as u32, box_height.ceil() as u32);

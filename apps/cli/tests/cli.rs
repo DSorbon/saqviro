@@ -138,3 +138,14 @@ fn prints_its_version_and_usage() {
     assert!(stdout(&saqviro(&["--version"])).starts_with("saqviro "));
     assert!(stdout(&saqviro(&[])).contains("Usage:"));
 }
+
+#[test]
+fn a_generated_picture_goes_where_asked_and_replaces_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_str().unwrap();
+    let first = stdout(&saqviro(&["run", "qr.generate", "--text", "a", "--out", out]));
+    let second = stdout(&saqviro(&["run", "qr.generate", "--text", "b", "--out", out]));
+    assert_ne!(first, second);
+    assert!(Path::new(first.trim()).starts_with(dir.path()));
+    assert!(Path::new(second.trim()).exists());
+}

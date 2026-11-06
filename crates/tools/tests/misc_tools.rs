@@ -481,3 +481,55 @@ fn draws_barcodes() {
     }
     assert_eq!(picture("abc", "ean13").error.unwrap().kind, ErrorKind::InvalidInput);
 }
+
+#[test]
+fn two_files_of_one_name_both_fit_in_a_tar() {
+    let root = tempfile::tempdir().unwrap();
+    let (a, b) = (root.path().join("d1/f.txt"), root.path().join("d2/f.txt"));
+    fs::create_dir_all(a.parent().unwrap()).unwrap();
+    fs::create_dir_all(b.parent().unwrap()).unwrap();
+    fs::write(&a, "one").unwrap();
+    fs::write(&b, "two").unwrap();
+    let done = run("files.tar.create", &[a, b], json!({}));
+    let archive = file(&done).path;
+    let done = run("files.tar.extract", &[archive], json!({}));
+    let out = file(&done).path;
+    assert_eq!(fs::read_to_string(out.join("f.txt")).unwrap(), "one");
+    assert_eq!(fs::read_to_string(out.join("f (2).txt")).unwrap(), "two");
+}
+
+#[test]
+fn a_tar_that_never_ends_is_stopped() {
+    use saqviro_tools::files::{archive::Limits, tarball};
+    use std::io::Read;
+    let root = tempfile::tempdir().unwrap();
+    let target = root.path().join("out");
+    fs::create_dir(&target).unwrap();
+    // A long name that claims 3 GB, and more bytes than the limit allows.
+    let mut header = raw_tar("././@LongLink", b'L');
+    header.truncate(512);
+    header[124..135].copy_from_slice(b"26000000000");
+    header[148..156].copy_from_slice(b"        ");
+    let sum: u32 = header.iter().map(|b| u32::from(*b)).sum();
+    header[148..155].copy_from_slice(format!("{sum:06o}\0").as_bytes());
+    let limits = Limits {
+        entries: 10,
+        total_bytes: 1024,
+        ratio: 1,
+        ratio_floor: 1024,
+    };
+    let config = Config {
+        temp_root: root.path().join("jobs"),
+        workers: 1,
+    };
+    let jobs = JobManager::new(config, |_: &JobSnapshot| {}).unwrap();
+    let exec: std::sync::Arc<dyn saqviro_jobs::Executor> =
+        std::sync::Arc::new(move |ctx: &saqviro_jobs::JobContext, _: JobInput, _: &Params| {
+            let stream = std::io::Cursor::new(header.clone()).chain(std::io::repeat(b'a').take(200 * 1024 * 1024));
+            tarball::unpack(ctx, stream, 10, &target, limits).map(|_| JobOutput::Text(String::new()))
+        });
+    let done = jobs
+        .wait(jobs.submit("t", exec, JobInput::Text(String::new()), Params::new()))
+        .unwrap();
+    assert_eq!(done.status, JobStatus::Failed);
+}

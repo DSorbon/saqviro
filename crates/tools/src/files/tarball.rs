@@ -2,6 +2,7 @@
 //! lands outside the new folder, links are skipped, and size is limited.
 
 use std::{
+    collections::HashSet,
     fs::{self, File},
     io::{self, BufReader, Read},
     path::{Component, Path, PathBuf},
@@ -12,7 +13,7 @@ use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, OutputFile, Params};
 use tar::{Archive, Builder, EntryType};
 
-use super::archive::{Budget, LIMITS, Limits};
+use super::archive::{Budget, LIMITS, Limits, unique};
 use crate::output::{Outputs, file_stem, input_files, name_error, render_name, target_dir};
 
 fn invalid(message: impl Into<String>) -> JobError {
@@ -45,8 +46,10 @@ pub fn create(template: String) -> Arc<dyn Executor> {
         let encoder = GzEncoder::new(File::create(&archive)?, Compression::default());
         let mut builder = Builder::new(encoder);
         builder.follow_symlinks(false);
+        let mut taken = HashSet::new();
         for (i, path) in files.iter().enumerate() {
-            let name = PathBuf::from(path.file_name().unwrap_or_default());
+            let leaf = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            let name = PathBuf::from(unique(&leaf, &mut taken));
             pack(ctx, &mut builder, path, &name).map_err(|e| name_error(path, e))?;
             ctx.progress((i + 1) as f32 / files.len() as f32);
         }
@@ -79,6 +82,25 @@ fn inside(name: &Path) -> Option<PathBuf> {
     Some(out)
 }
 
+/// Stops reading after `left` bytes. The tar reader keeps long file names in
+/// memory before any entry reaches the budget, so the stream has its own limit.
+struct Capped<R> {
+    inner: R,
+    left: u64,
+}
+
+impl<R: Read> Read for Capped<R> {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        if self.left == 0 {
+            return Err(io::Error::other("this archive expands to far more than it should"));
+        }
+        let room = buffer.len().min(usize::try_from(self.left).unwrap_or(usize::MAX));
+        let read = self.inner.read(&mut buffer[..room])?;
+        self.left -= read as u64;
+        Ok(read)
+    }
+}
+
 /// Unpacks into `target`, which must exist. Returns the bytes written and
 /// how many links were skipped.
 pub fn unpack(
@@ -88,7 +110,15 @@ pub fn unpack(
     target: &Path,
     limits: Limits,
 ) -> Result<(u64, usize), JobError> {
-    let mut archive = Archive::new(reader);
+    // Room for headers on top of what the budget allows the files.
+    let cap = limits
+        .total_bytes
+        .min(size.saturating_mul(limits.ratio).max(limits.ratio_floor))
+        + 16 * 1024 * 1024;
+    let mut archive = Archive::new(Capped {
+        inner: reader,
+        left: cap,
+    });
     let mut budget = Budget::new(limits, size);
     let (mut count, mut skipped) = (0, 0);
     let damaged = |_| JobError::new(ErrorKind::UnsupportedFormat, "this archive is damaged");

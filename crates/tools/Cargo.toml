@@ -61,6 +61,7 @@ pdfium-render.workspace = true
 libheif-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
+flate2.workspace = true
 base64.workspace = true
 chrono.workspace = true
 zip.workspace = true

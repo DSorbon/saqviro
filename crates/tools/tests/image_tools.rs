@@ -664,3 +664,28 @@ fn a_long_watermark_stays_inside_the_picture() {
     assert_eq!(layer.dimensions(), (100, 100));
     assert_eq!(layer.get_pixel(0, 50).0[3], 0, "the edge stays clear");
 }
+
+#[test]
+fn a_picture_too_large_for_a_format_is_an_error_not_a_crash() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("wide.png");
+    image::GrayImage::new(20_000, 2).save(&source).unwrap();
+    let (done, _) = run("image.to-webp", &[source], json!({}));
+    let error = done.error.unwrap();
+    assert_eq!(error.kind, ErrorKind::InvalidInput);
+    assert!(error.message.contains("too large for WebP"), "{}", error.message);
+}
+
+#[test]
+fn a_tiny_gif_cannot_claim_to_be_enormous() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("bomb.gif");
+    // A header for 60000×60000 with a single empty image.
+    let mut bytes = b"GIF89a".to_vec();
+    bytes.extend([0x60, 0xEA, 0x60, 0xEA, 0, 0, 0]);
+    bytes.extend([0x2C, 0, 0, 0, 0, 0x60, 0xEA, 0x60, 0xEA, 0, 2, 2, 0x44, 1, 0, 0x3B]);
+    fs::write(&source, bytes).unwrap();
+    let (done, _) = run("image.gif-frames", &[source], json!({}));
+    assert_eq!(done.status, JobStatus::Failed);
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+}

@@ -1167,3 +1167,25 @@ fn a_pdf_that_cannot_be_drawn_has_no_thumbnails() {
     let temp = tempfile::tempdir().unwrap();
     assert!(saqviro_tools::pdf::thumbnails(&source, temp.path(), 2).is_err());
 }
+
+#[test]
+fn stamping_keeps_a_page_whose_contents_are_a_separate_array() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("a.pdf");
+    let mut doc = Document::with_version("1.7");
+    let pages = doc.new_object_id();
+    let stream = doc.add_object(Stream::new(Dictionary::new(), b"1 0 0 rg 0 0 50 50 re f".to_vec()));
+    let contents = doc.add_object(vec![Object::Reference(stream)]);
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page",
+        "Parent" => pages,
+        "MediaBox" => vec![0.into(), 0.into(), 300.into(), 400.into()],
+        "Contents" => contents,
+    });
+    finish(doc, pages, vec![page.into()], &path);
+
+    let done = run("pdf.page-numbers", &[path], json!({}));
+    let picture = picture_of(&one(&done).path);
+    let (_, h) = picture.dimensions();
+    assert_eq!(picture.get_pixel(5, h - 5).0, [255, 0, 0], "the old content is gone");
+}

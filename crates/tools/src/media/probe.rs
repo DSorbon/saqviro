@@ -13,6 +13,19 @@ pub struct VideoStream {
     pub height: u32,
     pub fps: Option<f64>,
     pub bit_rate: Option<u64>,
+    /// Degrees a player turns the picture by.
+    pub rotation: i64,
+}
+
+impl VideoStream {
+    /// Width and height as a player shows them.
+    pub fn shown_size(&self) -> (u32, u32) {
+        if self.rotation.rem_euclid(180) == 90 {
+            (self.height, self.width)
+        } else {
+            (self.width, self.height)
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +69,17 @@ fn rate(v: &Value) -> Option<f64> {
     (d > 0.0 && n > 0.0).then_some(n / d)
 }
 
+/// From the display matrix, or the `rotate` tag of older files.
+fn rotation(stream: &Value) -> i64 {
+    let side_data = stream["side_data_list"].as_array().map_or(&[][..], Vec::as_slice);
+    side_data
+        .iter()
+        .find_map(|d| d["rotation"].as_f64())
+        .map(|r| r.round() as i64)
+        .or_else(|| number(&stream["tags"], "rotate"))
+        .unwrap_or(0)
+}
+
 impl Probe {
     pub fn parse(json: &str) -> Result<Self, JobError> {
         let root: Value = serde_json::from_str(json)
@@ -80,6 +104,7 @@ impl Probe {
                         height: number(stream, "height").unwrap_or_default(),
                         fps: rate(stream),
                         bit_rate: number(stream, "bit_rate"),
+                        rotation: rotation(stream),
                     });
                 }
                 Some("audio") => probe.audio.push(AudioStream {

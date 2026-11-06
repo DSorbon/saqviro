@@ -320,3 +320,49 @@ fn converts_colors() {
     assert!(color::run("rgb(300, 0, 0)", &none()).is_err());
     assert!(color::run("blue-ish", &none()).is_err());
 }
+
+#[test]
+fn xml_formatting_keeps_spaces_around_entities() {
+    let out = xml::format("<a>\n  <b>Tom &amp; Jerry</b>\n</a>", &params(json!({ "indent": "2" }))).unwrap();
+    assert_eq!(out, "<a>\n  <b>Tom &amp; Jerry</b>\n</a>");
+}
+
+#[test]
+fn refuses_attribute_names_that_would_break_xml() {
+    assert!(xml::from_json(r#"{"a":{"@b>c":"v"}}"#, &none()).is_err());
+}
+
+#[test]
+fn csv_keeps_every_cell() {
+    let p = params(json!({ "typed_values": true, "delimiter": "comma" }));
+    let out = convert::csv_to_json("a,a,b\n1,2,3,4\n", &p).unwrap();
+    let value: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value, json!([{ "a": 1, "a_2": 2, "b": 3, "column_4": 4 }]));
+}
+
+#[test]
+fn csv_numbers_json_cannot_hold_stay_as_written() {
+    let p = params(json!({ "typed_values": true, "delimiter": "comma" }));
+    let out = convert::csv_to_json("id,price\n123456789012345678901234,1.50\n", &p).unwrap();
+    let value: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value, json!([{ "id": "123456789012345678901234", "price": "1.50" }]));
+}
+
+#[test]
+fn many_similar_keys_stay_fast() {
+    let nested: Vec<String> = (0..3000).map(|i| format!(r#""x{i}":{{"a":{{"b":1}}}}"#)).collect();
+    let text = format!("{{{}}}", nested.join(","));
+    let started = std::time::Instant::now();
+    convert::json_to_ts(&text, &none()).unwrap();
+    assert!(started.elapsed().as_secs() < 5);
+}
+
+#[test]
+fn cron_walks_calendar_days() {
+    use chrono::FixedOffset;
+    let zone = FixedOffset::east_opt(3600).unwrap();
+    let from = zone.with_ymd_and_hms(2026, 11, 6, 23, 30, 0).unwrap();
+    let runs = Schedule::parse("0 12 * * *").unwrap().next_runs(from, 3);
+    let days: Vec<String> = runs.iter().map(|t| t.format("%d %H:%M").to_string()).collect();
+    assert_eq!(days, ["07 12:00", "08 12:00", "09 12:00"]);
+}

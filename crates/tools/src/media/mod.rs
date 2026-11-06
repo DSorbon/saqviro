@@ -159,6 +159,21 @@ impl Engine {
         Probe::parse(&json)
     }
 
+    /// Runs FFmpeg and hands every line of its standard output to `on_line`.
+    pub fn run_lines(
+        &self,
+        ctx: &JobContext,
+        log_level: &str,
+        args: Vec<OsString>,
+        on_line: impl FnMut(&str) + Send,
+    ) -> Result<String, JobError> {
+        let mut command = Command::new(&self.ffmpeg);
+        command
+            .args(["-nostdin", "-hide_banner", "-nostats", "-loglevel", log_level])
+            .args(args);
+        supervise(ctx, &mut command, on_line)
+    }
+
     /// Runs FFmpeg. `on_time` receives the seconds of media written so far.
     /// Returns its stderr, which holds the log when `log_level` is `info`.
     pub fn run(

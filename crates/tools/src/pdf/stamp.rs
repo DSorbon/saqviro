@@ -181,8 +181,11 @@ fn add_resources(doc: &mut Document, page: ObjectId, font: ObjectId, opacity: f3
 fn stamp_page(doc: &mut Document, page: ObjectId, font: ObjectId, stamp: &Stamp) -> Result<(), lopdf::Error> {
     add_resources(doc, page, font, stamp.opacity)?;
     let old = match doc.get_dictionary(page)?.get(b"Contents") {
-        Ok(Object::Array(items)) => items.clone(),
-        Ok(other) => vec![other.clone()],
+        Ok(contents) => match doc.dereference(contents)?.1 {
+            // The array itself can be an object of its own.
+            Object::Array(items) => items.clone(),
+            _ => vec![contents.clone()],
+        },
         Err(_) => Vec::new(),
     };
     let open = doc.add_object(Stream::new(Dictionary::new(), b"q\n".to_vec()));

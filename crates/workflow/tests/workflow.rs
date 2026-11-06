@@ -290,3 +290,40 @@ fn fails_when_every_file_fails() {
     let (done, _) = run(exec, JobInput::Files(vec![bad]), None);
     assert_eq!(done.status, JobStatus::Failed);
 }
+
+#[test]
+fn carrying_on_keeps_text_results() {
+    let dir = tempfile::tempdir().unwrap();
+    let good = picture(dir.path(), "good.png", 4, 4);
+    let bad = dir.path().join("bad.png");
+    fs::write(&bad, "x").unwrap();
+    let exec = prepare_with(&registry(), &[step("image.info", json!({}))], |_| true, true).unwrap();
+    let (done, _) = run(exec, JobInput::Files(vec![good, bad]), None);
+    let Some(JobOutput::Text(text)) = done.output else {
+        panic!("{:?}", done.error)
+    };
+    assert!(
+        text.contains("good.png") && text.contains("1 failed: bad.png"),
+        "{text}"
+    );
+}
+
+#[test]
+fn folders_with_folders_in_them_feed_the_next_step() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("data");
+    fs::create_dir_all(dir.join("sub")).unwrap();
+    fs::write(dir.join("a.txt"), "a").unwrap();
+    fs::write(dir.join("sub/b.txt"), "b").unwrap();
+    let archive = root.path().join("data.zip");
+    let zip = ready(&[step("files.zip.create", json!({}))]);
+    let (done, _) = run(zip, JobInput::Files(vec![dir]), None);
+    fs::rename(&files(&done)[0].path, &archive).unwrap();
+
+    let exec = ready(&[step("files.zip.extract", json!({})), step("files.sha256", json!({}))]);
+    let (done, _) = run(exec, JobInput::Files(vec![archive]), None);
+    let Some(JobOutput::Text(text)) = done.output else {
+        panic!("{:?}", done.error)
+    };
+    assert!(text.contains("a.txt") && text.contains("b.txt"), "{text}");
+}

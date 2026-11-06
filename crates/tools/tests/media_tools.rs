@@ -869,9 +869,7 @@ fn says_when_there_is_no_silence() {
 #[test]
 fn reads_the_silence_log() {
     use saqviro_tools::media::tools::parse_silence;
-    let log = "[silencedetect @ 0x1] silence_start: 1.5\n\
-               [silencedetect @ 0x1] silence_end: 3 | silence_duration: 1.5\n\
-               [silencedetect @ 0x1] silence_start: 9\n";
+    let log = "lavfi.silence_start=1.5\nlavfi.silence_end=3\nlavfi.silence_duration=1.5\nlavfi.silence_start=9\n";
     assert_eq!(parse_silence(log, Some(10.0)), [(1.5, 3.0), (9.0, 10.0)]);
     assert_eq!(parse_silence(log, None), [(1.5, 3.0)]);
     assert_eq!(parse_silence("", Some(1.0)), []);
@@ -981,4 +979,47 @@ fn sets_audio_tags_without_touching_the_sound() {
 
     let (done, _) = run("audio.tags", &[source], json!({}));
     assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn lists_every_silence_of_a_long_recording() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("long.wav");
+    // One second on, one second off, 300 times.
+    let tone = "sine=d=600,volume='if(lt(mod(t,2),1),1,0)':eval=frame";
+    ffmpeg(&["-f", "lavfi", "-i", tone], &source);
+    let (done, _) = run("audio.detect-silence", &[source], json!({ "min_seconds": 0.5 }));
+    let Some(JobOutput::Text(text)) = done.output else {
+        panic!("{:?}", done.error)
+    };
+    assert!(text.lines().count() >= 295, "{} lines", text.lines().count());
+    assert!(text.lines().nth(1).unwrap().starts_with("0:00:0"), "{text}");
+}
+
+#[test]
+fn a_watermark_lands_on_a_video_turned_by_metadata() {
+    let dir = tempfile::tempdir().unwrap();
+    let plain = video(dir.path(), "plain.mp4", "320x180", 1);
+    let turned = dir.path().join("turned.mp4");
+    let status = Command::new("ffmpeg")
+        .args(["-nostdin", "-v", "error", "-y", "-display_rotation", "90", "-i"])
+        .arg(&plain)
+        .args(["-c", "copy"])
+        .arg(&turned)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let params = json!({ "text": "HHHH", "size": 30, "color": "#ff00ff", "opacity": 100, "position": "center" });
+    let (done, _) = run("video.watermark", &[turned], params);
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(size_of(&out.path), (180, 320));
+    let frame = dir.path().join("frame.png");
+    ffmpeg(&["-i", out.path.to_str().unwrap(), "-frames:v", "1"], &frame);
+    let picture = image::open(&frame).unwrap().to_rgb8();
+    let magenta = picture
+        .pixels()
+        .filter(|p| p.0[0] > 150 && p.0[1] < 100 && p.0[2] > 150)
+        .count();
+    assert!(magenta > 100, "{magenta}");
 }

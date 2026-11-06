@@ -506,6 +506,9 @@ pub fn favicon(template: String) -> Arc<dyn Executor> {
     })
 }
 
+/// All frames of a GIF together. A GIF of a few bytes can claim far more.
+const MAX_GIF_PIXELS: u64 = 1_000_000_000;
+
 pub fn gif_frames(template: String) -> Arc<dyn Executor> {
     use image::{AnimationDecoder, codecs::gif::GifDecoder};
     folders(template, |path| {
@@ -513,9 +516,22 @@ pub fn gif_frames(template: String) -> Arc<dyn Executor> {
         let wrong = |e: image::ImageError| {
             JobError::new(ErrorKind::UnsupportedFormat, format!("this GIF could not be read: {e}"))
         };
-        let frames = GifDecoder::new(Cursor::new(bytes)).map_err(wrong)?.into_frames();
+        let decoder = GifDecoder::new(Cursor::new(bytes)).map_err(wrong)?;
+        let (w, h) = image::ImageDecoder::dimensions(&decoder);
+        if w > super::MAX_SIDE || h > super::MAX_SIDE || u64::from(w) * u64::from(h) > MAX_GIF_PIXELS {
+            return Err(JobError::new(
+                ErrorKind::InvalidInput,
+                format!("this GIF is too large to open: {w}×{h}"),
+            ));
+        }
         let mut files = Vec::new();
-        for (i, frame) in frames.enumerate() {
+        for (i, frame) in decoder.into_frames().enumerate() {
+            if (i as u64 + 1) * u64::from(w) * u64::from(h) > MAX_GIF_PIXELS {
+                return Err(JobError::new(
+                    ErrorKind::InvalidInput,
+                    "this GIF has too many frames to save",
+                ));
+            }
             let image = DynamicImage::ImageRgba8(frame.map_err(wrong)?.into_buffer());
             files.push((format!("frame-{:04}.png", i + 1), png_bytes(&image)?));
         }

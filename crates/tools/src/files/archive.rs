@@ -106,7 +106,7 @@ fn walk(path: &Path, name: &str, items: &mut Vec<(String, Item)>) -> Result<(), 
 }
 
 /// `name`, or `name (2)` and so on when two inputs share a name.
-fn unique(name: &str, taken: &mut HashSet<String>) -> String {
+pub(super) fn unique(name: &str, taken: &mut HashSet<String>) -> String {
     let (stem, ext) = match name.rsplit_once('.') {
         Some((stem, ext)) if !stem.is_empty() => (stem, Some(ext)),
         _ => (name, None),

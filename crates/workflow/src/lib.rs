@@ -150,6 +150,19 @@ struct Runner {
     steps: Vec<Ready>,
 }
 
+/// `path` if it is a file, and every file under it if it is a folder.
+fn files_in(path: &Path, out: &mut Vec<PathBuf>) -> Result<(), JobError> {
+    if !path.is_dir() {
+        out.push(path.to_path_buf());
+        return Ok(());
+    }
+    let mut inside: Vec<PathBuf> = fs::read_dir(path)?
+        .map(|e| e.map(|e| e.path()))
+        .collect::<Result<_, _>>()?;
+    inside.sort();
+    inside.iter().try_for_each(|child| files_in(child, out))
+}
+
 /// Files and folders of `output`, as input of the next step. A folder stands
 /// for the files in it.
 fn next_input(ctx: &JobContext, output: JobOutput, step: usize) -> Result<JobInput, JobError> {
@@ -158,15 +171,7 @@ fn next_input(ctx: &JobContext, output: JobOutput, step: usize) -> Result<JobInp
         JobOutput::Files(files) => {
             let mut paths = Vec::with_capacity(files.len());
             for file in files {
-                if file.path.is_dir() {
-                    let mut inside: Vec<PathBuf> = fs::read_dir(&file.path)?
-                        .map(|e| e.map(|e| e.path()))
-                        .collect::<Result<_, _>>()?;
-                    inside.sort();
-                    paths.extend(inside);
-                } else {
-                    paths.push(file.path);
-                }
+                files_in(&file.path, &mut paths)?;
             }
             Ok(JobInput::Files(paths))
         }
@@ -200,6 +205,17 @@ fn compare_with_sources(output: JobOutput, sources: &[PathBuf]) -> JobOutput {
     }
 }
 
+/// Results of a job that did not finish are not kept.
+fn remove_results(results: &[OutputFile]) {
+    for result in results {
+        let _ = if result.path.is_dir() {
+            fs::remove_dir_all(&result.path)
+        } else {
+            fs::remove_file(&result.path)
+        };
+    }
+}
+
 /// Runs the chain once per file.
 struct EachFile {
     runner: Runner,
@@ -213,16 +229,25 @@ impl Executor for EachFile {
         let results_dir = ctx.output_dir().map(Path::to_path_buf);
         let share = 1.0 / files.len().max(1) as f32;
         let mut results: Vec<OutputFile> = Vec::with_capacity(files.len());
+        let mut texts: Vec<String> = Vec::new();
+        let mut pictures: Vec<JobOutput> = Vec::new();
         let mut failed: Vec<String> = Vec::new();
         let mut last_error = None;
         for (i, file) in files.iter().enumerate() {
-            ctx.check_cancelled()?;
+            if let Err(e) = ctx.check_cancelled() {
+                remove_results(&results);
+                return Err(e);
+            }
             let dir = results_dir.clone().or_else(|| file.parent().map(Path::to_path_buf));
             let inner = ctx.scoped(dir, (i as f32 * share, (i + 1) as f32 * share));
             match self.runner.run(&inner, JobInput::Files(vec![file.clone()]), params) {
                 Ok(JobOutput::Files(made)) => results.extend(made),
-                Ok(_) => {}
-                Err(e) if e.kind == ErrorKind::Cancelled => return Err(e),
+                Ok(JobOutput::Text(text)) => texts.push(text),
+                Ok(picture) => pictures.push(picture),
+                Err(e) if e.kind == ErrorKind::Cancelled => {
+                    remove_results(&results);
+                    return Err(e);
+                }
                 Err(e) => {
                     failed.push(
                         file.file_name()
@@ -233,11 +258,22 @@ impl Executor for EachFile {
                 }
             }
         }
-        if let (true, Some(e)) = (results.is_empty(), last_error) {
-            return Err(e);
+        let failures = format!("{} failed: {}", failed.len(), failed.join(", "));
+        if !texts.is_empty() {
+            if !failed.is_empty() {
+                texts.push(failures);
+            }
+            return Ok(JobOutput::Text(texts.join("\n\n")));
+        }
+        if results.is_empty() {
+            return match (pictures.pop(), last_error) {
+                (Some(picture), _) => Ok(picture),
+                (None, Some(e)) => Err(e),
+                (None, None) => Ok(JobOutput::Files(results)),
+            };
         }
         if let (false, Some(first)) = (failed.is_empty(), results.first_mut()) {
-            first.note = Some(format!("{} failed: {}", failed.len(), failed.join(", ")));
+            first.note = Some(failures);
         }
         Ok(JobOutput::Files(results))
     }

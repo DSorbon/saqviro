@@ -2,7 +2,7 @@
 
 use std::fmt::Write;
 
-use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Timelike};
+use chrono::{DateTime, Datelike, Local, TimeZone};
 use saqviro_jobs::Params;
 
 use crate::params;
@@ -100,32 +100,31 @@ impl Schedule {
             }
     }
 
-    /// The first times after `from`, at most `count`.
+    /// The first times after `from`, at most `count`. Walks calendar days,
+    /// since a day is not always 24 hours. A time that a clock change skips
+    /// does not run, and one it repeats runs once.
     pub fn next_runs<Z: TimeZone>(&self, from: DateTime<Z>, count: usize) -> Vec<DateTime<Z>> {
+        let zone = from.timezone();
         let mut found = Vec::new();
-        let start = from.clone();
-        let mut day = from.clone();
+        let mut day = from.date_naive();
         for _ in 0..SEARCH_DAYS {
             if self.runs_on(&day) {
                 for hour in (0..24).filter(|h| self.hour.has(*h)) {
                     for minute in (0..60).filter(|m| self.minute.has(*m)) {
-                        let time = day
-                            .with_hour(hour)
-                            .and_then(|t| t.with_minute(minute))
-                            .and_then(|t| t.with_second(0));
-                        let Some(time) = time.and_then(|t| t.with_nanosecond(0)) else {
+                        let local = day.and_hms_opt(hour, minute, 0);
+                        let time = local.and_then(|t| zone.from_local_datetime(&t).earliest());
+                        let Some(time) = time.filter(|t| *t > from) else {
                             continue;
                         };
-                        if time > start {
-                            found.push(time);
-                            if found.len() == count {
-                                return found;
-                            }
+                        found.push(time);
+                        if found.len() == count {
+                            return found;
                         }
                     }
                 }
             }
-            day += Duration::days(1);
+            let Some(next) = day.succ_opt() else { break };
+            day = next;
         }
         found
     }

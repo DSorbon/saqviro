@@ -13,14 +13,20 @@ use crate::params;
 pub fn format(text: &str, params: &Params) -> Result<String, String> {
     let size = if params::text(params, "indent") == "4" { 4 } else { 2 };
     let mut reader = Reader::from_str(text);
-    reader.config_mut().trim_text(true);
     let mut writer = Writer::new_with_indent(Vec::new(), b' ', size);
     let mut depth = 0i64;
     let mut seen = false;
+    let mut in_text = false;
     loop {
         let event = reader
             .read_event()
             .map_err(|e| format!("this is not valid XML near byte {}: {e}", reader.error_position()))?;
+        // Space between elements is layout. Next to an entity it is text.
+        let blank = matches!(&event, Event::Text(t) if t.xml10_content().trim().is_empty());
+        let after_entity = std::mem::replace(&mut in_text, matches!(event, Event::GeneralRef(_)));
+        if blank && !after_entity {
+            continue;
+        }
         match &event {
             Event::Eof => break,
             Event::Start(_) => depth += 1,
@@ -179,6 +185,9 @@ fn write_value(name: &str, value: &Value, level: usize, out: &mut String) -> Res
             let mut children = Vec::new();
             for (key, member) in members {
                 if let Some(attribute) = key.strip_prefix('@') {
+                    if !is_name(attribute) {
+                        return Err(format!("`{attribute}` cannot be an XML attribute name"));
+                    }
                     let shown = member.as_str().map_or_else(|| member.to_string(), str::to_owned);
                     open.push_str(&format!(" {attribute}=\"{}\"", escape(shown.as_str())));
                 } else if key == "#text" {
