@@ -1183,6 +1183,15 @@ fn draws_small_pictures_of_the_pages() {
 }
 
 #[test]
+fn the_first_page_can_be_shown_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "doc.pdf", 3);
+    let temp = tempfile::tempdir().unwrap();
+    assert!(saqviro_tools::pdf::first_page(&source, temp.path()).unwrap().len() > 100);
+    assert!(!temp.path().join("2.jpg").exists());
+}
+
+#[test]
 fn a_pdf_that_cannot_be_drawn_has_no_thumbnails() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("a.pdf");

@@ -27,4 +27,5 @@ presets:
   - { id: smaller, name: Smaller, params: { quality: 30, resolution: "720" } }
   - { id: best, name: Best quality, params: { quality: 70 } }
 ui:
+  preview: compare
   advanced: [quality, resolution]

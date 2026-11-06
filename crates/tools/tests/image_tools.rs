@@ -290,6 +290,28 @@ fn crops_to_a_centered_shape() {
 }
 
 #[test]
+fn a_watermark_goes_where_it_was_put() {
+    use saqviro_tools::images::overlay::Watermark;
+
+    let at = |x: f64, y: f64| {
+        let params = json!({ "text": "Mark", "size": 10, "opacity": 100, "x": x, "y": y });
+        Watermark::from_params(params.as_object().unwrap())
+            .unwrap()
+            .layer((400, 400))
+            .unwrap()
+    };
+    let inked = |layer: &image::RgbaImage, xs: std::ops::Range<u32>, ys: std::ops::Range<u32>| {
+        xs.clone().any(|x| ys.clone().any(|y| layer.get_pixel(x, y)[3] > 0))
+    };
+    let left_top = at(15.0, 10.0);
+    assert!(inked(&left_top, 0..200, 0..100));
+    assert!(!inked(&left_top, 200..400, 200..400));
+    let right_bottom = at(90.0, 95.0);
+    assert!(inked(&right_bottom, 200..400, 300..400));
+    assert!(!inked(&right_bottom, 0..100, 0..200));
+}
+
+#[test]
 fn a_shape_chosen_on_the_picture_stays_where_it_was_put() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("wide.png");

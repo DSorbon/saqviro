@@ -2,6 +2,7 @@
 //! hostile file fails one job and nothing else.
 //!
 //! Usage: saqviro-pdf-render <pdf> <output dir> <dpi> <png|jpg> <quality>
+//!        saqviro-pdf-render --first <pdf> <output dir>
 //!        saqviro-pdf-render --text <pdf> <output file>
 //!        saqviro-pdf-render --images <pdf> <output dir>
 //! Writes `<page>.<ext>` and prints `page <done> <count>` after each page.
@@ -51,12 +52,20 @@ fn text(e: impl Display) -> String {
     e.to_string()
 }
 
-fn render(path: &str, out: &Path, dpi: f32, ext: &str, quality: u8, pdfium: &Pdfium) -> Result<(), RenderError> {
+fn render(
+    path: &str,
+    out: &Path,
+    dpi: f32,
+    ext: &str,
+    quality: u8,
+    limit: usize,
+    pdfium: &Pdfium,
+) -> Result<(), RenderError> {
     let document = open(path, pdfium)?;
     let format = if ext == "jpg" { Format::Jpeg } else { Format::Png };
     let pages = document.pages();
     let count = pages.len();
-    for (i, page) in pages.iter().enumerate() {
+    for (i, page) in pages.iter().enumerate().take(limit) {
         let scale = dpi / 72.0;
         let width = ((page.width().value * scale) as i32).clamp(1, MAX_SIDE);
         let height = ((page.height().value * scale) as i32).clamp(1, MAX_SIDE);
@@ -132,6 +141,9 @@ enum RenderError {
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     let run = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        ["--first", path, out] => bind()
+            .map_err(RenderError::Failed)
+            .and_then(|pdfium| render(path, Path::new(out), 110.0, "jpg", 80, 1, &pdfium)),
         ["--text", path, out] => bind()
             .map_err(RenderError::Failed)
             .and_then(|pdfium| extract_text(path, Path::new(out), &pdfium)),
@@ -145,7 +157,7 @@ fn main() -> ExitCode {
             };
             bind()
                 .map_err(RenderError::Failed)
-                .and_then(|pdfium| render(path, Path::new(out), dpi, ext, quality, &pdfium))
+                .and_then(|pdfium| render(path, Path::new(out), dpi, ext, quality, usize::MAX, &pdfium))
         }
         _ => {
             eprintln!("usage: saqviro-pdf-render <pdf> <output dir> <dpi> <png|jpg> <quality>");

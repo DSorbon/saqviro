@@ -4,19 +4,21 @@
   import { initialParams } from "../lib/params";
   import type { ParamValue, Tool } from "../lib/types";
 
-  let { tool, path, params, others = 0, onSizes }: {
+  let { tool, path, params, others = 0, onSizes, onPlace }: {
     tool: Tool;
     path: string;
     params: Record<string, ParamValue>;
     /** How many more files the same choice applies to. */
     others?: number;
     onSizes?: (sizes: Record<string, string>) => void;
+    /** Given, the picture is for placing things, in percent of its size. */
+    onPlace?: (x: number, y: number) => void;
   } = $props();
 
   // Long enough to wait out a slider being dragged.
   const DELAY = 300;
 
-  let before = $state<ImagePreview | null>(null);
+  let picture = $state<ImagePreview | null>(null);
   let after = $state<ToolPreview | null>(null);
   let problem = $state("");
   let working = $state(false);
@@ -27,8 +29,8 @@
 
   $effect(() => {
     const wanted = path;
-    before = null;
-    imagePreview(wanted).then((p) => { if (wanted === path) before = p; }, () => {});
+    picture = null;
+    imagePreview(wanted).then((p) => { if (wanted === path) picture = p; }, () => {});
   });
 
   $effect(() => {
@@ -55,7 +57,13 @@
     return () => clearTimeout(timer);
   });
 
+  // PDFs and films come with their own picture of the original.
+  const before = $derived(after?.before ?? picture?.data ?? null);
+
   // Each preset says what it would give, so the choice is between results.
+  // Past this size a run takes too long to do it for every preset.
+  const SIZE_ALL_PRESETS_UP_TO = 50 * 1024 * 1024;
+
   $effect(() => {
     const wanted = path;
     if (tool.presets.length < 2 || !onSizes) return;
@@ -66,7 +74,8 @@
         try {
           const found = await previewTool(tool.id, wanted, initialParams(tool, preset.id));
           if (stopped) return;
-          sizes[preset.id] = formatBytes(found.size);
+          if ((found.source_size ?? 0) > SIZE_ALL_PRESETS_UP_TO && !found.estimated) return;
+          sizes[preset.id] = `${found.estimated ? "about " : ""}${formatBytes(found.size)}`;
           onSizes({ ...sizes });
         } catch {
           // A preset that cannot be sized still works.
@@ -85,7 +94,23 @@
   function move(e: PointerEvent) {
     if (!dragging) return;
     const box = stage.getBoundingClientRect();
+    if (onPlace) {
+      place(e);
+      return;
+    }
     split = Math.min(100, Math.max(0, ((e.clientX - box.left) / box.width) * 100));
+  }
+
+  /** Where the pointer is on the picture itself, which may not fill the stage. */
+  function place(e: PointerEvent) {
+    const box = stage.getBoundingClientRect();
+    const ratio = picture ? picture.width / picture.height : box.width / box.height;
+    const shown = Math.min(box.width, box.height * ratio);
+    const left = box.left + (box.width - shown) / 2;
+    const height = shown / ratio;
+    const top = box.top + (box.height - height) / 2;
+    const percent = (at: number, size: number) => Math.round(Math.min(100, Math.max(0, (at / size) * 100)));
+    onPlace?.(percent(e.clientX - left, shown), percent(e.clientY - top, height));
   }
 
   function key(e: KeyboardEvent) {
@@ -100,21 +125,27 @@
 
 <figure>
   {#if before}
-    <div class="stage" role="presentation" bind:this={stage} onpointerdown={(e) => { dragging = true; move(e); }}>
-      <img alt="Original" draggable="false" src="data:image/jpeg;base64,{before.data}" />
+    <div class="stage" class:placing={onPlace} role="presentation" bind:this={stage} onpointerdown={(e) => { dragging = true; move(e); }}>
+      <img alt="Original" draggable="false" src="data:image/jpeg;base64,{before}" />
       {#if after?.data}
-        <img class="after" alt="Result" draggable="false" style:clip-path="inset(0 0 0 {split}%)" src="data:image/jpeg;base64,{after.data}" />
-        <div class="divider" style:left="{split}%">
-          <button aria-label="Compare before and after" role="slider" aria-valuenow={Math.round(split)} aria-valuemin={0} aria-valuemax={100} onkeydown={key}>⇆</button>
-        </div>
+        <img class="after" alt="Result" draggable="false" style:clip-path={onPlace ? "none" : `inset(0 0 0 ${split}%)`} src="data:image/jpeg;base64,{after.data}" />
+        {#if !onPlace}
+          <div class="divider" style:left="{split}%">
+            <button aria-label="Compare before and after" role="slider" aria-valuenow={Math.round(split)} aria-valuemin={0} aria-valuemax={100} onkeydown={key}>⇆</button>
+          </div>
+        {/if}
       {/if}
       <span class="tag left">Original {after?.source_size ? formatBytes(after.source_size) : ""}</span>
-      {#if after}<span class="tag right">Result {formatBytes(after.size)}{change()}</span>{/if}
+      {#if after}<span class="tag right">Result {after.estimated ? "about " : ""}{formatBytes(after.size)}{change()}</span>{/if}
     </div>
+  {:else if after}
+    <p class="sizes">{after.source_size ? `${formatBytes(after.source_size)} → ` : ""}<strong>{after.estimated ? "about " : ""}{formatBytes(after.size)}</strong>{change()}</p>
   {/if}
   <figcaption class="muted">
     {#if problem}<span class="problem">{problem}</span>
     {:else if working}Working out the result…
+    {:else if onPlace}Click the picture to put it there.{others > 0 ? ` The same place on ${others} more.` : ""}
+    {:else if after?.estimated}Worked out from a few seconds of the film.
     {:else if others > 0}Shown on the first file. The same applies to {others} more.
     {:else}Nothing is saved until you press Run.{/if}
   </figcaption>
@@ -130,6 +161,8 @@
   .tag { position: absolute; top: var(--space-2); padding: 3px var(--space-2); border-radius: var(--radius); background: rgb(0 0 0 / 0.65); color: white; font-size: var(--text-caption); font-weight: 600; line-height: 1.4; }
   .left { left: var(--space-2); }
   .right { right: var(--space-2); }
+  .placing { cursor: crosshair; }
+  .sizes { margin: 0; font-size: var(--text-lead); }
   figcaption { font-size: var(--text-caption); }
   .problem { color: var(--danger); }
 </style>

@@ -25,3 +25,5 @@ presets:
   - { id: p1080, name: 1080p, params: { resolution: "1080" } }
   - { id: p720, name: 720p, params: { resolution: "720" } }
   - { id: p480, name: 480p, params: { resolution: "480" } }
+ui:
+  preview: compare

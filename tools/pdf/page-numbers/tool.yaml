@@ -27,4 +27,5 @@ parameters:
 presets:
   - { id: default, name: Default }
 ui:
+  preview: compare
   advanced: [size]

@@ -171,6 +171,12 @@ pub fn apply(moves: &[(PathBuf, PathBuf)], rename: impl Fn(&Path, &Path) -> io::
     result
 }
 
+/// Old and new names for the interface to show, or why it cannot be done.
+pub fn names(paths: &[PathBuf], params: &Params) -> Result<Vec<(String, String)>, String> {
+    let moves = plan(paths, &Rule::from_params(params))?;
+    Ok(moves.iter().map(|(from, to)| (leaf(from), leaf(to))).collect())
+}
+
 pub fn run() -> Arc<dyn Executor> {
     Arc::new(|ctx: &JobContext, input: JobInput, params: &Params| {
         let files = input_files(input)?;

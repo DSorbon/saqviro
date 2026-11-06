@@ -151,6 +151,29 @@ pub struct Thumbnails {
 
 /// Draws the pages of `path` through the render helper, in `dir`. A PDF with
 /// a password has none: the app then asks for page numbers as text.
+/// The first page as a JPEG in Base64, sharp enough to judge the result.
+pub fn first_page(path: &Path, dir: &Path) -> Result<String, JobError> {
+    use base64::Engine;
+
+    let helper = crate::process::find_binary(crate::process::search_dirs(), "saqviro-pdf-render").ok_or_else(|| {
+        JobError::new(
+            ErrorKind::EngineMissing,
+            "the PDF renderer is missing from this installation",
+        )
+    })?;
+    let mut command = std::process::Command::new(helper);
+    command.arg("--first").arg(absolute(path)?).arg(dir);
+    crate::process::hide_console(&mut command);
+    if !command.output()?.status.success() {
+        return Err(JobError::new(
+            ErrorKind::UnsupportedFormat,
+            "the pages of this PDF cannot be shown",
+        ));
+    }
+    let bytes = std::fs::read(dir.join("1.jpg"))?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
 pub fn thumbnails(path: &Path, dir: &Path, limit: usize) -> Result<Thumbnails, JobError> {
     use base64::Engine;
 

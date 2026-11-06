@@ -45,15 +45,22 @@ export interface Thumbnails {
 export const pdfThumbnails = (path: string) => invoke<Thumbnails>("pdf_thumbnails", { path });
 
 export interface ToolPreview {
-  /** A JPEG in Base64, when the result can be shown. */
+  /** JPEGs in Base64, when they can be shown. */
   data: string | null;
+  before: string | null;
   size: number;
   source_size: number | null;
+  /** The size comes from a few seconds of the film. */
+  estimated: boolean;
 }
 
 /** What a tool would make of one file, before anything is saved. */
 export const previewTool = (toolId: string, path: string, params: Record<string, ParamValue>) =>
   invoke<ToolPreview>("preview_tool", { toolId, path, params });
+
+/** The new name of each file. Rejects with why the renaming cannot be done. */
+export const planRename = (paths: string[], params: Record<string, ParamValue>) =>
+  invoke<[string, string][]>("plan_rename", { paths, params });
 
 export interface Timeline {
   duration: number;

@@ -25,3 +25,5 @@ presets:
   - { id: right, name: Right, params: { angle: "90" } }
   - { id: left, name: Left, params: { angle: "270" } }
   - { id: flip, name: Upside down, params: { angle: "180" } }
+ui:
+  preview: compare

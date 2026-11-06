@@ -23,9 +23,12 @@ parameters:
   - { id: text, type: string }
   - { id: size, type: integer, min: 1, max: 50, default: 5 }
   - { id: position, type: enum, values: [bottom-right, bottom-left, top-right, top-left, center], default: bottom-right }
+  - { id: x, type: number, min: 0, max: 100, optional: true }
+  - { id: y, type: number, min: 0, max: 100, optional: true }
   - { id: opacity, type: integer, min: 5, max: 100, default: 60 }
   - { id: color, type: string, default: "#ffffff" }
 presets:
   - { id: default, name: Default }
 ui:
-  advanced: [opacity, color]
+  preview: compare
+  advanced: [opacity, color, x, y]

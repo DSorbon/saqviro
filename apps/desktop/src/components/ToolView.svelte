@@ -22,6 +22,7 @@
   import Outcome from "./Outcome.svelte";
   import ToolIcon from "./ToolIcon.svelte";
   import PagePicker from "./PagePicker.svelte";
+  import RenamePlan from "./RenamePlan.svelte";
   import ParamFields from "./ParamFields.svelte";
   import Timeline from "./Timeline.svelte";
 
@@ -58,6 +59,10 @@
   // A live tool stays open to typing while it works.
   const running = $derived(working && !live);
   const usesTimeline = $derived(tool.ui?.preview === "timeline");
+  const renaming = $derived(tool.ui?.preview === "rename");
+  // Text on a picture is put in place on the picture.
+  const placing = $derived(tool.parameters?.some((p) => p.id === "x") && tool.parameters.some((p) => p.id === "position"));
+  let renames = $state<{ count: number | null; why: string }>({ count: null, why: "" });
   // Page pictures replace the form when they can show every choice.
   const turning = $derived(tool.ui?.preview === "pages-turn" && files.length === 1);
   const isCrop = $derived(tool.ui?.preview === "crop");
@@ -66,7 +71,9 @@
       ? "Choose an area on the picture"
       : turning && !values.turns
         ? "Click a page to turn it"
-        : usesTimeline && files.length === 1 && !values.start && !values.end && tool.ui?.one_of
+        : renaming && files.length > 0 && !renames.count
+          ? renames.why || "Choose what to change"
+          : usesTimeline && files.length === 1 && !values.start && !values.end && tool.ui?.one_of
           ? "Drag the edges to choose a part"
           : paramsIssue(tool, values),
   );
@@ -83,6 +90,10 @@
 
   function follow(snapshot: JobSnapshot) {
     job = snapshot;
+    // The files now have their new names.
+    if (renaming && snapshot.status === "completed" && snapshot.output?.kind === "files") {
+      files = snapshot.output.value.map((f) => f.path);
+    }
     if (live) {
       if (snapshot.status === "completed") settled = snapshot.output;
       if (snapshot.status === "failed") settled = null;
@@ -169,7 +180,7 @@
   /** Empty optional fields are left out; the core fills in defaults. */
   function chosenParams() {
     const filled = Object.entries(values).filter(([id, v]) => v !== null && v !== undefined && v !== "" && (id !== "turns" || turning));
-    return Object.fromEntries(filled);
+    return renaming ? { ...Object.fromEntries(filled), preview: false } : Object.fromEntries(filled);
   }
 
   async function run() {
@@ -220,7 +231,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#snippet options()}
-  {#if tool.presets.length > 1 && !turning}
+  {#if tool.presets.length > 1 && !turning && !renaming}
     <fieldset class="plain" disabled={running}>
       <div class="segmented" role="radiogroup" aria-label="Preset">
         {#each tool.presets as preset (preset.id)}
@@ -231,7 +242,7 @@
   {/if}
   {#if !turning}
     <fieldset class="plain" disabled={running}>
-      <ParamFields {tool} bind:values />
+      <ParamFields {tool} bind:values hidden={renaming ? ["preview"] : []} />
     </fieldset>
   {/if}
 {/snippet}
@@ -254,7 +265,14 @@
 
   {#if tool.ui?.preview === "compare" && files[0]}
     {#key files[0]}
-      <Compare {tool} path={files[0]} params={chosenParams()} others={files.length - 1} onSizes={(s) => (presetSizes = s)} />
+      <Compare
+        {tool}
+        path={files[0]}
+        params={chosenParams()}
+        others={files.length - 1}
+        onSizes={(s) => (presetSizes = s)}
+        onPlace={placing ? (x, y) => (values = { ...values, x, y }) : undefined}
+      />
     {/key}
   {/if}
 
@@ -296,6 +314,10 @@
     {@render options()}
   {/if}
 
+  {#if renaming && files.length > 0}
+    <RenamePlan {files} params={chosenParams()} onPlan={(count, why) => (renames = { count, why })} />
+  {/if}
+
   {#if live}
     <div class="live" class:single={kind === "none"}>
       {#if kind === "text"}
@@ -324,7 +346,7 @@
       <progress max="1" value={job?.progress || undefined}></progress>
       <button onclick={() => jobId !== null && cancelJob(jobId)}>Cancel</button>
     {:else}
-      <button class:primary={!output} class="run" disabled={!ready} onclick={run}>{output ? "Run again" : "Run"} <kbd>{shortcut("↵")}</kbd></button>
+      <button class:primary={!output} class="run" disabled={!ready} onclick={run}>{renaming && renames.count ? `Rename ${renames.count} ${renames.count === 1 ? "file" : "files"}` : output ? "Run again" : "Run"} <kbd>{shortcut("↵")}</kbd></button>
     {/if}
   </footer>
   {/if}

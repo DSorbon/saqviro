@@ -2,11 +2,16 @@
   import { isAdvanced, isNeeded, paramLabel, paramProblem, placeholder, valueLabel } from "../lib/params";
   import type { Parameter, ParamValue, Tool } from "../lib/types";
 
-  let { tool, values = $bindable() }: { tool: Tool; values: Record<string, ParamValue> } = $props();
+  let { tool, values = $bindable(), hidden = [] }: {
+    tool: Tool;
+    values: Record<string, ParamValue>;
+    /** Settings the tool shows on the file itself. */
+    hidden?: string[];
+  } = $props();
 
   const PLACES = ["top-left", "top-center", "top-right", "left", "center", "right", "bottom-left", "bottom-center", "bottom-right"];
 
-  const params = $derived(tool.parameters ?? []);
+  const params = $derived((tool.parameters ?? []).filter((p) => !hidden.includes(p.id)));
   const main = $derived(params.filter((p) => !isAdvanced(tool, p.id)));
   const advanced = $derived(params.filter((p) => isAdvanced(tool, p.id)));
 </script>
@@ -19,7 +24,11 @@
       <div class="pad" role="radiogroup" aria-label="Position">
         {#each PLACES as place (place)}
           {#if p.values.includes(place)}
-            <button type="button" role="radio" aria-checked={values[p.id] === place} aria-label={valueLabel(p.id, place)} onclick={() => (values[p.id] = place)}></button>
+            <button type="button" role="radio" aria-checked={values[p.id] === place} aria-label={valueLabel(p.id, place)} onclick={() => {
+              delete values.x;
+              delete values.y;
+              values[p.id] = place;
+            }}></button>
           {:else}
             <span></span>
           {/if}

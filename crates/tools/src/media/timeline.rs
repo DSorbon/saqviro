@@ -6,6 +6,7 @@ use std::{ffi::OsString, fs, sync::Arc};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, Params};
 use serde::Serialize;
+use serde_json::Value;
 
 use super::Engine;
 
@@ -99,5 +100,59 @@ pub fn timeline() -> Arc<dyn Executor> {
         };
         let json = serde_json::to_string(&timeline).map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?;
         Ok(JobOutput::Text(json))
+    })
+}
+
+/// Seconds of film a preview is made from.
+const CLIP_SECONDS: &str = "3";
+
+fn one_file(input: JobInput) -> Result<std::path::PathBuf, JobError> {
+    match input {
+        JobInput::Files(files) if !files.is_empty() => Ok(files[0].clone()),
+        _ => Err(JobError::new(ErrorKind::InvalidInput, "add a file")),
+    }
+}
+
+/// Copies a few seconds from a third of the way in to the path in `to`,
+/// so that a tool can show what it would do without working on the whole film.
+pub fn clip() -> Arc<dyn Executor> {
+    Arc::new(|ctx: &JobContext, input: JobInput, params: &Params| {
+        let path = one_file(input)?;
+        let to = params
+            .get("to")
+            .and_then(Value::as_str)
+            .ok_or_else(|| JobError::new(ErrorKind::InvalidInput, "nowhere to put the clip"))?;
+        let engine = Engine::get()?;
+        let at = engine.probe(ctx, &path)?.duration.unwrap_or(0.0) / 3.0;
+        let mut args = to_os(&["-ss", &format!("{at:.3}")]);
+        args.extend(Engine::input(&path));
+        args.extend(to_os(&[
+            "-t",
+            CLIP_SECONDS,
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-c",
+            "copy",
+            "-y",
+            to,
+        ]));
+        engine.run(ctx, "error", args, |_| {})?;
+        Ok(JobOutput::Text(to.to_owned()))
+    })
+}
+
+/// The first frame of a file, as a JPEG in Base64.
+pub fn still() -> Arc<dyn Executor> {
+    Arc::new(|ctx: &JobContext, input: JobInput, _: &Params| {
+        let path = one_file(input)?;
+        let engine = Engine::get()?;
+        let file = ctx.temp_dir()?.join("still.jpg");
+        let mut args = Engine::input(&path);
+        args.extend(to_os(&["-frames:v", "1", "-vf", "scale=-2:480", "-y"]));
+        args.push(file.clone().into_os_string());
+        engine.run(ctx, "error", args, |_| {})?;
+        Ok(JobOutput::Text(STANDARD.encode(fs::read(&file)?)))
     })
 }

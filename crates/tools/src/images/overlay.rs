@@ -50,6 +50,8 @@ pub struct Watermark {
     /// Height of the letters, as a percentage of the shorter side.
     size: f32,
     position: String,
+    /// Centre of the text in percent of the picture, when it was put by hand.
+    at: Option<(f32, f32)>,
     opacity: f32,
     color: [u8; 3],
 }
@@ -66,7 +68,9 @@ impl Watermark {
         } else {
             text("color")
         };
+        let percent = |id: &str| params.get(id).and_then(Value::as_f64).map(|n| n as f32);
         Ok(Self {
+            at: percent("x").zip(percent("y")),
             text: text("text").to_owned(),
             size: number("size", 5.0),
             position: if text("position").is_empty() {
@@ -126,6 +130,13 @@ impl Watermark {
             i64::from(stamp.0),
             i64::from(stamp.1),
         );
+        if let Some((x, y)) = self.at {
+            let centre = |whole: i64, part: i64, percent: f32| {
+                let at = (whole as f32 * percent / 100.0) as i64 - part / 2;
+                at.clamp(0, (whole - part).max(0))
+            };
+            return (centre(cw, sw, x), centre(ch, sh, y));
+        }
         match self.position.as_str() {
             "top-left" => (margin, margin),
             "top-right" => (cw - sw - margin, margin),

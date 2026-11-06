@@ -18,6 +18,7 @@ const api = vi.hoisted(() => ({
   pdfThumbnails: vi.fn(),
   previewTool: vi.fn(),
   mediaTimeline: vi.fn(),
+  planRename: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -32,6 +33,7 @@ vi.mock("../lib/api", () => ({
   pdfThumbnails: api.pdfThumbnails,
   previewTool: api.previewTool,
   mediaTimeline: api.mediaTimeline,
+  planRename: api.planRename,
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -363,6 +365,103 @@ describe("ToolView comparing", () => {
     const divider = await screen.findByRole("slider");
     await fireEvent.keyDown(divider, { key: "ArrowRight" });
     expect(divider.getAttribute("aria-valuenow")).toBe("55");
+  });
+});
+
+describe("ToolView comparing a PDF or a film", () => {
+  const shrink = tool("video.compress", "Compress Video", { inputs: [{ type: "video", extensions: ["mp4"] }], ui: { preview: "compare" } });
+
+  it("uses the pictures that come with the result, and says when a size is an estimate", async () => {
+    api.imagePreview.mockRejectedValue({ kind: "unsupported_format", message: "not a picture" });
+    api.previewTool.mockReset().mockResolvedValue({ data: "BB", before: "AA", size: 1024, source_size: 4096, estimated: true });
+    render(ToolView, { tool: shrink, files: ["/a.mp4"] });
+    expect(await screen.findByAltText("Original")).toBeTruthy();
+    expect(await screen.findByText(/Result about 1 KB/)).toBeTruthy();
+    expect(screen.getByText("Worked out from a few seconds of the film.")).toBeTruthy();
+  });
+
+  it("still gives the sizes when there is no picture", async () => {
+    api.imagePreview.mockRejectedValue({ kind: "unsupported_format", message: "not a picture" });
+    api.previewTool.mockReset().mockResolvedValue({ data: null, before: null, size: 1024, source_size: 4096, estimated: false });
+    render(ToolView, { tool: shrink, files: ["/a.mp4"] });
+    expect(await screen.findByText("1 KB")).toBeTruthy();
+  });
+});
+
+describe("ToolView placing a mark", () => {
+  const mark = tool("image.watermark", "Add Watermark", {
+    inputs: [{ type: "image", extensions: ["jpg"] }],
+    parameters: [
+      { id: "text", type: "string", default: "Mark" },
+      { id: "position", type: "enum", values: ["top-left", "bottom-right"], default: "bottom-right" },
+      { id: "x", type: "number", optional: true },
+      { id: "y", type: "number", optional: true },
+    ],
+    ui: { preview: "compare", advanced: ["x", "y"] },
+  });
+
+  beforeEach(() => {
+    api.imagePreview.mockResolvedValue({ data: "AA", width: 100, height: 100 });
+    api.previewTool.mockReset().mockResolvedValue({ data: "BB", before: null, size: 1, source_size: 2, estimated: false });
+  });
+
+  it("goes where the picture is clicked, and shows the result whole", async () => {
+    const { container } = render(ToolView, { tool: mark, files: ["/a.jpg"] });
+    await screen.findByAltText("Result");
+    expect(screen.queryByRole("slider")).toBeNull();
+    const stage = container.querySelector(".stage")!;
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
+    await fireEvent.pointerDown(stage, { clientX: 25, clientY: 75 });
+    await vi.waitFor(() => expect(api.previewTool).toHaveBeenCalledWith(mark.id, "/a.jpg", expect.objectContaining({ x: 25, y: 75 })));
+  });
+
+  it("gives way to the grid", async () => {
+    const { container } = render(ToolView, { tool: mark, files: ["/a.jpg"] });
+    await screen.findByAltText("Result");
+    const stage = container.querySelector(".stage")!;
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
+    await fireEvent.pointerDown(stage, { clientX: 25, clientY: 75 });
+    await fireEvent.click(screen.getByRole("radio", { name: "Top left" }));
+    await vi.waitFor(() => {
+      const last = api.previewTool.mock.calls.at(-1)![2];
+      expect(last.position).toBe("top-left");
+      expect(last.x).toBeUndefined();
+    });
+  });
+});
+
+describe("ToolView renaming", () => {
+  const rename = tool("files.rename", "Rename Files", {
+    inputs: [{ type: "any", extensions: ["*"] }],
+    parameters: [{ id: "preview", type: "boolean", default: true }, { id: "prefix", type: "string", optional: true }],
+    presets: [{ id: "preview", name: "Preview", params: { preview: true } }, { id: "rename", name: "Rename files", params: { preview: false } }],
+    ui: { preview: "rename" },
+  });
+
+  beforeEach(() => {
+    api.planRename.mockReset().mockRejectedValue({ kind: "invalid_input", message: "choose what to change" });
+  });
+
+  it("shows the new names and renames what it showed", async () => {
+    render(ToolView, { tool: rename, files: ["/a.jpg", "/b.jpg"] });
+    expect(await screen.findAllByText("Choose what to change")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByRole("radio", { name: "Preview" })).toBeNull();
+
+    api.planRename.mockReset().mockResolvedValue([["a.jpg", "x-a.jpg"], ["b.jpg", "x-b.jpg"]]);
+    await fireEvent.input(screen.getByRole("textbox"), { target: { value: "x-" } });
+    expect(await screen.findByText("x-a.jpg")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: /Rename 2 files/ }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(rename.id, expect.anything(), expect.objectContaining({ preview: false, prefix: "x-" }), null));
+  });
+
+  it("works on the new names afterwards", async () => {
+    api.planRename.mockReset().mockResolvedValue([["a.jpg", "x-a.jpg"]]);
+    render(ToolView, { tool: rename, files: ["/a.jpg"] });
+    await fireEvent.click(await screen.findByRole("button", { name: /Rename 1 file/ }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalled());
+    emit({ status: "completed", output: { kind: "files", value: [{ path: "/x-a.jpg", size: 1, source_size: null }] } });
+    await vi.waitFor(() => expect(api.planRename.mock.calls.at(-1)![0]).toEqual(["/x-a.jpg"]));
   });
 });
 

@@ -31,4 +31,5 @@ presets:
   - { id: preview, name: Preview, params: { preview: true } }
   - { id: rename, name: Rename files, params: { preview: false } }
 ui:
+  preview: rename
   advanced: [start, case]

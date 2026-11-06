@@ -143,10 +143,96 @@ fn run_workflow(
 /// What a tool would make of one file, before anything is saved.
 #[derive(Serialize)]
 struct ToolPreview {
-    /// A JPEG in Base64, when the result can be shown.
+    /// JPEGs in Base64, when they can be shown.
     data: Option<String>,
+    before: Option<String>,
     size: u64,
     source_size: Option<u64>,
+    /// The size comes from a few seconds of the film, not from all of it.
+    estimated: bool,
+}
+
+const VIDEO_TYPES: [&str; 6] = ["mp4", "mov", "m4v", "mkv", "webm", "avi"];
+
+fn extension(path: &std::path::Path) -> String {
+    path.extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+}
+
+/// Runs one helper step as a job and returns the text it made.
+fn helper_text(
+    jobs: &JobManager,
+    executor: std::sync::Arc<dyn saqviro_jobs::Executor>,
+    path: &std::path::Path,
+    params: Params,
+) -> Result<String, JobError> {
+    let id = jobs.submit("preview", executor, JobInput::Files(vec![path.to_path_buf()]), params);
+    let done = jobs
+        .wait(id)
+        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "the preview was lost"))?;
+    match done.output {
+        Some(JobOutput::Text(text)) => Ok(text),
+        _ => Err(done
+            .error
+            .unwrap_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show"))),
+    }
+}
+
+/// Runs the tool on `source` into `dir` and returns its first result.
+fn tool_result(
+    registry: &Registry,
+    jobs: &JobManager,
+    tool_id: &str,
+    source: PathBuf,
+    params: &Params,
+    dir: &std::path::Path,
+) -> Result<saqviro_jobs::OutputFile, JobError> {
+    let input = JobInput::Files(vec![source]);
+    let id = start_job(registry, jobs, tool_id, input, params, Some(dir.to_path_buf()))?;
+    let done = jobs
+        .wait(id)
+        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "the preview was lost"))?;
+    let Some(JobOutput::Files(files)) = done.output else {
+        return Err(done
+            .error
+            .unwrap_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show")));
+    };
+    files
+        .into_iter()
+        .next()
+        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show"))
+}
+
+/// A film is judged on a few seconds of it.
+fn preview_video(
+    registry: &Registry,
+    jobs: &JobManager,
+    tool_id: &str,
+    path: &std::path::Path,
+    params: &Params,
+    dir: &std::path::Path,
+) -> Result<ToolPreview, JobError> {
+    use saqviro_tools::media::timeline::{clip, still};
+
+    let sample = dir.join(format!("sample.{}", extension(path)));
+    let to = sample.to_string_lossy().into_owned();
+    let mut clip_params = Params::new();
+    clip_params.insert("to".into(), serde_json::Value::String(to));
+    helper_text(jobs, clip(), path, clip_params)?;
+    let out = dir.join("out");
+    std::fs::create_dir_all(&out)?;
+    let result = tool_result(registry, jobs, tool_id, sample.clone(), params, &out)?;
+    let sample_size = std::fs::metadata(&sample)?.len().max(1);
+    let source_size = std::fs::metadata(path)?.len();
+    let size = (source_size as f64 * result.size as f64 / sample_size as f64) as u64;
+    Ok(ToolPreview {
+        data: helper_text(jobs, still(), &result.path, Params::new()).ok(),
+        before: helper_text(jobs, still(), &sample, Params::new()).ok(),
+        size,
+        source_size: Some(source_size),
+        estimated: true,
+    })
 }
 
 /// Runs the tool into a temp folder that goes away with this call.
@@ -158,27 +244,38 @@ fn preview_tool_now(
     params: &Params,
 ) -> Result<ToolPreview, JobError> {
     let dir = tempfile::tempdir()?;
-    let input = JobInput::Files(vec![path]);
-    let id = start_job(registry, jobs, tool_id, input, params, Some(dir.path().to_path_buf()))?;
-    let done = jobs
-        .wait(id)
-        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "the preview was lost"))?;
-    let Some(JobOutput::Files(files)) = done.output else {
-        return Err(done
-            .error
-            .unwrap_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show")));
+    let kind = extension(&path);
+    if VIDEO_TYPES.contains(&kind.as_str()) {
+        return preview_video(registry, jobs, tool_id, &path, params, dir.path());
+    }
+    let first = tool_result(registry, jobs, tool_id, path.clone(), params, dir.path())?;
+    let (data, before) = if kind == "pdf" {
+        let page = |file: &std::path::Path| {
+            let pictures = tempfile::tempdir().ok()?;
+            saqviro_tools::pdf::first_page(file, pictures.path()).ok()
+        };
+        (page(&first.path), page(&path))
+    } else {
+        (
+            saqviro_tools::images::preview(&first.path, PREVIEW_SIZE)
+                .ok()
+                .map(|p| p.data),
+            None,
+        )
     };
-    let first = files
-        .first()
-        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show"))?;
-    let data = saqviro_tools::images::preview(&first.path, PREVIEW_SIZE)
-        .ok()
-        .map(|p| p.data);
     Ok(ToolPreview {
         data,
+        before,
         size: first.size,
         source_size: first.source_size,
+        estimated: false,
     })
+}
+
+/// The new name of each file, or why the renaming cannot be done.
+#[tauri::command]
+fn plan_rename(paths: Vec<PathBuf>, params: Params) -> Result<Vec<(String, String)>, JobError> {
+    saqviro_tools::files::rename::names(&paths, &params).map_err(|e| JobError::new(ErrorKind::InvalidInput, e))
 }
 
 #[tauri::command]
@@ -454,6 +551,7 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             tools_for_files,
             run_tool,
             preview_tool,
+            plan_rename,
             media_timeline,
             run_workflow,
             image_preview,
@@ -625,6 +723,43 @@ mod tests {
         assert!(found.data.is_some());
         assert!(found.size > 0);
         assert_eq!(found.source_size, Some(PNG.len() as u64));
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1, "only the original");
+    }
+
+    #[test]
+    fn a_film_is_previewed_from_a_few_seconds_of_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("film.mp4");
+        let made = std::process::Command::new("ffmpeg")
+            .args([
+                "-nostdin",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=s=320x240:r=25:d=8",
+            ])
+            .args(["-pix_fmt", "yuv420p"])
+            .arg(&source)
+            .status();
+        if !made.is_ok_and(|s| s.success()) {
+            return;
+        }
+        let (jobs, _root) = jobs();
+        let found = preview_tool_now(
+            &bundled_registry(),
+            &jobs,
+            "video.compress",
+            source.clone(),
+            &Params::new(),
+        )
+        .unwrap();
+        assert!(found.estimated);
+        assert!(found.data.is_some() && found.before.is_some());
+        assert!(found.size > 0);
+        assert_eq!(found.source_size, std::fs::metadata(&source).ok().map(|m| m.len()));
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1, "only the original");
     }
 

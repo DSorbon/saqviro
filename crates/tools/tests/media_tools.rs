@@ -1051,3 +1051,34 @@ fn a_timeline_has_frames_sound_and_a_length() {
     assert!(found["frames"].as_array().unwrap().len() >= 8);
     assert!(!found["peaks"].as_array().unwrap().is_empty());
 }
+
+#[test]
+fn a_clip_and_a_still_stand_in_for_the_film() {
+    use saqviro_tools::media::timeline::{clip, still};
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 4);
+    let sample = dir.path().join("sample.mp4");
+    let root = tempfile::tempdir().unwrap();
+    let config = Config {
+        temp_root: root.path().join("jobs"),
+        workers: 1,
+    };
+    let jobs = JobManager::new(config, |_: &JobSnapshot| {}).unwrap();
+    let params = json!({ "to": sample.to_string_lossy() });
+    let input = JobInput::Files(vec![source]);
+    let done = jobs
+        .wait(jobs.submit("clip", clip(), input, params.as_object().unwrap().clone()))
+        .unwrap();
+    assert!(done.error.is_none(), "{:?}", done.error);
+    assert!(duration(&sample) <= 3.2, "{}", duration(&sample));
+
+    let input = JobInput::Files(vec![sample]);
+    let done = jobs
+        .wait(jobs.submit("still", still(), input, serde_json::Map::new()))
+        .unwrap();
+    let Some(JobOutput::Text(data)) = done.output else {
+        panic!("{:?}", done.error);
+    };
+    assert!(data.len() > 100);
+}
