@@ -25,7 +25,7 @@ if command -v sha256sum >/dev/null; then sum=sha256sum; else sum="shasum -a 256"
 
 # fetch <file> <url> <sha256> <folder it unpacks to>
 fetch() {
-  [ -f "$1" ] || curl -fsSLo "$1" "$2"
+  [ -f "$1" ] || curl -fsSL --retry 5 --retry-all-errors -o "$1" "$2"
   echo "$3  $1" | $sum -c -
   rm -rf "$4"
   tar xf "$1"

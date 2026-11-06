@@ -18,7 +18,7 @@ out="$root/apps/desktop/src-tauri/binaries"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-curl -fsSLo "$work/pdfium.tgz" \
+curl -fsSL --retry 5 --retry-all-errors -o "$work/pdfium.tgz" \
   "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F$RELEASE/$asset.tgz"
 if command -v sha256sum >/dev/null; then sum=sha256sum; else sum="shasum -a 256"; fi
 echo "$sha  $work/pdfium.tgz" | $sum -c -

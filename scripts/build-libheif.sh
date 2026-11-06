@@ -21,7 +21,7 @@ out="$root/apps/desktop/src-tauri/binaries"
 jobs=$(getconf _NPROCESSORS_ONLN)
 
 fetch() {
-  [ -f "$1" ] || curl -fsSLo "$1" "$2"
+  [ -f "$1" ] || curl -fsSL --retry 5 --retry-all-errors -o "$1" "$2"
   echo "$3  $1" | shasum -a 256 -c -
   rm -rf "${1%.tar.gz}"
   tar xf "$1"
