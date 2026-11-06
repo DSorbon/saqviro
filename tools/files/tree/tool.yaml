@@ -9,6 +9,7 @@ keywords: [folder, listing, structure, ls]
 inputs:
   - type: any
     multiple: true
+    folders: true
     mime: ["*/*"]
     extensions: ["*"]
 outputs:

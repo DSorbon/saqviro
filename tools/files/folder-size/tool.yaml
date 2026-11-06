@@ -9,6 +9,7 @@ keywords: [disk, space, usage, storage]
 inputs:
   - type: any
     multiple: true
+    folders: true
     mime: ["*/*"]
     extensions: ["*"]
 outputs:

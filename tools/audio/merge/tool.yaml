@@ -9,6 +9,7 @@ keywords: [join, combine, concat, append]
 inputs:
   - type: audio
     multiple: true
+    min_files: 2
     mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
     extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
 outputs:

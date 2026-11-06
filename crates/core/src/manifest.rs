@@ -154,6 +154,12 @@ pub struct InputPort {
     /// Text input may be left empty.
     #[serde(default)]
     pub optional: bool,
+    /// The tool needs this many files, so it is not suggested for fewer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_files: Option<u32>,
+    /// The tool looks through folders, so it is not suggested for lone files.
+    #[serde(default)]
+    pub folders: bool,
     /// Required for file inputs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mime: Vec<String>,

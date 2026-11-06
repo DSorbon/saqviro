@@ -9,6 +9,7 @@ keywords: [animation, sequence, slideshow]
 inputs:
   - type: image
     multiple: true
+    min_files: 2
     mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
     extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
 outputs:

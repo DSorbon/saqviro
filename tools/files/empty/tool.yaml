@@ -9,6 +9,7 @@ keywords: [blank, cleanup, zero, unused]
 inputs:
   - type: any
     multiple: true
+    folders: true
     mime: ["*/*"]
     extensions: ["*"]
 outputs:

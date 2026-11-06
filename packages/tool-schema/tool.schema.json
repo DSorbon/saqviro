@@ -136,6 +136,20 @@
           "type": "boolean",
           "default": false
         },
+        "min_files": {
+          "description": "The tool needs this many files, so it is not suggested for fewer.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "folders": {
+          "description": "The tool looks through folders, so it is not suggested for lone files.",
+          "type": "boolean",
+          "default": false
+        },
         "mime": {
           "description": "Required for file inputs.",
           "type": "array",

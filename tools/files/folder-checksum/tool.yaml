@@ -9,6 +9,7 @@ keywords: [hash, compare, verify, integrity, backup]
 inputs:
   - type: any
     multiple: true
+    folders: true
     mime: ["*/*"]
     extensions: ["*"]
 outputs:

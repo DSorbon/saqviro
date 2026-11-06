@@ -9,6 +9,7 @@ keywords: [combine, join, append, together]
 inputs:
   - type: pdf
     multiple: true
+    min_files: 2
     mime: [application/pdf]
     extensions: [pdf]
 outputs:
