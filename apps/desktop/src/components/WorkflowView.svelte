@@ -188,12 +188,12 @@
           <p class="error">{tool ? `${tool.name} cannot use what the step before it makes.` : "This tool is not available."}</p>
         {/if}
         {#if tool && tool.presets.length > 1}
-          <label class="preset">
-            <span class="muted">Preset</span>
-            <select aria-label="Preset of step {i + 1}" value={matchingPreset(tool, step.params ?? {})} onchange={(e) => usePreset(i, tool, e.currentTarget.value)}>
-              {#each tool.presets as preset (preset.id)}<option value={preset.id}>{preset.name}</option>{/each}
-            </select>
-          </label>
+          {@const current = matchingPreset(tool, step.params ?? {})}
+          <div class="segmented" role="radiogroup" aria-label="Preset of step {i + 1}">
+            {#each tool.presets as preset (preset.id)}
+              <button role="radio" aria-checked={current === preset.id} onclick={() => usePreset(i, tool, preset.id)}>{preset.name}</button>
+            {/each}
+          </div>
         {/if}
         {#if tool}
           <!-- Fields change `step.params` in place; this keeps the change. -->
@@ -236,21 +236,22 @@
   article { display: flex; flex-direction: column; gap: var(--space-4); min-height: 100%; }
   header { display: flex; align-items: center; gap: var(--space-2); }
   .back { border: 0 !important; background: none !important; color: var(--text-muted); padding: 4px !important; }
-  .title { flex: 1; min-width: 0; padding: 4px var(--space-2); border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); font-size: var(--text-title); font-weight: 600; }
+  .title { flex: 1; min-width: 0; padding: 4px var(--space-2); border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--text); font-size: var(--text-title); font-weight: 600; }
   .title:hover, .title:focus { border-color: var(--border); }
   ol { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-  ol > li { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  ol > li { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--surface); box-shadow: var(--shadow); }
   ol > li.broken { border-color: var(--danger); }
   .step { display: flex; align-items: center; gap: var(--space-1); }
-  .name { flex: 1; font-weight: 500; }
+  .name { flex: 1; font-weight: 600; }
   .icon { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
   .icon:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   .icon:disabled { opacity: 0.35; }
   .check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--text-muted); }
-  .preset { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); }
+  .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
+  .segmented button { padding: 3px var(--space-3); border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
+  .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
   .outcome { display: flex; flex-direction: column; gap: var(--space-4); scroll-margin-bottom: 80px; }
   .outcome:empty { display: none; }
-  select { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
   .code { width: 100%; min-height: 120px; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
   .plain { display: contents; }
   .hint { margin: 0; }
@@ -259,8 +260,8 @@
   footer { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); background: var(--bg); }
   .status { flex: 1; }
   progress { width: 160px; accent-color: var(--accent); }
-  button:not(.icon) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
+  button:not(.icon, .segmented button) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   button:disabled { opacity: 0.5; }
-  .primary { padding: 8px var(--space-4) !important; border: 0 !important; background: var(--accent) !important; color: var(--accent-text); font-weight: 600; }
+  .primary { padding: 0 var(--space-4) !important; border: 0 !important; background: var(--accent) !important; color: var(--accent-text); font-weight: 600; }
   .run kbd { font-family: var(--mono); font-size: var(--text-caption); opacity: 0.8; margin-left: var(--space-1); }
 </style>

@@ -18,6 +18,7 @@
   import CropBox from "./CropBox.svelte";
   import FileList from "./FileList.svelte";
   import Outcome from "./Outcome.svelte";
+  import ToolIcon from "./ToolIcon.svelte";
   import PagePicker from "./PagePicker.svelte";
   import ParamFields from "./ParamFields.svelte";
 
@@ -162,9 +163,25 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+{#snippet options()}
+  {#if tool.presets.length > 1}
+    <fieldset class="plain" disabled={running}>
+      <div class="segmented" role="radiogroup" aria-label="Preset">
+        {#each tool.presets as preset (preset.id)}
+          <button role="radio" aria-checked={presetId === preset.id} onclick={() => choosePreset(preset.id)}>{preset.name}</button>
+        {/each}
+      </div>
+    </fieldset>
+  {/if}
+  <fieldset class="plain" disabled={running}>
+    <ParamFields {tool} bind:values />
+  </fieldset>
+{/snippet}
+
 <article>
   <header>
     <div class="title">
+      <ToolIcon {tool} size={36} />
       <h1 tabindex="-1" bind:this={heading}>{tool.name}</h1>
       {#if onToggleFavorite}
         <button class="star icon" class:on={favorite} aria-pressed={favorite} aria-label="Favorite" onclick={onToggleFavorite}>{favorite ? "★" : "☆"}</button>
@@ -177,20 +194,6 @@
     <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
   {:else if kind === "files"}
     <FileList bind:files {ordered} folders={takesFolders(tool)} disabled={running} onChoose={choose} onChooseFolder={chooseFolder} />
-  {/if}
-
-  {#if tool.presets.length > 1}
-    <fieldset class="plain" disabled={running}>
-      <div class="segmented" role="radiogroup" aria-label="Preset">
-        {#each tool.presets as preset (preset.id)}
-          <button role="radio" aria-checked={presetId === preset.id} onclick={() => choosePreset(preset.id)}>{preset.name}</button>
-        {/each}
-      </div>
-    </fieldset>
-  {/if}
-
-  {#if tool.ui?.preview === "crop" && files[0]}
-    <CropBox path={files[0]} {values} disabled={running} onSelect={selectArea} />
   {/if}
 
   {#if pageParam && files.length === 1 && !values.reverse}
@@ -210,9 +213,14 @@
     <p class="muted hint">Page pictures show when only one file is chosen.</p>
   {/if}
 
-  <fieldset class="plain" disabled={running}>
-    <ParamFields {tool} bind:values />
-  </fieldset>
+  {#if isCrop && files[0]}
+    <div class="split">
+      <CropBox path={files[0]} {values} disabled={running} onSelect={selectArea} />
+      <div class="options">{@render options()}</div>
+    </div>
+  {:else}
+    {@render options()}
+  {/if}
 
   <div class="outcome" bind:this={resultBox}>
     <Outcome {output} {failure} {jobId} {onSend} />
@@ -250,17 +258,19 @@
     user-select: text;
   }
   .plain { display: contents; }
-  .title { display: flex; align-items: center; gap: var(--space-2); }
+  .title { display: flex; align-items: center; gap: var(--space-3); }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--space-4); align-items: start; }
+  .options { display: flex; flex-direction: column; gap: var(--space-3); }
   .star { border: 0; background: none; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: default; padding: 2px; border-radius: 4px; }
   .star.on { color: var(--accent); }
   .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
-  .segmented button { padding: 4px var(--space-3); border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: default; }
+  .segmented button { padding: 4px var(--space-3); border: 0; border-radius: var(--radius); background: none; color: var(--text-muted); cursor: default; }
   .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
   footer { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); background: var(--bg); }
   .status { flex: 1; }
   progress { width: 160px; accent-color: var(--accent); }
   button:not(.segmented button, .icon) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
-  .primary { padding: 8px var(--space-4) !important; border: 0 !important; background: var(--accent) !important; color: var(--accent-text); font-weight: 500; }
+  .primary { padding: 0 var(--space-4) !important; border: 0 !important; background: var(--accent) !important; color: var(--accent-text); font-weight: 600; }
   .primary:disabled { opacity: 0.45; }
   .run kbd { font-family: var(--mono); font-size: var(--text-caption); opacity: 0.8; margin-left: var(--space-1); }
 </style>

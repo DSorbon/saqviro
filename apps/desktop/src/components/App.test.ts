@@ -35,6 +35,7 @@ vi.mock("../lib/api", () => ({
   cancelJob: async () => true,
   revealFile: async () => undefined,
   openFile: async () => undefined,
+  imagePreview: async () => ({ data: "", width: 1, height: 1 }),
   saveImage: async () => true,
   appVersion: async () => "1.2.3",
   updatesEnabled: api.updatesEnabled,
@@ -70,7 +71,7 @@ describe("home", () => {
   it("offers popular tools to someone new, not the first in the alphabet", async () => {
     render(App);
     expect(await screen.findByText("Popular")).toBeTruthy();
-    const names = screen.getAllByRole("button").map((b) => b.textContent);
+    const names = screen.getAllByRole("button").map((b) => b.textContent?.trim());
     expect(names.findIndex((n) => n?.startsWith("Compress PDF"))).toBeLessThan(
       names.findIndex((n) => n?.startsWith("Compress Images")),
     );

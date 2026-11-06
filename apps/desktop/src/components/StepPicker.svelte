@@ -59,9 +59,9 @@
 
 <style>
   .picker { display: flex; flex-direction: column; gap: var(--space-1); }
-  input { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
+  input { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: var(--text-body); }
   .list { max-height: 240px; overflow-y: auto; padding: var(--space-1); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-  h3 { margin: var(--space-2) var(--space-2) 2px; font-size: var(--text-caption); font-weight: 500; }
+  h3 { margin: var(--space-2) var(--space-2) 2px; font-size: var(--text-caption); font-weight: 600; }
   ul { margin: 0; padding: 0; list-style: none; }
   p { margin: var(--space-2); font-size: var(--text-caption); }
   button { width: 100%; padding: 4px var(--space-2); border: 0; border-radius: 4px; background: none; text-align: left; cursor: default; }

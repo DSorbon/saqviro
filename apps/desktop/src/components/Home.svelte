@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Upload } from "@lucide/svelte";
   import type { Tool } from "../lib/types";
   import { fileName } from "../lib/job";
   import { shortcut } from "../lib/platform";
@@ -71,6 +72,7 @@
   </section>
 {:else}
   <div class="drop" class:hovering>
+    <Upload size={24} aria-hidden="true" />
     <p class="title">Drop files anywhere</p>
     <p class="muted">Files never leave your device</p>
     <button class="choose" onclick={onChoose}>Choose files…</button>
@@ -87,30 +89,34 @@
 
 <style>
   .advice { display: flex; flex-direction: column; gap: var(--space-1); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
-  .advice button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); text-align: left; cursor: default; }
+  .advice button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; min-height: 40px; padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--surface); box-shadow: var(--shadow); color: var(--text); text-align: left; cursor: default; }
+  .advice strong { color: var(--accent); }
   .advice strong { flex: none; font-weight: 600; }
   .drop {
     display: grid;
     place-content: center;
     text-align: center;
-    min-height: 280px;
+    justify-items: center;
+    gap: var(--space-1);
+    min-height: 200px;
+    background: var(--surface);
     border: 1.5px dashed var(--border-strong);
-    border-radius: 12px;
+    border-radius: var(--radius-large);
     transition: border-color var(--fast), background var(--fast);
   }
   .drop.hovering { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
   .drop p { margin: 2px 0; }
-  .title { font-size: var(--text-title); font-weight: 600; }
+  .title { font-size: var(--text-lead); font-weight: 600; }
   .hint { margin-top: var(--space-3) !important; font-size: var(--text-caption); }
-  .choose { justify-self: center; margin-top: var(--space-4); padding: 6px var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
+  .choose { justify-self: center; margin-top: var(--space-3); min-height: var(--control); padding: 0 var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   kbd { font-family: var(--mono); padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; }
   section { margin-top: var(--space-6); }
   header { display: flex; align-items: baseline; justify-content: space-between; }
   h2 { margin: 0 0 var(--space-2); font-size: var(--text-title); }
   section h3:not(:first-child) { margin-top: var(--space-4); }
-  h3 { margin: 0 0 var(--space-2); font-size: var(--text-caption); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  h3 { margin: 0 0 var(--space-2); font-size: var(--text-caption); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .flows { margin: 0; padding: 0; list-style: none; }
-  .flows button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: default; }
+  .flows button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius); background: none; text-align: left; cursor: default; }
   .flows button:hover { background: var(--hover); }
   .flows .muted { font-size: var(--text-caption); }
   .more { margin-top: var(--space-2); padding: var(--space-1) var(--space-3); }

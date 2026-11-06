@@ -62,6 +62,7 @@ beforeEach(() => {
   api.openFile.mockReset().mockResolvedValue(undefined);
   api.saveImage.mockReset().mockResolvedValue(true);
   api.pdfThumbnails.mockReset();
+  api.imagePreview.mockReset().mockResolvedValue({ data: "", width: 1, height: 1 });
 });
 
 const compress = tool("image.compress", "Compress Images", {

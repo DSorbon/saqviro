@@ -16,7 +16,7 @@ cargo about generate --workspace --all-features -c about.toml licenses/about.hbs
   sed '/<!-- ENGINES -->/,$d' "$crates"
   cat licenses/engines.html
   echo '<h2>Interface</h2>'
-  for package in svelte @tauri-apps/api; do
+  for package in svelte @tauri-apps/api @lucide/svelte; do
     echo "<h3>$package</h3><pre>"
     sed 's/&/\&amp;/g; s/</\&lt;/g' "$web/$package"/LICENSE* | head -220
     echo '</pre>'

@@ -66,7 +66,7 @@
   ul { list-style: none; margin: 0; padding: 0; }
   li button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius); background: none; text-align: left; cursor: default; }
   li button:hover { background: var(--hover); }
-  .name { font-weight: 500; }
+  .name { font-weight: 600; }
   .muted { font-size: var(--text-caption); }
   .actions { display: flex; gap: var(--space-2); }
   .actions button:not(.primary) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }

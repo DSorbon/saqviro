@@ -121,12 +121,12 @@
   p { margin: 0 0 var(--space-2); }
   section { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .segmented { display: inline-flex; padding: 2px; border-radius: var(--radius); background: var(--hover); }
-  .segmented button { padding: 4px var(--space-3); border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: default; }
+  .segmented button { padding: 4px var(--space-3); border: 0; border-radius: var(--radius); background: none; color: var(--text-muted); cursor: default; }
   .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
   .error { color: var(--danger); user-select: text; }
   .check { display: flex; align-items: center; gap: var(--space-2); }
   .row { display: flex; gap: var(--space-2); }
   .folder { max-width: 100%; overflow-wrap: anywhere; user-select: text; }
-  section button:not(.segmented button) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: default; }
+  section button:not(.segmented button) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   section button:disabled { opacity: 0.5; }
 </style>

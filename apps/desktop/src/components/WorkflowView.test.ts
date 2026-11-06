@@ -17,6 +17,7 @@ vi.mock("../lib/api", () => ({
   runWorkflow: api.runWorkflow,
   cancelJob: api.cancelJob,
   pickFiles: api.pickFiles,
+  imagePreview: async () => ({ data: "", width: 1, height: 1 }),
   saveImage: vi.fn(),
   pickFolder: vi.fn(),
   openFile: vi.fn(),
@@ -114,9 +115,8 @@ describe("WorkflowView", () => {
       tools: [scaled], workflow: current, files: [],
       onChange: (w: Workflow) => (current = w), onDelete: vi.fn(), onCopy: vi.fn(), onBack: vi.fn(),
     });
-    const preset = screen.getByRole("combobox", { name: "Preset of step 1" }) as HTMLSelectElement;
-    expect(preset.value).toBe("s");
-    await fireEvent.change(preset, { target: { value: "l" } });
+    expect(screen.getByRole("radio", { name: "Small" }).getAttribute("aria-checked")).toBe("true");
+    await fireEvent.click(screen.getByRole("radio", { name: "Large" }));
     expect(current.steps[0]!.params).toEqual({ width: 900 });
   });
 

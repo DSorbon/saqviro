@@ -51,7 +51,7 @@
   .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3); }
   label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-caption); color: var(--text-muted); }
   label:has(textarea) { grid-column: 1 / -1; }
-  input:not([type="checkbox"]), select { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
+  input:not([type="checkbox"]), select { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: var(--text-body); }
   input[type="checkbox"] { align-self: flex-start; }
   textarea { width: 100%; min-height: 140px; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
   input[aria-invalid="true"] { border-color: var(--danger); }

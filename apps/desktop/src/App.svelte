@@ -10,7 +10,7 @@
   import WorkflowView from "./components/WorkflowView.svelte";
   import { adviseFiles, listTools, onFileDrop, pickFiles, toolsForFiles, type Advice } from "./lib/api";
   import { activityText, fileName, isActive, type JobSnapshot } from "./lib/job";
-  import { shortcut } from "./lib/platform";
+  import { isMac, shortcut } from "./lib/platform";
   import {
     applyAppearance,
     favoriteTools,
@@ -137,6 +137,7 @@
   }
 
   onMount(() => {
+    document.documentElement.dataset.platform = isMac() ? "mac" : "other";
     listTools().then((t) => (tools = t)).catch((e) => (error = String(e)));
     const unlisten = onFileDrop(receive, (active) => (hovering = active));
     return () => void unlisten.then((f) => f());
@@ -294,7 +295,7 @@
   {#if hovering && (section !== "home" || openTool || openWorkflow || dropped.length > 0)}
     <div class="drop-hint"><span>Drop to use these files</span></div>
   {/if}
-  <div class="toolbar">
+  <div class="toolbar" data-tauri-drag-region>
     <input
       bind:this={searchInput}
       bind:value={query}
@@ -400,13 +401,14 @@
     {:else if section === "activity"}
       <Activity {finished} onSend={send} />
     {:else if section === "favorites"}
-      <ToolList tools={favorites} onOpen={open} />
+      <ToolList tools={favorites} onOpen={open} tiles />
     {:else if section === "recent"}
-      <ToolList tools={recent} onOpen={open} />
+      <ToolList tools={recent} onOpen={open} tiles />
     {:else if section === "settings"}
       <Settings {prefs} onChange={update} />
     {:else}
-      <ToolList tools={groupTools} onOpen={open} />
+      <h1 class="section-title">{allGroups.find((g) => g.id === section)?.label}</h1>
+      <ToolList tools={groupTools} onOpen={open} grouped />
     {/if}
   </main>
 </div>
@@ -414,35 +416,37 @@
 <style>
   .shell {
     display: grid;
-    grid-template-columns: 200px 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: 52px minmax(0, 1fr);
     height: 100%;
   }
   .toolbar {
-    grid-column: 1 / -1;
+    grid-column: 2;
     display: flex;
     align-items: center;
     gap: var(--space-3);
     min-width: 0;
-    padding: var(--space-2) var(--space-3);
+    padding: 0 var(--space-6);
     border-bottom: 1px solid var(--border);
   }
   .toolbar input {
-    width: min(480px, 100%);
-    padding: 6px var(--space-3);
+    flex: 0 1 360px;
+    min-width: 160px;
+    padding: 0 var(--space-3);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius);
     background: var(--surface);
   }
-  .drop-hint { position: fixed; inset: var(--space-2); z-index: 10; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
+  .drop-hint { position: fixed; inset: var(--space-2); z-index: 10; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
   .drop-hint span { padding: var(--space-2) var(--space-4); border-radius: var(--radius); background: var(--surface); font-weight: 600; }
   .waiting { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--text-caption); color: var(--text-muted); }
   .waiting button { height: 22px; padding: 0 var(--space-1); border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
   .waiting .see { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .waiting button:hover { background: var(--hover); color: var(--text); }
+  .section-title { margin: 0 0 var(--space-4); font-size: var(--text-title); }
   .flows-title { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-caption); font-weight: 600; }
   .flows { margin: 0; padding: 0; list-style: none; }
-  .flows button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: default; }
+  .flows button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius); background: none; text-align: left; cursor: default; }
   .flows button:hover { background: var(--hover); }
   .flows strong { font-weight: 600; }
   .flows .muted { font-size: var(--text-caption); }
@@ -452,5 +456,5 @@
   main > :global(:not(.pane)) { margin-bottom: var(--space-6); }
   .pane { display: flex; flex-direction: column; min-height: 100%; }
   .pane[hidden] { display: none; }
-  .pane > :global(article) { flex: 1; min-height: 0; }
+  .pane > :global(article) { flex: 1; min-height: 0; width: 100%; max-width: var(--content); margin-inline: auto; }
 </style>

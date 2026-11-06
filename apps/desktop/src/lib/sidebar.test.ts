@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { relevantGroups, sidebarGroups } from "./sidebar";
+import { relevantGroups, sidebarGroups, subgroups } from "./sidebar";
 
 describe("sidebarGroups", () => {
   it("hides groups without tools and keeps a fixed order", () => {
@@ -25,5 +25,21 @@ describe("relevantGroups", () => {
 
   it("keeps everything when nothing matches", () => {
     expect(relevantGroups(groups, [])).toEqual(groups);
+  });
+});
+
+describe("subgroups", () => {
+  const many = (name: string, n: number) => Array.from({ length: n }, (_, i) => tool(`x.${name}${i}`, `${name} ${i}`));
+
+  it("leaves a short section alone", () => {
+    expect(subgroups(many("Compress", 3))).toHaveLength(1);
+    expect(subgroups(many("Compress", 3))[0]?.label).toBe("");
+  });
+
+  it("splits a long one by kind of work, and loses nothing", () => {
+    const tools = [...many("Compress", 6), ...many("Merge", 6), ...many("Odd", 2)];
+    const groups = subgroups(tools);
+    expect(groups.map((g) => g.label)).toEqual(["Edit", "Combine and split", "More"]);
+    expect(groups.flatMap((g) => g.tools)).toHaveLength(tools.length);
   });
 });
