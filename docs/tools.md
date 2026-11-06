@@ -90,7 +90,7 @@
 | Grayscale Images | Turn images black and white. |
 | HEIC to JPG | Turn iPhone photos into JPG or PNG that open everywhere. |
 | Image Info | See the size, format and camera details of images. |
-| Remove EXIF / Metadata | Remove location, camera and author data without touching the pixels. |
+| Remove EXIF / Metadata | Remove location, camera and author data. HEIC photos are saved as JPG. |
 | Remove Alpha | Put transparent images on a solid background. |
 | Resize Images | Resize one or many images. |
 | Rotate Images | Rotate images by 90, 180 or 270 degrees. |

@@ -42,3 +42,34 @@ fn heic_to_jpg_is_available() {
     assert!(saqviro_tools::executor(&tool).is_some());
     assert!(tool.accepts_extension("HEIC"));
 }
+
+#[test]
+fn metadata_removal_turns_heic_into_a_clean_jpg() {
+    let yaml = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/image/metadata-remove/tool.yaml"),
+    )
+    .unwrap();
+    let tool = saqviro_core::manifest::ToolManifest::from_yaml(&yaml).unwrap();
+    assert!(tool.accepts_extension("heic"));
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("photo.heic");
+    std::fs::copy(fixture(), &source).unwrap();
+    let config = saqviro_jobs::Config {
+        temp_root: dir.path().join("jobs"),
+        workers: 1,
+    };
+    let jobs = saqviro_jobs::JobManager::new(config, |_: &saqviro_jobs::JobSnapshot| {}).unwrap();
+    let exec = saqviro_tools::executor(&tool).unwrap();
+    let input = saqviro_jobs::JobInput::Files(vec![source]);
+    let id = jobs.submit(tool.id.as_str(), exec, input, serde_json::Map::new());
+    let done = jobs.wait(id).unwrap();
+    let Some(saqviro_jobs::JobOutput::Files(files)) = done.output else {
+        panic!("{:?}", done.error);
+    };
+    assert_eq!(files[0].path.file_name().unwrap(), "photo-clean.jpg");
+    assert!(files[0].note.is_some());
+    let bytes = std::fs::read(&files[0].path).unwrap();
+    assert!(!saqviro_tools::advice::has_location(&files[0].path));
+    assert_eq!(Format::detect(&bytes), Some(Format::Jpeg));
+}

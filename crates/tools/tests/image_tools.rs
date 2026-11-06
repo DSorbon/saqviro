@@ -290,6 +290,21 @@ fn crops_to_a_centered_shape() {
 }
 
 #[test]
+fn a_shape_chosen_on_the_picture_stays_where_it_was_put() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("wide.png");
+    let mut picture = image::RgbImage::from_pixel(40, 20, image::Rgb([0, 0, 0]));
+    picture.put_pixel(30, 5, image::Rgb([255, 0, 0]));
+    picture.save(&source).unwrap();
+
+    let params = json!({ "aspect": "1:1", "x": 30, "y": 5, "width": 10, "height": 10 });
+    let (done, _) = run("image.crop", &[source], params);
+    let result = image::open(&outputs(&done)[0].path).unwrap();
+    assert_eq!(result.dimensions(), (10, 10));
+    assert_eq!(result.to_rgb8().get_pixel(0, 0), &image::Rgb([255, 0, 0]));
+}
+
+#[test]
 fn refuses_an_area_outside_the_image() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("small.png");

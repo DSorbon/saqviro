@@ -4,13 +4,13 @@ id: image.metadata.remove
 name: Remove EXIF / Metadata
 category: image
 tool_version: 1
-description: Remove location, camera and author data without touching the pixels.
+description: Remove location, camera and author data. HEIC photos are saved as JPG.
 keywords: [exif, metadata, gps, location, privacy, strip, clean, remove]
 inputs:
   - type: image
     multiple: true
-    mime: [image/jpeg, image/png, image/webp]
-    extensions: [jpg, jpeg, png, webp]
+    mime: [image/jpeg, image/png, image/webp, image/heic, image/heif]
+    extensions: [jpg, jpeg, png, webp, heic, heif]
 outputs:
   - type: image
     multiple: true

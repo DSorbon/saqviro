@@ -42,6 +42,7 @@ struct Made {
     bytes: Vec<u8>,
     ext: &'static str,
     size: Option<(u32, u32)>,
+    note: Option<String>,
 }
 
 impl Made {
@@ -50,6 +51,7 @@ impl Made {
             bytes: encode(img, icc, format, quality)?,
             ext: format.ext(),
             size: Some(img.dimensions()),
+            note: None,
         })
     }
 }
@@ -106,7 +108,7 @@ fn batch(
                 path: written,
                 size: made.bytes.len() as u64,
                 source_size,
-                note: None,
+                note: made.note,
             });
             ctx.progress((i + 1) as f32 / files.len() as f32);
         }
@@ -166,6 +168,7 @@ pub fn compress(template: String) -> Arc<dyn Executor> {
             bytes,
             ext: format.ext(),
             size: None,
+            note: None,
         })
     })
 }
@@ -198,8 +201,11 @@ fn centered(size: (u32, u32), ratio: (u32, u32)) -> (u32, u32, u32, u32) {
 /// The area to keep: x, y, width, height. Reaches the image's edge when a
 /// size is left out, and stops there when it is too large.
 pub fn crop_area(size: (u32, u32), params: &Params) -> Result<(u32, u32, u32, u32), JobError> {
+    // An area of the shape, chosen on the picture, wins over the middle of the image.
+    let area_given = param_u32(params, "width").is_some() && param_u32(params, "height").is_some();
     if let Some((w, h)) = param_str(params, "aspect").and_then(|a| a.split_once(':'))
         && let (Ok(w), Ok(h)) = (w.parse(), h.parse())
+        && !area_given
     {
         return Ok(centered(size, (w, h)));
     }
@@ -230,6 +236,13 @@ pub fn remove_metadata(template: String) -> Arc<dyn Executor> {
     batch(template, |path, _| {
         let original = read(path)?;
         let format = Format::detect(&original).unwrap_or(Format::Png);
+        // HEIC cannot be cleaned in place, and a new JPEG carries only the pixels.
+        if format == Format::Heic {
+            let Picture { image, icc, .. } = decode(path)?;
+            let made = Made::image(&image, icc.as_deref(), Format::Jpeg, NEAR_LOSSLESS)?;
+            let note = Some("Saved as JPG: metadata cannot be removed from HEIC itself.".to_owned());
+            return Ok(Made { note, ..made });
+        }
         let clean = metadata::strip(&original)?;
         if metadata::strip(&clean)? != clean {
             return Err(JobError::new(
@@ -241,6 +254,7 @@ pub fn remove_metadata(template: String) -> Arc<dyn Executor> {
             bytes: clean,
             ext: format.ext(),
             size: None,
+            note: None,
         })
     })
 }
@@ -445,6 +459,7 @@ pub fn to_ico(template: String) -> Arc<dyn Executor> {
             bytes: ico_bytes(&picture.image, &[16, 24, 32, 48, 64, 128, 256])?,
             ext: "ico",
             size: None,
+            note: None,
         })
     })
 }
@@ -741,6 +756,7 @@ pub fn svg_to_png(template: String) -> Arc<dyn Executor> {
             bytes,
             ext: "png",
             size: Some((w, h)),
+            note: None,
         })
     })
 }
