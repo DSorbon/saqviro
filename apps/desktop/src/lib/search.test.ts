@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
 import { searchTools } from "./search";
+import type { Tool } from "./types";
 
 const tools = [
   tool("image.resize", "Resize Images", {
@@ -24,11 +25,11 @@ describe("searchTools", () => {
   });
 
   it("matches keywords and file extensions", () => {
-    expect(ids("shrink")).toEqual(["image.resize"]);
+    expect(ids("shrink")[0]).toBe("image.resize");
     expect(ids("heic")).toEqual(["image.resize"]);
   });
 
-  it("requires every word to match, in any order", () => {
+  it("prefers tools that match every word, in any order", () => {
     expect(ids("pdf com")).toEqual(["pdf.compress"]);
     expect(ids("com pdf")).toEqual(["pdf.compress"]);
   });
@@ -45,5 +46,50 @@ describe("searchTools", () => {
   it("is case-insensitive and finds nothing for unknown words", () => {
     expect(ids("MERGE")).toEqual(["pdf.merge"]);
     expect(ids("zzz")).toEqual([]);
+  });
+
+  it("ignores filler words", () => {
+    expect(ids("merge these two pdf")).toEqual(["pdf.merge"]);
+    expect(ids("the")).toEqual([]);
+  });
+
+  it("understands other words for the same thing", () => {
+    expect(ids("join pdf")).toEqual(["pdf.merge"]);
+    expect(ids("photo")).toEqual(["image.resize"]);
+  });
+
+  it("falls back to the tools that match the most words", () => {
+    expect(ids("compress zzz")).toEqual(["pdf.compress", "video.compress"]);
+  });
+});
+
+// The real catalog, read straight from the manifests.
+const manifests = import.meta.glob("../../../../tools/**/tool.yaml", { query: "?raw", import: "default", eager: true });
+const catalog = Object.values(manifests).map((source) => {
+  const text = source as string;
+  const field = (name: string) => new RegExp(`^${name}: (.*)$`, "m").exec(text)?.[1]?.replace(/^"|"$/g, "") ?? "";
+  const list = (found: string) => found.replace(/[[\]]/g, "").split(",").map((w) => w.trim()).filter(Boolean);
+  return tool(field("id"), field("name"), {
+    category: field("category") as Tool["category"],
+    description: field("description"),
+    keywords: list(field("keywords")),
+    inputs: [{ type: "any", extensions: list(/extensions: (\[.*\])/.exec(text)?.[1] ?? "") }],
+  });
+});
+
+describe("goals in plain words", () => {
+  it.each([
+    ["make this photo smaller", ["image.compress", "image.resize"]],
+    ["photo smaller", ["image.compress", "image.resize"]],
+    ["remove location from a photo", ["image.metadata.remove"]],
+    ["join two PDFs", ["pdf.merge"]],
+    ["rotate photo", ["image.rotate"]],
+    ["video to mp3", ["video.extract-audio"]],
+    ["make a video smaller", ["video.compress"]],
+    ["cut a video", ["video.trim"]],
+    ["lock a pdf", ["pdf.password.add"]],
+  ])("%s", (goal, wanted) => {
+    const top = searchTools(catalog, goal).slice(0, 5).map((t) => t.id);
+    for (const id of wanted) expect(top).toContain(id);
   });
 });
