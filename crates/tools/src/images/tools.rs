@@ -695,7 +695,7 @@ pub fn svg_to_png(template: String) -> Arc<dyn Executor> {
         let bytes = read(path)?;
         let mut options = usvg::Options::default();
         options.image_href_resolver.resolve_string = Box::new(|_, _| None);
-        options.fontdb_mut().load_system_fonts();
+        super::overlay::load_fonts(&mut options);
         let wrong =
             |e: usvg::Error| JobError::new(ErrorKind::UnsupportedFormat, format!("this SVG could not be read: {e}"));
         let tree = usvg::Tree::from_data(&bytes, &options).map_err(wrong)?;

@@ -19,6 +19,26 @@ fn escaped(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
+/// The fonts of this computer. `sans-serif` means Arial unless told otherwise,
+/// and Linux usually has no Arial.
+pub fn load_fonts(options: &mut usvg::Options<'_>) {
+    let fonts = options.fontdb_mut();
+    fonts.load_system_fonts();
+    let has = |family: &str| fonts.faces().any(|f| f.families.iter().any(|(name, _)| name == family));
+    let wanted = ["Arial", "Helvetica", "Noto Sans", "DejaVu Sans", "Liberation Sans"];
+    let found = wanted.into_iter().find(|f| has(f)).map(str::to_owned);
+    let any = || {
+        fonts
+            .faces()
+            .next()
+            .and_then(|f| f.families.first())
+            .map(|(name, _)| name.clone())
+    };
+    if let Some(family) = found.or_else(any) {
+        fonts.set_sans_serif_family(family);
+    }
+}
+
 /// What a watermark should look like, read from a tool's parameters.
 #[derive(Debug, Clone)]
 pub struct Watermark {
