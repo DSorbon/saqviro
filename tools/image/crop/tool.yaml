@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.crop
+name: Crop Images
+category: image
+tool_version: 1
+description: Cut out part of an image, or crop to a shape such as a square.
+keywords: [crop, cut, trim, square, aspect ratio, region]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-cropped.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: true, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: aspect, type: enum, values: [selection, "1:1", "4:3", "3:2", "16:9", "9:16"], default: selection }
+  - { id: x, type: integer, min: 0, default: 0 }
+  - { id: y, type: integer, min: 0, default: 0 }
+  - { id: width, type: integer, min: 1, optional: true }
+  - { id: height, type: integer, min: 1, optional: true }
+presets:
+  - { id: selection, name: Selection, params: { aspect: selection } }
+  - { id: square, name: Square, params: { aspect: "1:1" } }
+  - { id: wide, name: "16:9", params: { aspect: "16:9" } }
+ui:
+  preview: crop

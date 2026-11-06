@@ -58,6 +58,7 @@ fn start_job(
     tool_id: &str,
     input: JobInput,
     params: &Params,
+    output_dir: Option<PathBuf>,
 ) -> Result<JobId, JobError> {
     let tool = registry
         .get(tool_id)
@@ -68,7 +69,7 @@ fn start_job(
         let message = issues.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
         JobError::new(ErrorKind::InvalidInput, message)
     })?;
-    Ok(jobs.submit(tool_id, executor, input, params))
+    Ok(jobs.submit_to(tool_id, executor, input, params, output_dir))
 }
 
 #[tauri::command]
@@ -95,8 +96,24 @@ fn run_tool(
     tool_id: String,
     input: JobInput,
     params: Params,
+    output_dir: Option<PathBuf>,
 ) -> Result<JobId, JobError> {
-    start_job(&registry, &jobs, &tool_id, input, &params)
+    start_job(&registry, &jobs, &tool_id, input, &params, output_dir)
+}
+
+/// A small picture of an image, for choosing an area of it.
+#[tauri::command]
+async fn image_preview(path: PathBuf) -> Result<saqviro_tools::images::Preview, JobError> {
+    tauri::async_runtime::spawn_blocking(move || saqviro_tools::images::preview(&path, PREVIEW_SIZE))
+        .await
+        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
+}
+
+/// Native folder picker. Resolves to `None` if the user cancels.
+#[tauri::command]
+async fn pick_folder<R: Runtime>(app: AppHandle<R>) -> Option<String> {
+    let folder = app.dialog().file().blocking_pick_folder()?;
+    Some(folder.into_path().ok()?.display().to_string())
 }
 
 #[tauri::command]
@@ -173,6 +190,9 @@ fn open_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: S
         .open_path(path.display().to_string(), None::<&str>)
         .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))
 }
+
+/// Longest side of the picture shown for choosing an area, in pixels.
+const PREVIEW_SIZE: u32 = 1000;
 
 /// Set when building a release. Without it the app has no way to trust an
 /// update, so it does not offer any.
@@ -290,6 +310,8 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             list_tools,
             tools_for_files,
             run_tool,
+            image_preview,
+            pick_folder,
             cancel_job,
             pick_files,
             save_image,
@@ -431,6 +453,7 @@ mod tests {
             "developer.json.format",
             JobInput::Text("[1]".into()),
             &params(json!({})),
+            None,
         )
         .unwrap();
         let done = jobs.wait(id).unwrap();
@@ -444,7 +467,7 @@ mod tests {
         let registry = bundled_registry();
         let text = || JobInput::Text("[]".into());
 
-        let err = start_job(&registry, &jobs, "pdf.nope", text(), &Params::new()).unwrap_err();
+        let err = start_job(&registry, &jobs, "pdf.nope", text(), &Params::new(), None).unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidInput);
 
         let err = start_job(
@@ -453,13 +476,22 @@ mod tests {
             "developer.json.format",
             text(),
             &params(json!({ "indent": "8" })),
+            None,
         )
         .unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidInput);
         assert!(err.message.contains("indent"), "{}", err.message);
 
         let planned = planned_only_registry();
-        let err = start_job(&planned, &jobs, "image.crop", JobInput::Files(vec![]), &Params::new()).unwrap_err();
+        let err = start_job(
+            &planned,
+            &jobs,
+            "image.planned",
+            JobInput::Files(vec![]),
+            &Params::new(),
+            None,
+        )
+        .unwrap_err();
         assert_eq!(err.kind, ErrorKind::EngineMissing);
     }
 
@@ -467,8 +499,8 @@ mod tests {
     fn planned_only_registry() -> Registry {
         let yaml = r#"
 schema_version: 1
-id: image.crop
-name: Crop Images
+id: image.planned
+name: Planned
 category: image
 tool_version: 1
 description: Crop.
@@ -487,7 +519,7 @@ presets: [{ id: default, name: Default }]
     #[test]
     fn only_implemented_tools_are_available() {
         assert!(is_available(bundled_registry().get("image.resize").unwrap()));
-        assert!(!is_available(planned_only_registry().get("image.crop").unwrap()));
+        assert!(!is_available(planned_only_registry().get("image.planned").unwrap()));
         assert!(accepted_extensions(&planned_only_registry(), None).is_empty());
     }
 
@@ -496,7 +528,7 @@ presets: [{ id: default, name: Default }]
         let (jobs, _root) = jobs();
         let registry = bundled_registry();
         let qr = Params::from_iter([("format".to_owned(), "png".into())]);
-        let id = start_job(&registry, &jobs, "qr.generate", JobInput::Text("hi".into()), &qr).unwrap();
+        let id = start_job(&registry, &jobs, "qr.generate", JobInput::Text("hi".into()), &qr, None).unwrap();
         jobs.wait(id).unwrap();
         let (bytes, ext) = job_image(&jobs, id).unwrap();
         assert_eq!((&bytes[1..4], ext.as_str()), (&b"PNG"[..], "png"));
@@ -507,6 +539,7 @@ presets: [{ id: default, name: Default }]
             "text.word-count",
             JobInput::Text("hi".into()),
             &Params::new(),
+            None,
         )
         .unwrap();
         jobs.wait(text).unwrap();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { appVersion, checkUpdate, installUpdate, openLicenses, updatesEnabled, type AvailableUpdate } from "../lib/api";
+  import { appVersion, checkUpdate, installUpdate, openLicenses, pickFolder, updatesEnabled, type AvailableUpdate } from "../lib/api";
   import { errorText, type JobError } from "../lib/job";
   import type { Prefs, Theme } from "../lib/prefs";
 
@@ -47,6 +47,11 @@
       return "idle";
     });
 
+  async function chooseFolder() {
+    const outputDir = await pickFolder();
+    if (outputDir) onChange({ ...prefs, outputDir });
+  }
+
   async function licenses() {
     problem = "";
     try {
@@ -75,6 +80,15 @@
       />
       Reduce motion
     </label>
+  </section>
+
+  <section>
+    <h2>Results</h2>
+    <p class="muted folder" title={prefs.outputDir ?? ""}>{prefs.outputDir ?? "Saved next to the original files."}</p>
+    <div class="row">
+      <button onclick={chooseFolder}>Choose folder…</button>
+      {#if prefs.outputDir}<button onclick={() => onChange({ ...prefs, outputDir: null })}>Use the original folder</button>{/if}
+    </div>
   </section>
 
   <section>
@@ -111,6 +125,8 @@
   .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
   .error { color: var(--danger); user-select: text; }
   .check { display: flex; align-items: center; gap: var(--space-2); }
-  section > button { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: default; }
-  section > button:disabled { opacity: 0.5; }
+  .row { display: flex; gap: var(--space-2); }
+  .folder { max-width: 100%; overflow-wrap: anywhere; user-select: text; }
+  section button:not(.segmented button) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: default; }
+  section button:disabled { opacity: 0.5; }
 </style>

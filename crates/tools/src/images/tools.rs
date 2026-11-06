@@ -3,16 +3,13 @@
 //! The first failing file fails the whole job, and results already written
 //! by that job are removed.
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 
 use image::{DynamicImage, GenericImageView};
 use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, OutputFile, Params};
 
 use super::{Fit, Format, Picture, decode, encode, metadata, read, resize as resize_image};
-use crate::output::{Outputs, render_name};
+use crate::output::{Outputs, render_name, target_dir};
 
 /// Quality used when a tool must re-encode but the user did not choose one.
 const NEAR_LOSSLESS: u8 = 92;
@@ -100,10 +97,7 @@ fn batch(
                 &template,
                 &[("stem", &stem(path)), ("ext", made.ext), ("width", &w), ("height", &h)],
             );
-            let dir = path
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| PathBuf::from("."));
+            let dir = target_dir(ctx, path);
             let written = outputs
                 .write(&dir, &name, &made.bytes)
                 .map_err(|e| with_name(path, e))?;
@@ -185,6 +179,49 @@ pub fn rotate(template: String) -> Arc<dyn Executor> {
             _ => image.rotate90(),
         };
         Made::image(&rotated, icc.as_deref(), writable(format), NEAR_LOSSLESS)
+    })
+}
+
+/// The largest centered area with this width-to-height ratio.
+fn centered(size: (u32, u32), ratio: (u32, u32)) -> (u32, u32, u32, u32) {
+    let (w, h) = (u64::from(size.0), u64::from(size.1));
+    let (rw, rh) = (u64::from(ratio.0), u64::from(ratio.1));
+    let (cw, ch) = if w * rh > h * rw {
+        (h * rw / rh, h)
+    } else {
+        (w, w * rh / rw)
+    };
+    let (cw, ch) = (cw.max(1) as u32, ch.max(1) as u32);
+    ((size.0 - cw) / 2, (size.1 - ch) / 2, cw, ch)
+}
+
+/// The area to keep: x, y, width, height. Reaches the image's edge when a
+/// size is left out, and stops there when it is too large.
+pub fn crop_area(size: (u32, u32), params: &Params) -> Result<(u32, u32, u32, u32), JobError> {
+    if let Some((w, h)) = param_str(params, "aspect").and_then(|a| a.split_once(':'))
+        && let (Ok(w), Ok(h)) = (w.parse(), h.parse())
+    {
+        return Ok(centered(size, (w, h)));
+    }
+    let x = param_u32(params, "x").unwrap_or(0);
+    let y = param_u32(params, "y").unwrap_or(0);
+    if x >= size.0 || y >= size.1 {
+        return Err(JobError::new(
+            ErrorKind::InvalidInput,
+            format!("the area starts outside the {}×{} image", size.0, size.1),
+        ));
+    }
+    let width = param_u32(params, "width").map_or(size.0 - x, |w| w.min(size.0 - x));
+    let height = param_u32(params, "height").map_or(size.1 - y, |h| h.min(size.1 - y));
+    Ok((x, y, width, height))
+}
+
+pub fn crop(template: String) -> Arc<dyn Executor> {
+    batch(template, |path, params| {
+        let Picture { image, icc, format } = decode(path)?;
+        let (x, y, width, height) = crop_area(image.dimensions(), params)?;
+        let cropped = image.crop_imm(x, y, width, height);
+        Made::image(&cropped, icc.as_deref(), writable(format), NEAR_LOSSLESS)
     })
 }
 

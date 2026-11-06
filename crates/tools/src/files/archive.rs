@@ -15,7 +15,7 @@ use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutpu
 use zip::{CompressionMethod, DateTime, ZipArchive, ZipWriter, result::ZipError, write::SimpleFileOptions};
 
 use crate::{
-    output::{Outputs, file_stem, input_files, name_error, render_name},
+    output::{Outputs, file_stem, input_files, name_error, render_name, target_dir},
     params,
 };
 
@@ -193,7 +193,7 @@ pub fn create(template: String) -> Arc<dyn Executor> {
         ctx.check_cancelled()?;
 
         let name = render_name(&template, &[("stem", &file_stem(&inputs[0]))]);
-        let dir = inputs[0].parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+        let dir = target_dir(ctx, &inputs[0]);
         let size = fs::metadata(&archive)?.len();
         let mut outputs = Outputs::new();
         let path = outputs.adopt(&dir, &name, &archive)?;
@@ -318,7 +318,7 @@ pub fn extract(template: String) -> Arc<dyn Executor> {
         for (i, path) in archives.iter().enumerate() {
             let share = 1.0 / archives.len() as f32;
             let name = render_name(&template, &[("stem", &file_stem(path))]);
-            let dir = path.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+            let dir = target_dir(ctx, path);
             let file = File::open(path).map_err(|e| name_error(path, e.into()))?;
             let source_size = file.metadata()?.len();
             let target = outputs.folder(&dir, &name)?;

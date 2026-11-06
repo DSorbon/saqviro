@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   revealFile: vi.fn(),
   openFile: vi.fn(),
   saveImage: vi.fn(),
+  imagePreview: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -22,6 +23,7 @@ vi.mock("../lib/api", () => ({
   revealFile: api.revealFile,
   openFile: api.openFile,
   saveImage: api.saveImage,
+  imagePreview: api.imagePreview,
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -70,7 +72,7 @@ describe("ToolView with files", () => {
     expect(screen.getByText("a.jpg")).toBeTruthy();
     expect(screen.getByText("b.jpg")).toBeTruthy();
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
-    expect(api.runTool).toHaveBeenCalledWith(compress.id, { kind: "files", value: ["/photos/a.jpg", "/photos/b.jpg"] }, { quality: 75 });
+    expect(api.runTool).toHaveBeenCalledWith(compress.id, { kind: "files", value: ["/photos/a.jpg", "/photos/b.jpg"] }, { quality: 75 }, null);
   });
 
   it("adds files from the picker without duplicates and can clear them", async () => {
@@ -117,7 +119,7 @@ describe("ToolView", () => {
     expect(container.querySelector("textarea")).toBeNull();
     expect(screen.queryByText("Drop files on this window")).toBeNull();
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
-    expect(api.runTool).toHaveBeenCalledWith(tool.id, { kind: "text", value: "" }, {});
+    expect(api.runTool).toHaveBeenCalledWith(tool.id, { kind: "text", value: "" }, {}, null);
   });
 
   it("allows optional text to stay empty", () => {
@@ -145,7 +147,7 @@ describe("ToolView", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Move a.jpg down" }));
     expect(screen.getAllByRole("listitem").map((l) => l.textContent?.slice(0, 5))).toEqual(["b.jpg", "a.jpg"]);
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
-    expect(api.runTool).toHaveBeenCalledWith(merge.id, { kind: "files", value: ["/b.jpg", "/a.jpg"] }, expect.anything());
+    expect(api.runTool).toHaveBeenCalledWith(merge.id, { kind: "files", value: ["/b.jpg", "/a.jpg"] }, expect.anything(), null);
     unmount();
 
     render(ToolView, { tool: compress, files: ["/a.jpg", "/b.jpg"] });
@@ -191,7 +193,7 @@ describe("ToolView", () => {
     await fireEvent.click(screen.getByRole("radio", { name: "Minify" }));
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
 
-    expect(api.runTool).toHaveBeenCalledWith(json.id, { kind: "text", value: '{"a":1}' }, { indent: "minify", sort_keys: false });
+    expect(api.runTool).toHaveBeenCalledWith(json.id, { kind: "text", value: '{"a":1}' }, { indent: "minify", sort_keys: false }, null);
 
     emit({ status: "running", progress: 0.5 });
     expect(await screen.findByText("Working… 50%")).toBeTruthy();
@@ -239,5 +241,57 @@ describe("ToolView", () => {
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     emit({ id: 99, status: "completed", output: { kind: "text", value: "other" } });
     expect(screen.queryByLabelText("Result")).toBeNull();
+  });
+});
+
+describe("ToolView for cropping", () => {
+  const crop = tool("image.crop", "Crop Images", {
+    inputs: [{ type: "image", extensions: ["png"] }],
+    parameters: [
+      { id: "aspect", type: "enum", values: ["selection", "1:1"], default: "selection" },
+      { id: "x", type: "integer", default: 0 },
+      { id: "y", type: "integer", default: 0 },
+      { id: "width", type: "integer", optional: true },
+      { id: "height", type: "integer", optional: true },
+    ],
+    presets: [
+      { id: "selection", name: "Selection", params: { aspect: "selection" } },
+      { id: "square", name: "Square", params: { aspect: "1:1" } },
+    ],
+    ui: { preview: "crop" },
+  });
+
+  it("turns a drag on the picture into the area it runs with", async () => {
+    api.imagePreview.mockResolvedValue({ data: "AA==", width: 400, height: 200 });
+    render(ToolView, { tool: crop, files: ["/a.png"] });
+    const stage = (await screen.findByAltText("Preview")).parentElement!;
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+
+    await fireEvent.pointerDown(stage, { clientX: 10, clientY: 10 });
+    await fireEvent.pointerMove(stage, { clientX: 60, clientY: 35 });
+    await fireEvent.pointerUp(stage);
+    expect(screen.getByText("100 × 50 of 400 × 200")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(api.runTool).toHaveBeenCalledWith(
+      "image.crop",
+      { kind: "files", value: ["/a.png"] },
+      { aspect: "selection", x: 20, y: 20, width: 100, height: 50 },
+      null,
+    );
+  });
+
+  it("shows the shape a preset will cut", async () => {
+    api.imagePreview.mockResolvedValue({ data: "AA==", width: 400, height: 200 });
+    render(ToolView, { tool: crop, files: ["/a.png"] });
+    await screen.findByAltText("Preview");
+    await fireEvent.click(screen.getByRole("radio", { name: "Square" }));
+    expect(screen.getByText("200 × 200 of 400 × 200")).toBeTruthy();
+  });
+
+  it("sends results to the chosen folder", async () => {
+    render(ToolView, { tool: compress, files: ["/a.jpg"], outputDir: "/out" });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(api.runTool.mock.calls[0]![3]).toBe("/out");
   });
 });

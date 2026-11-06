@@ -157,6 +157,7 @@
     {:else if openTool}
       {#key openTool.id}
         <ToolView
+          outputDir={prefs.outputDir}
           tool={openTool}
           {files}
           favorite={prefs.favorites.includes(openTool.id)}

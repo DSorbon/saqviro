@@ -256,3 +256,87 @@ fn file_tools_reject_text_input() {
     };
     assert_eq!(done_empty.error.unwrap().kind, ErrorKind::InvalidInput);
 }
+
+#[test]
+fn crops_a_selection_and_stops_at_the_edge() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("wide.png");
+    image::RgbImage::from_pixel(40, 20, image::Rgb([9, 9, 9]))
+        .save(&source)
+        .unwrap();
+
+    let (done, _) = run(
+        "image.crop",
+        std::slice::from_ref(&source),
+        json!({ "x": 30, "y": 5, "width": 100, "height": 10 }),
+    );
+    let file = &outputs(&done)[0];
+    assert_eq!(file.path.file_name().unwrap(), "wide-cropped.png");
+    assert_eq!(image::open(&file.path).unwrap().dimensions(), (10, 10));
+}
+
+#[test]
+fn crops_to_a_centered_shape() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("wide.png");
+    let mut picture = image::RgbImage::from_pixel(40, 20, image::Rgb([0, 0, 0]));
+    picture.put_pixel(10, 0, image::Rgb([255, 0, 0]));
+    picture.save(&source).unwrap();
+
+    let (done, _) = run("image.crop", &[source], json!({ "aspect": "1:1" }));
+    let result = image::open(&outputs(&done)[0].path).unwrap();
+    assert_eq!(result.dimensions(), (20, 20));
+    assert_eq!(result.to_rgb8().get_pixel(0, 0), &image::Rgb([255, 0, 0]));
+}
+
+#[test]
+fn refuses_an_area_outside_the_image() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("small.png");
+    image::RgbImage::new(10, 10).save(&source).unwrap();
+
+    let (done, _) = run("image.crop", &[source], json!({ "x": 10, "width": 5 }));
+    assert_eq!(done.status, JobStatus::Failed);
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn a_preview_is_small_but_reports_the_real_size() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("big.png");
+    image::RgbImage::new(300, 100).save(&source).unwrap();
+
+    let preview = saqviro_tools::images::preview(&source, 60).unwrap();
+    assert_eq!((preview.width, preview.height), (300, 100));
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(preview.data).unwrap();
+    assert_eq!(image::load_from_memory(&bytes).unwrap().dimensions(), (60, 20));
+}
+
+#[test]
+fn results_go_to_the_chosen_folder() {
+    let registry = registry();
+    let tool = registry.get("image.rotate").unwrap();
+    let params = tool.resolve_params(json!({}).as_object().unwrap()).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.png");
+    image::RgbImage::new(4, 2).save(&source).unwrap();
+
+    let config = Config {
+        temp_root: dir.path().join("jobs"),
+        workers: 1,
+    };
+    let jobs = JobManager::new(config, |_: &JobSnapshot| {}).unwrap();
+    let exec = saqviro_tools::executor(tool).unwrap();
+    let id = jobs.submit_to(
+        tool.id.as_str(),
+        exec,
+        JobInput::Files(vec![source]),
+        params,
+        Some(elsewhere.path().to_path_buf()),
+    );
+    let done = jobs.wait(id).unwrap();
+    assert_eq!(outputs(&done)[0].path.parent().unwrap(), elsewhere.path());
+    assert!(!dir.path().join("a-rotated.png").exists());
+}

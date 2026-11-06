@@ -17,7 +17,7 @@ use super::{
     Encoders, Engine,
     probe::{AudioStream, Probe, VideoStream, describe},
 };
-use crate::output::{Outputs, file_stem, input_files, name_error, render_name};
+use crate::output::{Outputs, file_stem, input_files, name_error, render_name, target_dir};
 
 /// Lowest video bitrate worth producing, in bits per second.
 const MIN_VIDEO_BITRATE: u64 = 150_000;
@@ -451,7 +451,7 @@ fn batch(
             let made = make(&step).map_err(|e| name_error(path, e))?;
 
             let name = render_name(&template, &[("stem", &file_stem(path)), ("ext", made.ext)]);
-            let dir = path.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+            let dir = target_dir(ctx, path);
             let size = fs::metadata(&made.file)?.len();
             let written = outputs.adopt(&dir, &name, &made.file)?;
             results.push(OutputFile {

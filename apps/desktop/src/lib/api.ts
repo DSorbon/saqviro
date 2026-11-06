@@ -10,8 +10,21 @@ export const listTools = () => invoke<Tool[]>("list_tools");
 export const toolsForFiles = (paths: string[]) => invoke<string[]>("tools_for_files", { paths });
 
 /** Queues a job and returns its id. Rejects with a `JobError` if the request is invalid. */
-export const runTool = (toolId: string, input: JobInput, params: Record<string, ParamValue>) =>
-  invoke<number>("run_tool", { toolId, input, params });
+export const runTool = (toolId: string, input: JobInput, params: Record<string, ParamValue>, outputDir: string | null = null) =>
+  invoke<number>("run_tool", { toolId, input, params, outputDir });
+
+export interface ImagePreview {
+  /** A JPEG, in Base64. */
+  data: string;
+  /** The size of the image itself, not of the preview. */
+  width: number;
+  height: number;
+}
+
+export const imagePreview = (path: string) => invoke<ImagePreview>("image_preview", { path });
+
+/** Native folder picker. Resolves to null if the user cancels. */
+export const pickFolder = () => invoke<string | null>("pick_folder");
 
 export const cancelJob = (id: number) => invoke<boolean>("cancel_job", { id });
 

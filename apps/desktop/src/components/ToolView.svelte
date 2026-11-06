@@ -14,13 +14,16 @@
     type JobError,
     type JobSnapshot,
   } from "../lib/job";
+  import type { Area } from "../lib/crop";
   import { initialParams, isAdvanced, paramLabel } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { Parameter, ParamValue, Tool } from "../lib/types";
+  import CropBox from "./CropBox.svelte";
 
-  let { tool, files: dropped, favorite = false, onToggleFavorite, onRan, onSend }: {
+  let { tool, files: dropped, outputDir = null, favorite = false, onToggleFavorite, onRan, onSend }: {
     tool: Tool;
     files: string[];
+    outputDir?: string | null;
     favorite?: boolean;
     onToggleFavorite?: () => void;
     onRan?: () => void;
@@ -77,11 +80,16 @@
     const chosen = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null && v !== undefined && v !== ""));
     const input = kind === "files" ? { kind: "files" as const, value: files } : { kind: "text" as const, value: text };
     try {
-      jobId = await runTool(tool.id, input, chosen);
+      jobId = await runTool(tool.id, input, chosen, outputDir);
       onRan?.();
     } catch (e) {
       requestError = e as JobError;
     }
+  }
+
+  function selectArea(area: Area) {
+    presetId = tool.presets[0]?.id;
+    values = { ...values, ...area, aspect: "selection" };
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -159,6 +167,10 @@
         <button onclick={choose} disabled={running}>Choose files…</button>
       </div>
     </section>
+  {/if}
+
+  {#if tool.ui?.preview === "crop" && files[0]}
+    <CropBox path={files[0]} {values} disabled={running} onSelect={selectArea} />
   {/if}
 
   {#if tool.presets.length > 1}

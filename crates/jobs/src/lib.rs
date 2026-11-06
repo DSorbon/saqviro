@@ -159,12 +159,18 @@ pub struct JobContext {
     cancel: Arc<AtomicBool>,
     temp_root: PathBuf,
     temp: OnceLock<TempDir>,
+    output_dir: Option<PathBuf>,
     report: Box<dyn Fn(f32) + Send + Sync>,
 }
 
 impl JobContext {
     pub fn is_cancelled(&self) -> bool {
         self.cancel.load(Ordering::Relaxed)
+    }
+
+    /// The folder the user wants results in, if they chose one.
+    pub fn output_dir(&self) -> Option<&Path> {
+        self.output_dir.as_deref()
     }
 
     /// Call between units of work: `ctx.check_cancelled()?`.
@@ -200,7 +206,7 @@ pub struct Config {
     pub workers: usize,
 }
 
-type Work = (Arc<dyn Executor>, JobInput, Params);
+type Work = (Arc<dyn Executor>, JobInput, Params, Option<PathBuf>);
 
 struct Entry {
     snapshot: JobSnapshot,
@@ -289,6 +295,18 @@ impl JobManager {
     }
 
     pub fn submit(&self, tool_id: &str, executor: Arc<dyn Executor>, input: JobInput, params: Params) -> JobId {
+        self.submit_to(tool_id, executor, input, params, None)
+    }
+
+    /// Like `submit`, with the results going to `output_dir`.
+    pub fn submit_to(
+        &self,
+        tool_id: &str,
+        executor: Arc<dyn Executor>,
+        input: JobInput,
+        params: Params,
+        output_dir: Option<PathBuf>,
+    ) -> JobId {
         let snapshot = {
             let mut state = self.shared.lock();
             state.next_id += 1;
@@ -306,7 +324,7 @@ impl JobManager {
             let entry = Entry {
                 snapshot: snapshot.clone(),
                 cancel: Arc::default(),
-                work: Some((executor, input, params)),
+                work: Some((executor, input, params, output_dir)),
                 announced: false,
             };
             state.jobs.insert(id, entry);
@@ -388,7 +406,7 @@ impl Drop for JobManager {
 
 fn worker(shared: &Arc<Shared>) {
     loop {
-        let (id, cancel, (executor, input, params)) = {
+        let (id, cancel, (executor, input, params, output_dir)) = {
             let mut state = shared.lock();
             loop {
                 if state.shutdown {
@@ -418,6 +436,7 @@ fn worker(shared: &Arc<Shared>) {
             cancel,
             temp_root: shared.temp_root.clone(),
             temp: OnceLock::new(),
+            output_dir,
             report: Box::new(report),
         };
         let result = catch_unwind(AssertUnwindSafe(|| executor.run(&ctx, input, &params)))

@@ -18,7 +18,7 @@ use super::{
     secret_file,
 };
 use crate::{
-    output::{Outputs, file_stem, input_files, name_error, render_name},
+    output::{Outputs, file_stem, input_files, name_error, render_name, target_dir},
     process::{find_binary, search_dirs, supervise},
 };
 
@@ -96,6 +96,7 @@ impl Made {
 }
 
 fn collect(
+    ctx: &JobContext,
     outputs: &mut Outputs,
     results: &mut Vec<OutputFile>,
     template: &str,
@@ -106,7 +107,7 @@ fn collect(
     let source_size = (made.len() == 1)
         .then(|| fs::metadata(source).ok().map(|m| m.len()))
         .flatten();
-    let dir = source.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    let dir = target_dir(ctx, source);
     for item in made {
         let name = render_name(template, &[("stem", stem), ("part", &item.part), ("ext", item.ext)]);
         let size = fs::metadata(&item.file)?.len();
@@ -146,7 +147,7 @@ fn batch(
                 span: (start, start + share),
             };
             let made = make(&step).map_err(|e| name_error(path, e))?;
-            collect(&mut outputs, &mut results, &template, path, &file_stem(path), made)?;
+            collect(ctx, &mut outputs, &mut results, &template, path, &file_stem(path), made)?;
             ctx.progress(start + share);
         }
         ctx.check_cancelled()?;
@@ -170,7 +171,7 @@ fn combine(
         let total = files.iter().filter_map(|f| fs::metadata(f).ok()).map(|m| m.len()).sum();
         let stem = file_stem(&files[0]);
         let made = Made::pdf(result);
-        collect(&mut outputs, &mut results, &template, &files[0], &stem, made)?;
+        collect(ctx, &mut outputs, &mut results, &template, &files[0], &stem, made)?;
         results[0].source_size = Some(total);
         outputs.finish();
         Ok(JobOutput::Files(results))

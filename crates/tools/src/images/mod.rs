@@ -341,3 +341,29 @@ pub fn resize(img: &DynamicImage, width: Option<u32>, height: Option<u32>, fit: 
         .map_err(|e| JobError::new(ErrorKind::Unknown, format!("resize failed: {e}")))?;
     Ok(dst)
 }
+
+/// A small JPEG of an image, and the size of the image itself.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Preview {
+    /// The JPEG, in Base64.
+    pub data: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Decodes `path` the way the tools do, so a position in the preview is the
+/// same position in their input.
+pub fn preview(path: &Path, longest_side: u32) -> Result<Preview, JobError> {
+    use base64::Engine;
+    use image::GenericImageView;
+
+    let picture = decode(path)?;
+    let (width, height) = picture.image.dimensions();
+    let small = picture.image.thumbnail(longest_side, longest_side);
+    let bytes = encode(&small, None, Format::Jpeg, 80)?;
+    Ok(Preview {
+        data: base64::engine::general_purpose::STANDARD.encode(bytes),
+        width,
+        height,
+    })
+}

@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use saqviro_jobs::{ErrorKind, JobError, JobInput};
+use saqviro_jobs::{ErrorKind, JobContext, JobError, JobInput};
 
 /// Replaces `{name}` placeholders in one pass, so values that contain braces
 /// are never substituted again. Unknown placeholders are left as they are.
@@ -44,6 +44,14 @@ pub fn input_files(input: JobInput) -> Result<Vec<PathBuf>, JobError> {
         JobInput::Files(_) => Err(JobError::new(ErrorKind::InvalidInput, "add at least one file")),
         JobInput::Text(_) => Err(JobError::new(ErrorKind::InvalidInput, "this tool works on files")),
     }
+}
+
+/// Where a result of `source` goes: the folder the user chose, or else the
+/// one `source` is in.
+pub fn target_dir(ctx: &JobContext, source: &Path) -> PathBuf {
+    ctx.output_dir()
+        .or_else(|| source.parent())
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf)
 }
 
 /// A file's name without its extension.

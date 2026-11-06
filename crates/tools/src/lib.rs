@@ -38,6 +38,7 @@ pub const IMPLEMENTED: &[&str] = &[
     "files.zip.extract",
     "image.compress",
     "image.convert",
+    "image.crop",
     #[cfg(feature = "heic")]
     "image.heic-to-jpg",
     "image.metadata.remove",
@@ -129,6 +130,7 @@ pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
         "image.resize" => img::resize(name),
         "image.compress" => img::compress(name),
         "image.rotate" => img::rotate(name),
+        "image.crop" => img::crop(name),
         "image.metadata.remove" => img::remove_metadata(name),
         "pdf.compress" => pdf::compress(name),
         "pdf.delete-pages" => pdf::delete_pages(name),
