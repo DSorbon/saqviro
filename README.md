@@ -43,6 +43,7 @@ echo hello | cargo run -p saqviro-cli -- run text.case --case upper
 |---|---|
 | `apps/desktop` | Tauri 2 + Svelte 5 desktop app |
 | `apps/cli` | The same tools on the command line |
+| `apps/website` | Static website with a few tools that run in the browser |
 | `crates/core` | Tool manifests, registry and parameter validation |
 | `crates/jobs` | Job queue with progress, cancellation and temp directories |
 | `crates/tools` | Tool implementations |

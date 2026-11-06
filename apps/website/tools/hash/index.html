@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SHA-256 Hash Generator, in your browser | Saqviro</title>
+    <meta name="description" content="Get SHA-1, SHA-256 and SHA-512 hashes of text or a file in your browser. Nothing is uploaded." />
+    <script type="module" src="/src/tools.ts"></script>
+  </head>
+  <body data-tool="hash">
+    <!-- nav -->
+    <main id="main" class="tool">
+      <h1>Hash Generator</h1>
+      <p class="lead">SHA-1, SHA-256 and SHA-512 of text or a file.</p>
+      <p class="promise">Runs in this browser tab. Nothing you enter is sent anywhere.</p>
+      <div class="panel">
+        <label>Text <textarea id="input" spellcheck="false"></textarea></label>
+        <label>Or a file <input id="file" type="file" /></label>
+        <output id="output" aria-live="polite"></output>
+      </div>
+      <p class="more">For very large files, the Saqviro desktop app reads them piece by piece and can verify a checksum for you.</p>
+    </main>
+    <!-- footer -->
+  </body>
+</html>

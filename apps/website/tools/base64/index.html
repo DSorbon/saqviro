@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Base64 Encode and Decode, in your browser | Saqviro</title>
+    <meta name="description" content="Encode and decode Base64 in your browser, in any language. Nothing is uploaded." />
+    <script type="module" src="/src/tools.ts"></script>
+  </head>
+  <body data-tool="base64">
+    <!-- nav -->
+    <main id="main" class="tool">
+      <h1>Base64 Encode / Decode</h1>
+      <p class="lead">Turn text into Base64 and back, in any language.</p>
+      <p class="promise">Runs in this browser tab. Nothing you enter is sent anywhere.</p>
+      <div class="panel">
+        <label>Direction
+          <select id="mode"><option value="encode">Encode</option><option value="decode">Decode</option></select>
+        </label>
+        <label>Text <textarea id="input" spellcheck="false"></textarea></label>
+        <p class="error" id="error" role="alert"></p>
+        <label>Result <textarea id="output" readonly spellcheck="false"></textarea></label>
+      </div>
+      <p class="more">The Saqviro desktop app also turns whole files into Base64.</p>
+    </main>
+    <!-- footer -->
+  </body>
+</html>

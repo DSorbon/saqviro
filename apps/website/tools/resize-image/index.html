@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Resize Images, in your browser | Saqviro</title>
+    <meta name="description" content="Resize a JPG, PNG or WebP image in your browser. Nothing is uploaded." />
+    <script type="module" src="/src/tools.ts"></script>
+  </head>
+  <body data-tool="resize">
+    <!-- nav -->
+    <main id="main" class="tool">
+      <h1>Resize Image</h1>
+      <p class="lead">Make a picture smaller, without sending it to anyone.</p>
+      <p class="promise">Runs in this browser tab. Nothing you enter is sent anywhere.</p>
+      <div class="panel">
+        <div class="row">
+          <label>Width in pixels <input id="width" type="number" min="1" value="1280" /></label>
+          <label>Format
+            <select id="format"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select>
+          </label>
+        </div>
+        <label>Picture <input id="file" type="file" accept="image/*" /></label>
+        <p class="error" id="error" role="alert"></p>
+        <p id="result" aria-live="polite"></p>
+        <a id="download" class="button" hidden>Save the picture</a>
+      </div>
+      <p class="more">The Saqviro desktop app handles whole folders at once, and HEIC photos too.</p>
+    </main>
+    <!-- footer -->
+  </body>
+</html>

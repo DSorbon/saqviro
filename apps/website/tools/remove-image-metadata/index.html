@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Remove Image Metadata, in your browser | Saqviro</title>
+    <meta name="description" content="Remove location and camera details from a photo in your browser. Nothing is uploaded." />
+    <script type="module" src="/src/tools.ts"></script>
+  </head>
+  <body data-tool="metadata">
+    <!-- nav -->
+    <main id="main" class="tool">
+      <h1>Remove Image Metadata</h1>
+      <p class="lead">Photos can carry where and when they were taken. This removes it.</p>
+      <p class="promise">Runs in this browser tab. Nothing you enter is sent anywhere.</p>
+      <div class="panel">
+        <label>Picture <input id="file" type="file" accept="image/*" /></label>
+        <p class="error" id="error" role="alert"></p>
+        <p id="result" aria-live="polite"></p>
+        <a id="download" class="button" hidden>Save the clean picture</a>
+      </div>
+      <p class="more">This page redraws the picture, which saves a JPG again and can lower its quality a little. The Saqviro desktop app removes metadata without touching the picture itself.</p>
+    </main>
+    <!-- footer -->
+  </body>
+</html>

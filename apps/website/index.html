@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saqviro: everyday tools, zero uploads</title>
+    <meta name="description" content="A free, open-source desktop toolbox for Windows, macOS and Linux. {{tools}} tools for PDF, images, video and more. Your files never leave your computer." />
+    <script type="module" src="/src/tools.ts"></script>
+  </head>
+  <body>
+    <!-- nav -->
+    <main id="main">
+      <section class="hero">
+        <div>
+          <h1>Everyday tools. Zero uploads.</h1>
+          <p class="lead">Compress a PDF, shrink a video, strip the location from a photo. Saqviro does it on your computer, so your files never go to someone else's server.</p>
+          <div class="status">
+            <!-- TODO: replace with download links on the first public release. -->
+            <a class="button" href="#try">Try it in your browser</a>
+            <span class="note">The desktop app is in development. Windows, macOS and Linux.</span>
+          </div>
+        </div>
+        <figure class="shot" style="margin: 0">
+          <picture>
+            <source srcset="/app-dark.png" media="(prefers-color-scheme: dark)" />
+            <img src="/app-light.png" width="800" height="500" alt="The Saqviro window: a drop area for files above a list of popular tools, with categories in a sidebar." />
+          </picture>
+        </figure>
+      </section>
+
+      <section id="tools">
+        <h2>{{tools}} tools in one app</h2>
+        <p class="lead">Drop a file and Saqviro shows what it can do with it. No account, no ads, no daily limits. Every tool works offline.</p>
+        <ul class="counts">
+          <li><b>{{tools.pdf}}</b><span><strong>PDF</strong>Merge, compress, split, number pages</span></li>
+          <li><b>{{tools.image}}</b><span><strong>Images</strong>Convert, resize, crop, HEIC to JPG</span></li>
+          <li><b>{{tools.video}}</b><span><strong>Video</strong>Compress, trim, merge, make GIFs</span></li>
+          <li><b>{{tools.audio}}</b><span><strong>Audio</strong>Convert, trim, normalize, tag</span></li>
+          <li><b>{{tools.files}}</b><span><strong>Files</strong>Archives, checksums, duplicates</span></li>
+          <li><b>{{tools.text}}</b><span><strong>Text</strong>Sort, clean, compare, subtitles</span></li>
+          <li><b>{{tools.developer}}</b><span><strong>Developer</strong>JSON, YAML, JWT, regex, cron</span></li>
+          <li><b>{{tools.privacy}}</b><span><strong>Privacy</strong>Encrypt, passwords, certificates</span></li>
+          <li><b>{{tools.qr}}</b><span><strong>QR &amp; barcodes</strong>Wi-Fi, contacts, scanning</span></li>
+        </ul>
+      </section>
+
+      <section id="workflows">
+        <h2>Do the same job once, not every week</h2>
+        <p class="lead">Chain tools into a workflow and run it on as many files as you like. Only the final result is saved.</p>
+        <div class="split">
+          <ol class="steps" aria-label="The Website Images workflow">
+            <li>Resize Images to 1920 pixels wide</li>
+            <li>Remove EXIF and metadata</li>
+            <li>Convert to WebP</li>
+          </ol>
+          <pre aria-label="The same tools from a terminal"><code>saqviro run image.resize \
+  --width 1920 --out results photo.jpg
+
+saqviro workflow website-images.json *.jpg</code></pre>
+        </div>
+      </section>
+
+      <section id="try">
+        <h2>Try a few tools right now</h2>
+        <p class="lead">These run in this browser tab. Nothing you enter is sent anywhere.</p>
+        <div class="cards">
+          <a href="/tools/remove-image-metadata/"><strong>Remove Image Metadata</strong><span>Take the location out of a photo</span></a>
+          <a href="/tools/resize-image/"><strong>Resize Image</strong><span>JPG, PNG and WebP</span></a>
+          <a href="/tools/json-formatter/"><strong>JSON Formatter</strong><span>Readable or minified</span></a>
+          <a href="/tools/hash/"><strong>Hash Generator</strong><span>SHA-256 of text or a file</span></a>
+          <a href="/tools/base64/"><strong>Base64</strong><span>Encode and decode</span></a>
+        </div>
+      </section>
+
+      <section id="privacy">
+        <h2>Nothing to trust, because nothing leaves</h2>
+        <ul class="facts">
+          <li>No account, analytics, ads or telemetry.</li>
+          <li>No network request on its own. The only one is Check for updates, when you press it.</li>
+          <li>Free and open source under the Apache-2.0 license, so anyone can check.</li>
+        </ul>
+        <p style="margin-top: 20px"><a href="/privacy/">Read exactly what the app does with your data</a></p>
+      </section>
+    </main>
+    <!-- footer -->
+  </body>
+</html>

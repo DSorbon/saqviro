@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JSON Formatter, in your browser | Saqviro</title>
+    <meta name="description" content="Format and minify JSON in your browser. Nothing is uploaded." />
+    <script type="module" src="/src/tools.ts"></script>
+  </head>
+  <body data-tool="json">
+    <!-- nav -->
+    <main id="main" class="tool">
+      <h1>JSON Formatter</h1>
+      <p class="lead">Make JSON readable, or make it small.</p>
+      <p class="promise">Runs in this browser tab. Nothing you enter is sent anywhere.</p>
+      <div class="panel">
+        <label>Style
+          <select id="style"><option value="2">2 spaces</option><option value="4">4 spaces</option><option value="minify">Minified</option></select>
+        </label>
+        <label>JSON <textarea id="input" spellcheck="false" placeholder='{"paste": "your JSON here"}'></textarea></label>
+        <p class="error" id="error" role="alert"></p>
+        <label>Result <textarea id="output" readonly spellcheck="false"></textarea></label>
+      </div>
+      <p class="more">The Saqviro desktop app also sorts keys and keeps numbers exactly as written.</p>
+    </main>
+    <!-- footer -->
+  </body>
+</html>
