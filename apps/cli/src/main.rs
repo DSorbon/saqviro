@@ -15,7 +15,7 @@ use saqviro_core::{
 };
 use saqviro_jobs::{Config, Executor, JobInput, JobManager, JobOutput, JobSnapshot, JobStatus, Params};
 use saqviro_tools::{catalog, is_available};
-use saqviro_workflow::{Workflow, prepare};
+use saqviro_workflow::{Workflow, prepare_with};
 use serde_json::{Number, Value};
 
 const USAGE: &str = "Everyday tools. Zero uploads.
@@ -237,7 +237,7 @@ fn run_workflow(registry: &Registry, args: &[String]) -> Result<(), String> {
     let (path, rest) = args.split_first().ok_or_else(|| usage_error("which workflow file?"))?;
     let text = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
     let workflow: Workflow = serde_json::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
-    let executor = prepare(registry, &workflow.steps, is_available).map_err(|issues| {
+    let executor = prepare_with(registry, &workflow.steps, is_available, workflow.keep_going).map_err(|issues| {
         let text: Vec<String> = issues.iter().map(ToString::to_string).collect();
         text.join("\n")
     })?;

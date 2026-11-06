@@ -36,6 +36,9 @@ pub struct Workflow {
     pub id: String,
     pub name: String,
     pub steps: Vec<Step>,
+    /// One failing file does not stop the others.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub keep_going: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,6 +79,17 @@ pub fn prepare(
     registry: &Registry,
     steps: &[Step],
     available: impl Fn(&ToolManifest) -> bool,
+) -> Result<Arc<dyn Executor>, Vec<Issue>> {
+    prepare_with(registry, steps, available, false)
+}
+
+/// Like `prepare`. With `keep_going`, each file goes through all the steps on
+/// its own, and a file that fails is left out and named in a note.
+pub fn prepare_with(
+    registry: &Registry,
+    steps: &[Step],
+    available: impl Fn(&ToolManifest) -> bool,
+    keep_going: bool,
 ) -> Result<Arc<dyn Executor>, Vec<Issue>> {
     let mut issues = Vec::new();
     let mut ready = Vec::with_capacity(steps.len());
@@ -124,7 +138,12 @@ pub fn prepare(
     if !issues.is_empty() {
         return Err(issues);
     }
-    Ok(Arc::new(Runner { steps: ready }))
+    let runner = Runner { steps: ready };
+    Ok(if keep_going {
+        Arc::new(EachFile { runner })
+    } else {
+        Arc::new(runner)
+    })
 }
 
 struct Runner {
@@ -178,6 +197,49 @@ fn compare_with_sources(output: JobOutput, sources: &[PathBuf]) -> JobOutput {
                 .collect(),
         ),
         other => other,
+    }
+}
+
+/// Runs the chain once per file.
+struct EachFile {
+    runner: Runner,
+}
+
+impl Executor for EachFile {
+    fn run(&self, ctx: &JobContext, input: JobInput, params: &Params) -> Result<JobOutput, JobError> {
+        let JobInput::Files(files) = input else {
+            return self.runner.run(ctx, input, params);
+        };
+        let results_dir = ctx.output_dir().map(Path::to_path_buf);
+        let share = 1.0 / files.len().max(1) as f32;
+        let mut results: Vec<OutputFile> = Vec::with_capacity(files.len());
+        let mut failed: Vec<String> = Vec::new();
+        let mut last_error = None;
+        for (i, file) in files.iter().enumerate() {
+            ctx.check_cancelled()?;
+            let dir = results_dir.clone().or_else(|| file.parent().map(Path::to_path_buf));
+            let inner = ctx.scoped(dir, (i as f32 * share, (i + 1) as f32 * share));
+            match self.runner.run(&inner, JobInput::Files(vec![file.clone()]), params) {
+                Ok(JobOutput::Files(made)) => results.extend(made),
+                Ok(_) => {}
+                Err(e) if e.kind == ErrorKind::Cancelled => return Err(e),
+                Err(e) => {
+                    failed.push(
+                        file.file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_default(),
+                    );
+                    last_error = Some(e);
+                }
+            }
+        }
+        if let (true, Some(e)) = (results.is_empty(), last_error) {
+            return Err(e);
+        }
+        if let (false, Some(first)) = (failed.is_empty(), results.first_mut()) {
+            first.note = Some(format!("{} failed: {}", failed.len(), failed.join(", ")));
+        }
+        Ok(JobOutput::Files(results))
     }
 }
 

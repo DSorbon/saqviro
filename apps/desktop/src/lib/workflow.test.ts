@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { blankWorkflow, brokenStep, canFollow, copyOf, isWorkflow, nextTools, saved, starters, stepOf, withDefaults, workflowInput } from "./workflow";
+import { blankWorkflow, brokenStep, canFollow, copyOf, exported, imported, isWorkflow, nextTools, saved, starters, stepOf, withDefaults, workflowInput } from "./workflow";
 
 const image = (id: string) => tool(id, id, { inputs: [{ type: "image" }], outputs: [{ type: "image" }] });
 const resize = image("image.resize");
@@ -74,6 +74,16 @@ describe("workflows", () => {
     expect(workflowInput(all, { ...blankWorkflow("a"), steps: [{ tool: "text.case" }] })).toBe("text");
     expect(workflowInput(all, { ...blankWorkflow("a"), steps: [{ tool: "image.resize" }] })).toBe("files");
     expect(workflowInput(all, blankWorkflow("a"))).toBe("none");
+  });
+  it("shares as text and comes back under a new id", () => {
+    const original = { ...blankWorkflow("a"), name: "Mine", steps: [{ tool: "x", params: { n: 1 } }] };
+    const back = imported(exported(original), "b");
+    expect(back).toEqual({ ...original, id: "b" });
+  });
+  it("refuses text that is not a workflow", () => {
+    expect(imported("nonsense", "b")).toBeNull();
+    expect(imported('{"name":"x"}', "b")).toBeNull();
+    expect(imported('{"id":"a","name":"x","steps":[{"params":{}}]}', "b")).toBeNull();
   });
   it("ships valid starters", () => {
     expect(starters.length).toBeGreaterThan(2);

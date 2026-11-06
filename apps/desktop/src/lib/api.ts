@@ -23,8 +23,8 @@ export const runTool = (toolId: string, input: JobInput, params: Record<string, 
   invoke<number>("run_tool", { toolId, input, params, outputDir });
 
 /** Queues a workflow as one job. Rejects with a `JobError` if it cannot run. */
-export const runWorkflow = (steps: WorkflowStep[], input: JobInput, outputDir: string | null = null) =>
-  invoke<number>("run_workflow", { steps, input, outputDir });
+export const runWorkflow = (steps: WorkflowStep[], input: JobInput, outputDir: string | null = null, keepGoing = false) =>
+  invoke<number>("run_workflow", { steps, input, outputDir, keepGoing });
 
 export interface ImagePreview {
   /** A JPEG, in Base64. */

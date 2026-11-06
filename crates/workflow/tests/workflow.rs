@@ -6,7 +6,7 @@ use std::{
 
 use saqviro_core::registry::Registry;
 use saqviro_jobs::{Config, ErrorKind, Executor, JobInput, JobManager, JobOutput, JobSnapshot, JobStatus, Params};
-use saqviro_workflow::{Issue, Step, Workflow, can_follow, prepare};
+use saqviro_workflow::{Issue, Step, Workflow, can_follow, prepare, prepare_with};
 use serde_json::{Value, json};
 
 fn registry() -> Registry {
@@ -259,4 +259,34 @@ fn committed_schema_matches_rust_types() {
         fs::read_to_string(&path).unwrap_or_default() == generated,
         "run with UPDATE_SCHEMA=1"
     );
+}
+
+#[test]
+fn can_carry_on_past_a_file_that_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let good = picture(dir.path(), "good.png", 4, 4);
+    let bad = dir.path().join("bad.png");
+    fs::write(&bad, "not a picture").unwrap();
+    let steps = [step("image.grayscale", json!({})), step("image.flip", json!({}))];
+
+    let exec = prepare_with(&registry(), &steps, |_| true, true).unwrap();
+    let (done, _) = run(exec, JobInput::Files(vec![bad.clone(), good.clone()]), None);
+    assert_eq!(done.status, JobStatus::Completed);
+    let made = files(&done);
+    assert_eq!(made.len(), 1);
+    assert_eq!(made[0].note.as_deref(), Some("1 failed: bad.png"));
+    assert_eq!(made[0].source_size, Some(fs::metadata(&good).unwrap().len()));
+
+    let (done, _) = run(ready(&steps), JobInput::Files(vec![bad, good]), None);
+    assert_eq!(done.status, JobStatus::Failed);
+}
+
+#[test]
+fn fails_when_every_file_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let bad = dir.path().join("bad.png");
+    fs::write(&bad, "not a picture").unwrap();
+    let exec = prepare_with(&registry(), &[step("image.flip", json!({}))], |_| true, true).unwrap();
+    let (done, _) = run(exec, JobInput::Files(vec![bad]), None);
+    assert_eq!(done.status, JobStatus::Failed);
 }

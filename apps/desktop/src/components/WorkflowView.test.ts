@@ -110,6 +110,7 @@ describe("WorkflowView", () => {
       [{ tool: "image.resize", params: { width: 100 } }],
       { kind: "files", value: ["/a.png"] },
       null,
+      false,
     );
     await Promise.resolve();
     emit({ status: "completed", progress: 1, output: { kind: "files", value: [{ path: "/a-resized.png", size: 9, source_size: 18 }] } });
@@ -134,6 +135,14 @@ describe("WorkflowView", () => {
     const { current } = show(workflow([{ tool: "image.resize", params: {} }]));
     await fireEvent.input(screen.getByRole("spinbutton", { name: "Width" }), { target: { value: "640" } });
     expect(current().steps[0]!.params).toEqual({ width: 640 });
+  });
+
+  it("can go on past a file that fails", async () => {
+    const { current } = show(workflow([{ tool: "image.resize" }]), ["/a.png"]);
+    await fireEvent.click(screen.getByRole("checkbox", { name: /go on with the others/ }));
+    expect(current().keep_going).toBe(true);
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(api.runWorkflow.mock.calls[0]![3]).toBe(true);
   });
 
   it("renames", async () => {

@@ -4,7 +4,7 @@
   import { errorText, fileName, isActive, moved, statusLine, type JobError, type JobSnapshot } from "../lib/job";
   import { shortcut } from "../lib/platform";
   import type { Tool } from "../lib/types";
-  import { brokenStep, nextTools, stepOf, workflowInput, type Workflow } from "../lib/workflow";
+  import { brokenStep, exported, nextTools, stepOf, workflowInput, type Workflow } from "../lib/workflow";
   import ParamFields from "./ParamFields.svelte";
   import Results from "./Results.svelte";
 
@@ -70,10 +70,18 @@
     }));
     const input = kind === "files" ? { kind: "files" as const, value: files } : { kind: "text" as const, value: text };
     try {
-      jobId = await runWorkflow(clean, input, outputDir);
+      jobId = await runWorkflow(clean, input, outputDir, workflow.keep_going === true);
     } catch (e) {
       requestError = e as JobError;
     }
+  }
+
+  let shared = $state(false);
+
+  async function share() {
+    await navigator.clipboard.writeText(exported(workflow));
+    shared = true;
+    setTimeout(() => (shared = false), 1500);
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -91,6 +99,7 @@
     <button class="back" onclick={onBack}>‹ Workflows</button>
     <input class="title" aria-label="Workflow name" value={workflow.name} oninput={(e) => onChange({ ...workflow, name: e.currentTarget.value })} />
     <div class="actions">
+      <button onclick={share}>{shared ? "Copied" : "Copy as text"}</button>
       <button onclick={onCopy}>Duplicate</button>
       <button onclick={onDelete}>Delete</button>
     </div>
@@ -126,6 +135,13 @@
       {#each offered as tool (tool.id)}<option value={tool.id}>{tool.name}</option>{/each}
     </select>
   </label>
+
+  {#if kind === "files" && workflow.steps.length > 0}
+    <label class="check">
+      <input type="checkbox" checked={workflow.keep_going === true} onchange={(e) => onChange({ ...workflow, keep_going: e.currentTarget.checked })} />
+      If a file fails, go on with the others
+    </label>
+  {/if}
 
   {#if kind === "text"}
     <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
@@ -184,6 +200,7 @@
   .icon { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
   .icon:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   .icon:disabled { opacity: 0.35; }
+  .check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--text-muted); }
   .add { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-caption); }
   select { padding: 6px var(--space-2); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
   .code { width: 100%; min-height: 120px; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }

@@ -19,6 +19,10 @@
       "items": {
         "$ref": "#/$defs/Step"
       }
+    },
+    "keep_going": {
+      "description": "One failing file does not stop the others.",
+      "type": "boolean"
     }
   },
   "additionalProperties": false,

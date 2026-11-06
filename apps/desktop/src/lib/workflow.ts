@@ -15,6 +15,7 @@ export interface Workflow {
   id: string;
   name: string;
   steps: WorkflowStep[];
+  keep_going?: boolean;
 }
 
 const SCHEMA_VERSION = 1;
@@ -84,6 +85,22 @@ export function saved(list: Workflow[], workflow: Workflow): Workflow[] {
 export function workflowInput(tools: Tool[], workflow: Workflow): "text" | "files" | "none" {
   const first = tools.find((t) => t.id === workflow.steps[0]?.tool);
   return first ? inputKind(first) : "none";
+}
+
+/** A workflow to share as text. */
+export function exported(workflow: Workflow): string {
+  return JSON.stringify(workflow, null, 2);
+}
+
+/** A workflow from shared text, under a new id, or null if it is not one. */
+export function imported(text: string, id: string): Workflow | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  return isWorkflow(value) ? { ...value, id } : null;
 }
 
 function isStep(value: unknown): value is WorkflowStep {

@@ -8,7 +8,7 @@ A free, open-source desktop toolbox for Windows, macOS and Linux. Convert, compr
 
 ## What it does
 
-[139 tools](docs/tools.md) for PDF, images, video, audio, files, text, QR codes, developers, privacy and more. Drop a file and Saqviro shows what it can do with it. [Workflows](docs/workflows.md) run several tools in a row, and every tool works offline. [PRIVACY.md](PRIVACY.md) says exactly what the app does and does not do with your data.
+[Nearly 150 tools](docs/tools.md) for PDF, images, video, audio, files, text, QR codes, developers, privacy and more. Drop a file and Saqviro shows what it can do with it. [Workflows](docs/workflows.md) run several tools in a row, and every tool works offline. [PRIVACY.md](PRIVACY.md) says exactly what the app does and does not do with your data.
 
 ## Development
 

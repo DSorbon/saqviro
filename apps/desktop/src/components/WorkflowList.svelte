@@ -2,13 +2,21 @@
   import type { Tool } from "../lib/types";
   import { starters, type Workflow } from "../lib/workflow";
 
-  let { tools, workflows, onOpen, onNew, onCopy }: {
+  let { tools, workflows, onOpen, onNew, onCopy, onImport }: {
     tools: Tool[];
     workflows: Workflow[];
     onOpen: (workflow: Workflow) => void;
     onNew: () => void;
     onCopy: (workflow: Workflow) => void;
+    onImport: (text: string) => boolean;
   } = $props();
+
+  let problem = $state("");
+
+  async function paste() {
+    problem = "";
+    if (!onImport(await navigator.clipboard.readText())) problem = "The clipboard does not hold a workflow.";
+  }
 
   const nameOf = (id: string) => tools.find((t) => t.id === id)?.name ?? id;
   const summary = (w: Workflow) => w.steps.map((s) => nameOf(s.tool)).join(" → ") || "No steps yet";
@@ -26,9 +34,13 @@
 <article>
   <header>
     <h1>Workflows</h1>
-    <button class="primary" onclick={onNew}>New workflow</button>
+    <div class="actions">
+      <button onclick={paste}>Paste</button>
+      <button class="primary" onclick={onNew}>New workflow</button>
+    </div>
   </header>
   <p class="muted">Run several tools in a row. Only the final result is saved.</p>
+  {#if problem}<p class="error" role="alert">{problem}</p>{/if}
 
   {#if workflows.length > 0}
     <ul aria-label="Your workflows">
@@ -53,5 +65,8 @@
   li button:hover { background: var(--hover); }
   .name { font-weight: 500; }
   .muted { font-size: var(--text-caption); }
+  .actions { display: flex; gap: var(--space-2); }
+  .actions button:not(.primary) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
+  .error { color: var(--danger); }
   .primary { padding: 6px var(--space-3); border: 0; border-radius: var(--radius); background: var(--accent); color: var(--accent-text); font-weight: 600; cursor: default; }
 </style>

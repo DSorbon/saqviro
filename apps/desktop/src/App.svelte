@@ -25,7 +25,7 @@
   import { searchTools } from "./lib/search";
   import { relevantGroups, sidebarGroups } from "./lib/sidebar";
   import type { Tool } from "./lib/types";
-  import { blankWorkflow, copyOf, saved, withDefaults, type Workflow } from "./lib/workflow";
+  import { blankWorkflow, copyOf, imported, saved, withDefaults, type Workflow } from "./lib/workflow";
 
   let tools = $state<Tool[]>([]);
   let section = $state("home");
@@ -224,6 +224,11 @@
         workflows={prefs.workflows}
         onOpen={showWorkflow}
         onNew={() => keepWorkflow(blankWorkflow(crypto.randomUUID()))}
+        onImport={(text) => {
+          const workflow = imported(text, crypto.randomUUID());
+          if (workflow) keepWorkflow(withDefaults(workflow, tools));
+          return workflow !== null;
+        }}
         onCopy={(w) => keepWorkflow(withDefaults({ ...copyOf(w, crypto.randomUUID()), name: w.name }, tools))}
       />
     {:else if section === "home"}

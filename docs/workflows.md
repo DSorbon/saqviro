@@ -24,6 +24,7 @@ A step can follow another when what the first makes is what the second takes, by
 - Several files in a step go through together, so one file can become many (PDF to Images) and many can become one (Images to PDF).
 - A step that makes a folder hands the next step the files inside it.
 - A generated picture, like a QR code, is written to a file for the next step.
+- With `keep_going`, each file goes through all the steps on its own; a file that fails is named in a note and the rest go on. This suits tools that work file by file.
 - Tools marked `destructive` change files in place, so they cannot be part of a workflow.
 
 ## How it runs

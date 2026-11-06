@@ -96,8 +96,9 @@ fn start_workflow(
     steps: &[saqviro_workflow::Step],
     input: JobInput,
     output_dir: Option<PathBuf>,
+    keep_going: bool,
 ) -> Result<JobId, JobError> {
-    let executor = saqviro_workflow::prepare(registry, steps, is_available).map_err(|issues| {
+    let executor = saqviro_workflow::prepare_with(registry, steps, is_available, keep_going).map_err(|issues| {
         let message = issues.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
         JobError::new(ErrorKind::InvalidInput, message)
     })?;
@@ -111,8 +112,9 @@ fn run_workflow(
     steps: Vec<saqviro_workflow::Step>,
     input: JobInput,
     output_dir: Option<PathBuf>,
+    keep_going: bool,
 ) -> Result<JobId, JobError> {
-    start_workflow(&registry, &jobs, &steps, input, output_dir)
+    start_workflow(&registry, &jobs, &steps, input, output_dir, keep_going)
 }
 
 /// A small picture of an image, for choosing an area of it.
@@ -510,12 +512,12 @@ mod tests {
         };
         let input = || JobInput::Text("b\na\na".into());
         let steps = [step("text.lines.dedupe"), step("text.lines.reverse")];
-        let id = start_workflow(&registry, &jobs, &steps, input(), None).unwrap();
+        let id = start_workflow(&registry, &jobs, &steps, input(), None, false).unwrap();
         let done = jobs.wait(id).unwrap();
         assert_eq!(done.output, Some(JobOutput::Text("a\nb".into())));
 
         let steps = [step("text.lines.dedupe"), step("image.resize")];
-        let err = start_workflow(&registry, &jobs, &steps, input(), None).unwrap_err();
+        let err = start_workflow(&registry, &jobs, &steps, input(), None, false).unwrap_err();
         assert_eq!(err.kind, ErrorKind::InvalidInput);
         assert!(err.message.starts_with("step 2: "), "{}", err.message);
     }
