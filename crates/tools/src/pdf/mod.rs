@@ -139,3 +139,46 @@ pub(crate) fn secret_file(dir: &Path, name: &str, text: &str) -> Result<PathBuf,
     fs::write(&path, text)?;
     Ok(path)
 }
+
+/// Small pictures of the pages of a PDF, for choosing pages in the app.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Thumbnails {
+    /// JPEGs in Base64, in page order.
+    pub pages: Vec<String>,
+    /// All pages of the document; there can be more than pictures.
+    pub count: usize,
+}
+
+/// Draws the pages of `path` through the render helper, in `dir`. A PDF with
+/// a password has none: the app then asks for page numbers as text.
+pub fn thumbnails(path: &Path, dir: &Path, limit: usize) -> Result<Thumbnails, JobError> {
+    use base64::Engine;
+
+    let helper = crate::process::find_binary(crate::process::search_dirs(), "saqviro-pdf-render").ok_or_else(|| {
+        JobError::new(
+            ErrorKind::EngineMissing,
+            "the PDF renderer is missing from this installation",
+        )
+    })?;
+    let mut command = std::process::Command::new(helper);
+    command.arg(absolute(path)?).arg(dir).args(["40", "jpg", "60"]);
+    crate::process::hide_console(&mut command);
+    let output = command.output()?;
+    if !output.status.success() {
+        return Err(JobError::new(
+            ErrorKind::UnsupportedFormat,
+            "the pages of this PDF cannot be shown",
+        ));
+    }
+    let count = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .last()
+        .and_then(|l| l.split_whitespace().last()?.parse().ok())
+        .unwrap_or(0);
+    let mut pages = Vec::with_capacity(count.min(limit));
+    for page in 1..=count.min(limit) {
+        let bytes = std::fs::read(dir.join(format!("{page}.jpg")))?;
+        pages.push(base64::engine::general_purpose::STANDARD.encode(bytes));
+    }
+    Ok(Thumbnails { pages, count })
+}

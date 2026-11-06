@@ -1145,3 +1145,25 @@ fn says_when_a_pdf_has_no_pictures() {
     assert!(done.error.unwrap().message.contains("no images"));
     assert_eq!(entries(dir.path()), ["a.pdf"]);
 }
+
+#[test]
+fn draws_small_pictures_of_the_pages() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 3);
+    let temp = tempfile::tempdir().unwrap();
+    let all = saqviro_tools::pdf::thumbnails(&source, temp.path(), 2).unwrap();
+    assert_eq!(all.count, 3);
+    assert_eq!(all.pages.len(), 2);
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&all.pages[0]).unwrap();
+    assert!(image::load_from_memory(&bytes).unwrap().width() < 150);
+}
+
+#[test]
+fn a_pdf_that_cannot_be_drawn_has_no_thumbnails() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.pdf");
+    fs::write(&source, "not a pdf").unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    assert!(saqviro_tools::pdf::thumbnails(&source, temp.path(), 2).is_err());
+}

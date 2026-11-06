@@ -37,3 +37,35 @@ fn every_executor_has_a_manifest() {
         assert!(registry.get(id).is_some(), "{id} has no manifest");
     }
 }
+
+/// The list of tools in the documentation. Regenerate with
+/// `UPDATE_DOCS=1 cargo test -p saqviro-tools --test catalog`.
+#[test]
+fn the_tool_list_in_the_docs_is_current() {
+    let registry = manifests();
+    let mut out = format!(
+        "# Tools\n\n{} tools. This file is generated from the manifests in `tools/`.\n",
+        registry.tools().len()
+    );
+    let mut category = "";
+    for tool in registry.tools() {
+        if tool.category.as_str() != category {
+            category = tool.category.as_str();
+            let title = match category {
+                "pdf" => "PDF",
+                "qr" => "QR & barcodes",
+                other => &format!("{}{}", other[..1].to_uppercase(), &other[1..]),
+            };
+            out.push_str(&format!("\n## {title}\n\n| Tool | What it does |\n|---|---|\n"));
+        }
+        out.push_str(&format!("| {} | {} |\n", tool.name, tool.description));
+    }
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/tools.md");
+    if std::env::var_os("UPDATE_DOCS").is_some() {
+        fs::write(&path, &out).unwrap();
+    }
+    assert!(
+        fs::read_to_string(&path).unwrap_or_default() == out,
+        "docs/tools.md is out of date"
+    );
+}

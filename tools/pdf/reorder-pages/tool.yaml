@@ -16,7 +16,7 @@ outputs:
     multiple: true
     filename: "{stem}-reordered.pdf"
 engine: builtin
-capabilities: { batch: true, preview: false, offline: true, destructive: false }
+capabilities: { batch: true, preview: true, offline: true, destructive: false }
 permissions: { network: false }
 platforms: [windows, macos, linux]
 parameters:
@@ -25,3 +25,5 @@ parameters:
 presets:
   - { id: custom, name: Custom order, params: { reverse: false } }
   - { id: reverse, name: Reverse, params: { reverse: true } }
+ui:
+  preview: pages-order

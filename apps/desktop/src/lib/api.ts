@@ -28,6 +28,14 @@ export interface ImagePreview {
 
 export const imagePreview = (path: string) => invoke<ImagePreview>("image_preview", { path });
 
+export interface Thumbnails {
+  /** JPEGs in Base64, in page order. */
+  pages: string[];
+  count: number;
+}
+
+export const pdfThumbnails = (path: string) => invoke<Thumbnails>("pdf_thumbnails", { path });
+
 /** Native folder picker. Resolves to null if the user cancels. */
 export const pickFolder = () => invoke<string | null>("pick_folder");
 

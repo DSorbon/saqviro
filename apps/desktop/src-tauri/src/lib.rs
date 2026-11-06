@@ -135,6 +135,17 @@ async fn image_preview(path: PathBuf) -> Result<saqviro_tools::images::Preview, 
         .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
 }
 
+/// Small pictures of a PDF's pages, for choosing pages.
+#[tauri::command]
+async fn pdf_thumbnails(path: PathBuf) -> Result<saqviro_tools::pdf::Thumbnails, JobError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = tempfile::tempdir()?;
+        saqviro_tools::pdf::thumbnails(&path, dir.path(), MAX_THUMBNAILS)
+    })
+    .await
+    .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
+}
+
 /// Native folder picker. Resolves to `None` if the user cancels.
 #[tauri::command]
 async fn pick_folder<R: Runtime>(app: AppHandle<R>) -> Option<String> {
@@ -219,6 +230,9 @@ fn open_file<R: Runtime>(app: AppHandle<R>, jobs: State<'_, JobManager>, path: S
 
 /// Longest side of the picture shown for choosing an area, in pixels.
 const PREVIEW_SIZE: u32 = 1000;
+
+/// Pages of a PDF shown as pictures; beyond this, page numbers are quicker.
+const MAX_THUMBNAILS: usize = 500;
 
 /// Set when building a release. Without it the app has no way to trust an
 /// update, so it does not offer any.
@@ -338,6 +352,7 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             run_tool,
             run_workflow,
             image_preview,
+            pdf_thumbnails,
             pick_folder,
             cancel_job,
             pick_files,

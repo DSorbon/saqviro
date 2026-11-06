@@ -16,10 +16,12 @@ outputs:
     multiple: true
     filename: "{stem}-pages.pdf"
 engine: builtin
-capabilities: { batch: true, preview: false, offline: true, destructive: false }
+capabilities: { batch: true, preview: true, offline: true, destructive: false }
 permissions: { network: false }
 platforms: [windows, macos, linux]
 parameters:
   - { id: pages, type: string, optional: true }
 presets:
   - { id: default, name: Default }
+ui:
+  preview: pages-select

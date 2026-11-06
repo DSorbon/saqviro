@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   openFile: vi.fn(),
   saveImage: vi.fn(),
   imagePreview: vi.fn(),
+  pdfThumbnails: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -24,6 +25,7 @@ vi.mock("../lib/api", () => ({
   openFile: api.openFile,
   saveImage: api.saveImage,
   imagePreview: api.imagePreview,
+  pdfThumbnails: api.pdfThumbnails,
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -57,6 +59,7 @@ beforeEach(() => {
   api.revealFile.mockReset().mockResolvedValue(undefined);
   api.openFile.mockReset().mockResolvedValue(undefined);
   api.saveImage.mockReset().mockResolvedValue(true);
+  api.pdfThumbnails.mockReset();
 });
 
 const compress = tool("image.compress", "Compress Images", {
@@ -293,5 +296,57 @@ describe("ToolView for cropping", () => {
     render(ToolView, { tool: compress, files: ["/a.jpg"], outputDir: "/out" });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     expect(api.runTool.mock.calls[0]![3]).toBe("/out");
+  });
+});
+
+describe("ToolView with page pictures", () => {
+  const pages = { pages: ["AA==", "AA==", "AA=="], count: 3 };
+  const deletePages = tool("pdf.delete-pages", "Delete PDF Pages", {
+    inputs: [{ type: "pdf", extensions: ["pdf"] }],
+    parameters: [{ id: "pages", type: "string", optional: true }],
+    ui: { preview: "pages-select" },
+  });
+  const reorder = tool("pdf.reorder-pages", "Reorder PDF Pages", {
+    inputs: [{ type: "pdf", extensions: ["pdf"] }],
+    parameters: [{ id: "order", type: "string", optional: true }],
+    ui: { preview: "pages-order" },
+  });
+
+  it("fills in the pages that were clicked", async () => {
+    api.pdfThumbnails.mockResolvedValue(pages);
+    render(ToolView, { tool: deletePages, files: ["/a.pdf"] });
+    await fireEvent.click(await screen.findByRole("button", { name: "Page 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+    expect((screen.getByRole("textbox", { name: "Pages" }) as HTMLInputElement).value).toBe("1-2");
+    await fireEvent.click(screen.getByRole("button", { name: "Page 1" }));
+    expect((screen.getByRole("textbox", { name: "Pages" }) as HTMLInputElement).value).toBe("2");
+  });
+
+  it("follows pages typed by hand", async () => {
+    api.pdfThumbnails.mockResolvedValue(pages);
+    render(ToolView, { tool: deletePages, files: ["/a.pdf"] });
+    const page = await screen.findByRole("button", { name: "Page 3" });
+    await fireEvent.input(screen.getByRole("textbox", { name: "Pages" }), { target: { value: "3" } });
+    expect(page.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("reorders with the keyboard", async () => {
+    api.pdfThumbnails.mockResolvedValue(pages);
+    render(ToolView, { tool: reorder, files: ["/a.pdf"] });
+    await fireEvent.keyDown(await screen.findByRole("button", { name: "Page 1" }), { key: "ArrowRight" });
+    expect((screen.getByRole("textbox", { name: "Order" }) as HTMLInputElement).value).toBe("2,1,3");
+  });
+
+  it("still works when pages cannot be shown", async () => {
+    api.pdfThumbnails.mockRejectedValue({ kind: "unsupported_format", message: "no" });
+    render(ToolView, { tool: deletePages, files: ["/locked.pdf"] });
+    await Promise.resolve();
+    expect(screen.queryByRole("group", { name: "Pages" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Pages" })).toBeTruthy();
+  });
+
+  it("shows no pictures for several files", () => {
+    render(ToolView, { tool: deletePages, files: ["/a.pdf", "/b.pdf"] });
+    expect(api.pdfThumbnails).not.toHaveBeenCalledWith("/a.pdf");
   });
 });

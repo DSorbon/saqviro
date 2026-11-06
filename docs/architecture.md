@@ -18,7 +18,12 @@ The UI is a thin layer. It never reads or writes user files and never validates 
 | `crates/core` | `tool.yaml` types, validation, registry, Smart Drop Lite (`for_files`), run-time parameter validation (`resolve_params`) |
 | `crates/jobs` | `JobManager`: worker pool, job states, progress, cancellation, per-job temp directories |
 | `crates/tools` | One executor per implemented tool (`executor(&manifest)`, `IMPLEMENTED`), the image engine, output files |
+| `crates/workflow` | Validates and runs tools one after another as one job |
 | `apps/desktop/src-tauri` | Tauri commands and events; embeds manifests at build time |
+
+## Workflows (`crates/workflow`)
+
+Tools run one after another as a single job. See [workflows.md](workflows.md).
 
 ## Tool manifests
 
@@ -124,4 +129,4 @@ Preferences live in `lib/prefs.ts`, in `localStorage`: favorites, theme, reduced
 
 ## Not implemented yet
 
-Crop (needs an interactive selection); page thumbnails for reordering; choosing an output folder; Tailwind and `packages/ui`; HEIC on Windows; Windows code signing; hardware H.264 on Linux (VA-API).
+Tailwind and `packages/ui`; HEIC on Windows; Windows code signing; hardware H.264 on Linux (VA-API).

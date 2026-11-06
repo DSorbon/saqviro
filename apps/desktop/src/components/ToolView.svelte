@@ -18,6 +18,7 @@
   import { shortcut } from "../lib/platform";
   import type { ParamValue, Tool } from "../lib/types";
   import CropBox from "./CropBox.svelte";
+  import PagePicker from "./PagePicker.svelte";
   import ParamFields from "./ParamFields.svelte";
   import Results from "./Results.svelte";
 
@@ -85,6 +86,11 @@
     }
   }
 
+  /** Which field the page pictures fill in. */
+  const pageParam = $derived(
+    tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-select" ? "pages" : null,
+  );
+
   function selectArea(area: Area) {
     presetId = tool.presets[0]?.id;
     values = { ...values, ...area, aspect: "selection" };
@@ -150,6 +156,18 @@
 
   {#if tool.ui?.preview === "crop" && files[0]}
     <CropBox path={files[0]} {values} disabled={running} onSelect={selectArea} />
+  {/if}
+
+  {#if pageParam && files.length === 1 && !values.reverse}
+    {#key files[0]}
+      <PagePicker
+        path={files[0]!}
+        mode={tool.ui?.preview === "pages-order" ? "order" : "select"}
+        value={String(values[pageParam] ?? "")}
+        disabled={running}
+        onChange={(v) => (values = { ...values, [pageParam]: v })}
+      />
+    {/key}
   {/if}
 
   {#if tool.presets.length > 1}

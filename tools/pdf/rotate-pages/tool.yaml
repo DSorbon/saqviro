@@ -16,7 +16,7 @@ outputs:
     multiple: true
     filename: "{stem}-rotated.pdf"
 engine: builtin
-capabilities: { batch: true, preview: false, offline: true, destructive: false }
+capabilities: { batch: true, preview: true, offline: true, destructive: false }
 permissions: { network: false }
 platforms: [windows, macos, linux]
 parameters:
@@ -26,3 +26,5 @@ presets:
   - { id: right, name: Right, params: { angle: "90" } }
   - { id: left, name: Left, params: { angle: "270" } }
   - { id: flip, name: Upside down, params: { angle: "180" } }
+ui:
+  preview: pages-select
