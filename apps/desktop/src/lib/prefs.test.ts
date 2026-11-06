@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
 import {
   applyAppearance,
+  suitsFiles,
   defaultPrefs,
   favoriteTools,
   homeTools,
@@ -148,5 +149,20 @@ describe("saved settings", () => {
   it("starts with neither", () => {
     expect(parsePrefs(null).outputDir).toBeNull();
     expect(parsePrefs(null).workflows).toEqual([]);
+  });
+});
+
+describe("suitsFiles", () => {
+  const merge = tool("pdf.merge", "Merge", { inputs: [{ type: "pdf", min_files: 2 }] });
+  const empty = tool("files.empty", "Empty", { inputs: [{ type: "any", folders: true }] });
+
+  it("leaves out tools that need more files", () => {
+    expect(suitsFiles(merge, ["/a.pdf"])).toBe(false);
+    expect(suitsFiles(merge, ["/a.pdf", "/b.pdf"])).toBe(true);
+  });
+
+  it("leaves out folder tools for lone files", () => {
+    expect(suitsFiles(empty, ["/a/photo.jpg"])).toBe(false);
+    expect(suitsFiles(empty, ["/a/Photos"])).toBe(true);
   });
 });

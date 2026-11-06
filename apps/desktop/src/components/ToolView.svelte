@@ -10,12 +10,13 @@
     isActive,
     moved,
     queued,
+    shortName,
     statusLine,
     takesFolders,
     type JobError,
     type JobSnapshot,
   } from "../lib/job";
-  import type { Area } from "../lib/crop";
+  import { needsArea, type Area } from "../lib/crop";
   import { initialParams, matchingPreset, paramsIssue } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { ParamValue, Tool } from "../lib/types";
@@ -53,7 +54,8 @@
 
   const kind = $derived(inputKind(tool));
   const running = $derived(job !== null && isActive(job));
-  const issue = $derived(paramsIssue(tool, values));
+  const isCrop = $derived(tool.ui?.preview === "crop");
+  const issue = $derived(isCrop && needsArea(values) ? "Choose an area on the picture" : paramsIssue(tool, values));
   const ready = $derived(canRun(tool, text, files) && issue === null && !running);
   const output = $derived(job?.status === "completed" ? job.output : null);
   const failure = $derived(requestError ?? (job?.status === "failed" ? job.error : null));
@@ -87,7 +89,10 @@
   });
 
   function choosePreset(id: string) {
-    values = initialParams(tool, id);
+    const next = initialParams(tool, id);
+    // Back to a free selection keeps the area; a shape starts from the middle of the picture.
+    const keep = isCrop && next.aspect === "selection" ? ["x", "y", "width", "height"] : [];
+    values = { ...next, ...Object.fromEntries(Object.entries(values).filter(([id]) => keep.includes(id))) };
   }
 
   const add = (picked: string[]) => {
@@ -128,7 +133,7 @@
   );
 
   function selectArea(area: Area) {
-    values = { ...values, ...area, aspect: "selection" };
+    values = { ...values, ...area };
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -171,7 +176,7 @@
         <ul class="files">
           {#each files as f, i (f)}
             <li>
-              <span title={f}>{fileName(f)}</span>
+              <span title={f}>{shortName(fileName(f))}</span>
               {#if ordered}
                 <button class="icon" aria-label="Move {fileName(f)} up" disabled={running || i === 0} onclick={() => (files = moved(files, i, -1))}>↑</button>
                 <button class="icon" aria-label="Move {fileName(f)} down" disabled={running || i === files.length - 1} onclick={() => (files = moved(files, i, 1))}>↓</button>
@@ -273,7 +278,7 @@
     width: 100%;
     min-height: 140px;
     padding: var(--space-3);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius);
     background: var(--surface);
     color: var(--text);
@@ -291,10 +296,10 @@
   .title { display: flex; align-items: center; gap: var(--space-2); }
   .star { border: 0; background: none; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: default; padding: 2px; border-radius: 4px; }
   .star.on { color: var(--accent); }
-  .drop { padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border); border-radius: var(--radius); }
+  .drop { padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); }
   .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
   .segmented button { padding: 4px var(--space-3); border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: default; }
-  .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+  .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
   .picture { align-self: center; width: 240px; height: 240px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); background: white; }
   .result { display: flex; flex-direction: column; gap: var(--space-2); }
   .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }

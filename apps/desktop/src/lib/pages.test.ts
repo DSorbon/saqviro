@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatOrder, formatPages, moveTo, parsePages, pageHint } from "./pages";
+import { formatOrder, formatPages, moveTo, parsePages, pageHint, typedOrder } from "./pages";
 
 describe("formatPages", () => {
   it("joins runs of pages", () => {
@@ -30,5 +30,17 @@ describe("pageHint", () => {
   it("says what clicking a page does", () => {
     expect(pageHint("pdf.delete-pages")).toEqual({ text: "Click the pages to remove.", removes: true });
     expect(pageHint("pdf.extract-pages").text).toBe("Click the pages to keep.");
+  });
+});
+
+describe("typedOrder", () => {
+  it("reads an order, with ranges in either direction", () => {
+    expect(typedOrder("3, 1,2", 3)).toEqual([3, 1, 2]);
+    expect(typedOrder("3-1", 3)).toEqual([3, 2, 1]);
+  });
+  it("is null for what is not an order yet", () => {
+    expect(typedOrder("", 3)).toBeNull();
+    expect(typedOrder("1,1", 3)).toBeNull();
+    expect(typedOrder("4", 3)).toBeNull();
   });
 });

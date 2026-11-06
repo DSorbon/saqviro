@@ -109,6 +109,7 @@ describe("dropping files", () => {
 
     await api.drop!(["/docs/a.pdf"]);
 
+    await fireEvent.click(await screen.findByRole("button", { name: "Show 1 more" }));
     expect(await screen.findByText("For any file")).toBeTruthy();
     expect(nav().queryByRole("button", { name: "Images" })).toBeNull();
     expect(nav().getByRole("button", { name: "PDF" })).toBeTruthy();
@@ -334,6 +335,29 @@ describe("a job out of sight", () => {
     expect(screen.queryByRole("status", { name: "Running in the background" })).toBeNull();
     emit({ status: "completed", finished_at: 1000, output: { kind: "text", value: "ok" } });
     await vi.waitFor(() => expect(screen.queryByRole("status", { name: "Running in the background" })).toBeNull());
+  });
+});
+
+describe("the list of tools for a file", () => {
+  it("starts short again for the next file", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await api.drop!(["/docs/a.pdf"]);
+    await fireEvent.click(await screen.findByRole("button", { name: "Show 1 more" }));
+    expect(screen.queryByRole("button", { name: "Show 1 more" })).toBeNull();
+    await api.drop!(["/docs/b.pdf"]);
+    expect(await screen.findByRole("button", { name: "Show 1 more" })).toBeTruthy();
+  });
+
+  it("leaves out a tool that needs more files than were dropped", async () => {
+    const inputs = tools[1]!.inputs;
+    tools[1]!.inputs = [{ ...inputs[0]!, min_files: 2 }];
+    render(App);
+    await screen.findByText("Popular");
+    await api.drop!(["/docs/a.pdf"]);
+    await screen.findByRole("button", { name: /Compress PDF/ });
+    expect(screen.queryByRole("button", { name: /Merge PDF/ })).toBeNull();
+    tools[1]!.inputs = inputs;
   });
 });
 

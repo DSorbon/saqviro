@@ -30,7 +30,7 @@ export interface Tool {
   category: Category;
   description: string;
   keywords: string[];
-  inputs: { type: string; multiple?: boolean; optional?: boolean; extensions?: string[] }[];
+  inputs: { type: string; multiple?: boolean; optional?: boolean; extensions?: string[]; min_files?: number; folders?: boolean }[];
   outputs?: { type: string; multiple?: boolean }[];
   parameters?: Parameter[];
   presets: Preset[];

@@ -47,6 +47,9 @@ describe.each(Object.entries(themes))("%s theme", (_, t) => {
   it.each(pairs)("%s on %s reaches 4.5:1", (fg, bg) => {
     expect(ratio(t[fg]!, t[bg]!)).toBeGreaterThanOrEqual(4.5);
   });
+  it.each(["bg", "surface"])("the edge of a control on %s reaches 3:1", (bg) => {
+    expect(ratio(t["border-strong"]!, t[bg]!)).toBeGreaterThanOrEqual(3);
+  });
 });
 
 it("keeps the system dark theme in step with the chosen one", () => {

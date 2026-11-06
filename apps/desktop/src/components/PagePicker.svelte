@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { pdfThumbnails, type Thumbnails } from "../lib/api";
-  import { formatOrder, formatPages, moveTo, pageHint, parsePages } from "../lib/pages";
+  import { formatOrder, formatPages, moveTo, pageHint, parsePages, typedOrder } from "../lib/pages";
 
   let { path, mode, toolId = "", value, disabled = false, onChange }: {
     path: string;
@@ -35,6 +35,17 @@
   const chosen = $derived(shown ? parsePages(value, shown.count) : []);
   // The rest of a very long document keeps its place at the end.
   const rest = $derived(shown ? Array.from({ length: shown.count - order.length }, (_, i) => order.length + i + 1) : []);
+
+  // Typing in the field below moves the pictures too.
+  $effect(() => {
+    if (mode !== "order" || !shown) return;
+    const pictures = shown.pages.length;
+    const typed = typedOrder(value, shown.count);
+    if (!typed || typed.some((p) => p > pictures)) return;
+    const others = Array.from({ length: pictures }, (_, i) => i + 1).filter((p) => !typed.includes(p));
+    const next = [...typed, ...others];
+    if (next.join() !== untrack(() => order).join()) order = next;
+  });
 
   function toggle(page: number) {
     const next = chosen.includes(page) ? chosen.filter((p) => p !== page) : [...chosen, page];

@@ -17,6 +17,15 @@
     onClear: () => void;
   } = $props();
 
+  // A photo can go into dozens of tools: the likely ones come first.
+  const SHORT_LIST = 8;
+  let everything = $state(false);
+  // New files start from the short list again.
+  $effect(() => {
+    void dropped;
+    everything = false;
+  });
+  const hidden = $derived(everything ? 0 : Math.max(specific.length - SHORT_LIST, 0) + general.length);
 </script>
 
 {#if dropped.length > 0}
@@ -38,11 +47,13 @@
       </ul>
     {/if}
     {#if specific.length > 0}
-      <ToolList tools={specific} {onOpen} />
+      <ToolList tools={everything ? specific : specific.slice(0, SHORT_LIST)} {onOpen} />
     {/if}
-    {#if general.length > 0}
+    {#if general.length > 0 && (everything || specific.length === 0)}
       <h3 class="muted">For any file</h3>
       <ToolList tools={general} {onOpen} />
+    {:else if hidden > 0}
+      <button class="link more" onclick={() => (everything = true)}>Show {hidden} more</button>
     {/if}
     {#if specific.length === 0 && general.length === 0}
       <p class="muted">No tool accepts {dropped.length === 1 ? "this file" : "all of these files"} yet.</p>
@@ -73,7 +84,7 @@
     place-content: center;
     text-align: center;
     min-height: 280px;
-    border: 1.5px dashed var(--border);
+    border: 1.5px dashed var(--border-strong);
     border-radius: 12px;
     transition: border-color var(--fast), background var(--fast);
   }
@@ -88,5 +99,6 @@
   h2 { margin: 0 0 var(--space-2); font-size: var(--text-title); }
   section h3:not(:first-child) { margin-top: var(--space-4); }
   h3 { margin: 0 0 var(--space-2); font-size: var(--text-caption); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .more { margin-top: var(--space-2); padding: var(--space-1) var(--space-3); }
   .link { border: 0; background: none; color: var(--accent); cursor: default; }
 </style>

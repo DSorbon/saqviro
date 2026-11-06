@@ -3,6 +3,7 @@
   --surface: #ffffff;
   --sidebar: #f4f4f2;
   --border: #e7e6e3;
+  --border-strong: #8d8b85;
   --text: #1c1b19;
   --text-muted: #6b6a66;
   --hover: #ecebe8;
@@ -35,6 +36,7 @@
     --surface: #222120;
     --sidebar: #161514;
     --border: #2f2e2c;
+    --border-strong: #76746e;
     --text: #ecebe8;
     --text-muted: #a3a19d;
     --hover: #2a2927;
@@ -51,6 +53,7 @@
     --surface: #222120;
     --sidebar: #161514;
     --border: #2f2e2c;
+    --border-strong: #76746e;
     --text: #ecebe8;
     --text-muted: #a3a19d;
     --hover: #2a2927;

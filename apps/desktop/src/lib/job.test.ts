@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
 import { canRun, errorText, formatBytes, inputKind, isActive, moved, sizeChange, statusLine, type JobSnapshot } from "./job";
+import { resultSummary, shortName } from "./job";
 
 const snap = (over: Partial<JobSnapshot>): JobSnapshot => ({
   id: 1,
@@ -89,5 +90,27 @@ describe("formatBytes and sizeChange", () => {
     expect(sizeChange({ path: "/a", size: 2048, source_size: 1024 })).toBe("1 KB → 2 KB (+100%)");
     expect(sizeChange({ path: "/a", size: 1024, source_size: 1024 })).toBe("1 KB, same size");
     expect(sizeChange({ path: "/a", size: 1024, source_size: null })).toBe("1 KB");
+  });
+});
+
+describe("shortName", () => {
+  it("leaves short names alone", () => {
+    expect(shortName("a.pdf")).toBe("a.pdf");
+  });
+  it("keeps both ends of a long name", () => {
+    const short = shortName(`${"x".repeat(80)} (copy 3).pdf`, 30);
+    expect(short).toHaveLength(30);
+    expect(short.endsWith("(copy 3).pdf")).toBe(true);
+    expect(short).toContain("…");
+  });
+});
+
+describe("resultSummary", () => {
+  const file = (path: string, size: number, source_size: number | null) => ({ path, size, source_size });
+  it("says how many, where and how much", () => {
+    expect(resultSummary([file("/a/Holiday/1.jpg", 1024, 2048), file("/a/Holiday/2.jpg", 1024, 2048)])).toBe("2 files in Holiday, 4 KB → 2 KB");
+  });
+  it("leaves out what is not one thing", () => {
+    expect(resultSummary([file("/a/1.jpg", 1024, null), file("/b/2.jpg", 1024, 1)])).toBe("2 files, 2 KB");
   });
 });

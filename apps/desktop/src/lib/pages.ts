@@ -36,6 +36,20 @@ export function moveTo<T>(list: T[], from: number, to: number): T[] {
   return next;
 }
 
+/** The order in text like `3,1,2`, or null if it does not name each page at most once. */
+export function typedOrder(text: string, count: number): number[] | null {
+  const pages: number[] = [];
+  for (const part of text.split(",")) {
+    const match = /^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$/.exec(part);
+    if (!match) return null;
+    const [first, last] = [Number(match[1]), Number(match[2] ?? match[1])];
+    const step = last >= first ? 1 : -1;
+    for (let page = first; page !== last + step; page += step) pages.push(page);
+  }
+  const valid = new Set(pages).size === pages.length && pages.every((p) => p >= 1 && p <= count);
+  return valid ? pages : null;
+}
+
 /** What clicking a page does in this tool. */
 export function pageHint(toolId: string): { text: string; removes: boolean } {
   switch (toolId) {

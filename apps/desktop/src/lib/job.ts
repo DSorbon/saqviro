@@ -161,3 +161,22 @@ export function sizeChange(file: OutputFile): string {
 }
 
 export const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
+
+/** A long name with its middle left out: the end tells copies and types apart. */
+export function shortName(name: string, max = 56): string {
+  if (name.length <= max) return name;
+  const tail = Math.floor((max - 1) / 2);
+  return `${name.slice(0, max - 1 - tail)}…${name.slice(-tail)}`;
+}
+
+/** "42 files in Holiday, 12 MB → 3 MB". */
+export function resultSummary(files: OutputFile[]): string {
+  const folders = new Set(files.map((f) => f.path.slice(0, -fileName(f.path).length)));
+  const place = folders.size === 1 ? ` in ${fileName([...folders][0]!.slice(0, -1))}` : "";
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  const before = files.every((f) => f.source_size !== null)
+    ? files.reduce((sum, f) => sum + (f.source_size ?? 0), 0)
+    : null;
+  const size = before === null ? formatBytes(total) : `${formatBytes(before)} → ${formatBytes(total)}`;
+  return `${files.length} files${place}, ${size}`;
+}

@@ -33,10 +33,50 @@ export function dragArea(from: Point, to: Point, size: Size): Area {
   return { x, y, width: Math.max(1, Math.abs(x2 - x1)), height: Math.max(1, Math.abs(y2 - y1)) };
 }
 
-/** The area the current parameters describe, if they describe one. */
+export type Corner = "nw" | "ne" | "sw" | "se";
+
+/** `4:3` as 4/3, or null if the aspect is not a shape. */
+export function ratioOf(values: Record<string, ParamValue>): number | null {
+  const [w, h] = String(values.aspect ?? "").split(":").map(Number);
+  return w && h ? w / h : null;
+}
+
+/** The largest area of this shape from `from` towards `to`, kept inside the image. */
+export function shapedArea(from: Point, to: Point, size: Size, ratio: number): Area {
+  const right = to.x >= from.x;
+  const down = to.y >= from.y;
+  const room = { width: right ? size.width - from.x : from.x, height: down ? size.height - from.y : from.y };
+  let width = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y) * ratio);
+  width = Math.min(width, room.width, room.height * ratio);
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(width / ratio));
+  return { x: Math.round(right ? from.x : from.x - w), y: Math.round(down ? from.y : from.y - h), width: w, height: h };
+}
+
+/** The area with one corner pulled to `to`; the opposite corner stays put. */
+export function resizeArea(area: Area, corner: Corner, to: Point, size: Size, ratio: number | null): Area {
+  const fixed = {
+    x: corner.endsWith("w") ? area.x + area.width : area.x,
+    y: corner.startsWith("n") ? area.y + area.height : area.y,
+  };
+  return ratio ? shapedArea(fixed, to, size, ratio) : dragArea(fixed, to, size);
+}
+
+/** The area moved, stopping at the edges of the image. */
+export function moveArea(area: Area, dx: number, dy: number, size: Size): Area {
+  const clamp = (v: number, max: number) => Math.round(Math.min(Math.max(v, 0), max));
+  return { ...area, x: clamp(area.x + dx, size.width - area.width), y: clamp(area.y + dy, size.height - area.height) };
+}
+
+/** True while the tool would crop nothing away. */
+export function needsArea(values: Record<string, ParamValue>): boolean {
+  return ratioOf(values) === null && !values.width && !values.height;
+}
+
+/** The area the current parameters describe, if they describe one. Mirrors `crop_area` in Rust. */
 export function chosenArea(values: Record<string, ParamValue>, size: Size): Area | null {
   const [w, h] = String(values.aspect ?? "").split(":").map(Number);
-  if (w && h) return centered(size, w, h);
+  if (w && h && !(values.width && values.height)) return centered(size, w, h);
   const x = Number(values.x ?? 0);
   const y = Number(values.y ?? 0);
   if (!values.width && !values.height) return null;

@@ -129,6 +129,14 @@ export function homeTools(tools: Tool[], prefs: Prefs): { label: string; tools: 
 export const takesAnything = (tool: Tool) => tool.inputs.some((i) => i.extensions?.includes("*"));
 
 /** Tools made for these files, and the general ones that take anything. */
+/** False for tools that would have nothing to do with these files, though they accept them. */
+export function suitsFiles(tool: Tool, paths: string[]): boolean {
+  const input = tool.inputs[0];
+  if (paths.length < (input?.min_files ?? 1)) return false;
+  // A dropped folder usually has no extension.
+  return !input?.folders || paths.some((p) => !/\.[^./\\]+$/.test(p));
+}
+
 export function splitSuggestions(tools: Tool[], scores: Record<string, number>) {
   const popularity = (t: Tool) => (POPULAR.includes(t.id) ? POPULAR.indexOf(t.id) : POPULAR.length);
   const ranked = [...tools].sort(

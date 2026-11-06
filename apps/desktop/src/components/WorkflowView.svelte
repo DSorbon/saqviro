@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { cancelJob, onJobEvent, pickFiles, pickFolder, runWorkflow } from "../lib/api";
-  import { errorText, fileName, isActive, moved, queued, statusLine, takesFolders, type JobError, type JobSnapshot } from "../lib/job";
+  import { errorText, fileName, isActive, moved, queued, shortName, statusLine, takesFolders, type JobError, type JobSnapshot } from "../lib/job";
   import { initialParams, matchingPreset, paramsIssue } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { Tool } from "../lib/types";
@@ -203,7 +203,7 @@
         <ul class="files">
           {#each files as f (f)}
             <li>
-              <span title={f}>{fileName(f)}</span>
+              <span title={f}>{shortName(fileName(f))}</span>
               <button class="icon" aria-label="Remove {fileName(f)}" disabled={running} onclick={() => (files = files.filter((p) => p !== f))}>×</button>
             </li>
           {/each}
@@ -259,13 +259,13 @@
   .preset { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); }
   .outcome { display: flex; flex-direction: column; gap: var(--space-4); scroll-margin-bottom: 80px; }
   .outcome:empty { display: none; }
-  select { padding: 6px var(--space-2); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
-  .code { width: 100%; min-height: 120px; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
+  select { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
+  .code { width: 100%; min-height: 120px; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
   .input-files { display: flex; flex-direction: column; gap: var(--space-2); }
   .files { margin: 0; padding: var(--space-2) var(--space-3); list-style: none; border: 1px solid var(--border); border-radius: var(--radius); max-height: 160px; overflow-y: auto; }
   .files li { display: flex; align-items: center; gap: var(--space-1); }
   .files li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .drop { margin: 0; padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border); border-radius: var(--radius); }
+  .drop { margin: 0; padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); }
   .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
   .error { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); user-select: text; }
   footer { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); background: var(--bg); }

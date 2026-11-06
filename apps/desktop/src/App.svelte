@@ -19,6 +19,7 @@
     recordUse,
     savePrefs,
     splitSuggestions,
+    suitsFiles,
     toggleFavorite,
     usageScores,
     type Prefs,
@@ -61,7 +62,7 @@
   const allGroups = $derived(sidebarGroups(tools));
   const results = $derived(searchTools(tools, query, scores));
   const suggestions = $derived(
-    splitSuggestions(tools.filter((t) => suggestionIds.includes(t.id)), scores),
+    splitSuggestions(tools.filter((t) => suggestionIds.includes(t.id) && suitsFiles(t, dropped)), scores),
   );
   const recommended = $derived(
     advice.flatMap(({ tool: id, reason }) => {
@@ -236,6 +237,9 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="shell">
+  {#if hovering && (section !== "home" || openTool || openWorkflow || dropped.length > 0)}
+    <div class="drop-hint"><span>Drop to use these files</span></div>
+  {/if}
   <div class="toolbar">
     <input
       bind:this={searchInput}
@@ -359,10 +363,12 @@
   .toolbar input {
     width: min(480px, 100%);
     padding: 6px var(--space-3);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius);
     background: var(--surface);
   }
+  .drop-hint { position: fixed; inset: var(--space-2); z-index: 10; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
+  .drop-hint span { padding: var(--space-2) var(--space-4); border-radius: var(--radius); background: var(--surface); font-weight: 600; }
   .waiting { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--text-caption); color: var(--text-muted); }
   .waiting span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .waiting button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }

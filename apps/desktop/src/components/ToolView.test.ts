@@ -392,6 +392,38 @@ describe("ToolView helps with what is missing", () => {
   });
 });
 
+describe("ToolView crop areas", () => {
+  const crop = tool("image.crop", "Crop", {
+    inputs: [{ type: "image", extensions: ["jpg"] }],
+    parameters: [
+      { id: "aspect", type: "enum", values: ["selection", "1:1"], default: "selection" },
+      { id: "x", type: "integer", default: 0 },
+      { id: "y", type: "integer", default: 0 },
+      { id: "width", type: "integer", optional: true },
+      { id: "height", type: "integer", optional: true },
+    ],
+    presets: [
+      { id: "selection", name: "Selection", params: { aspect: "selection" } },
+      { id: "square", name: "Square", params: { aspect: "1:1" } },
+    ],
+    ui: { preview: "crop", advanced: ["aspect", "x", "y", "width", "height"] },
+  });
+
+  it("asks for an area instead of running a crop that cuts nothing", () => {
+    render(ToolView, { tool: crop, files: ["/a.jpg"] });
+    expect(screen.getByText("Choose an area on the picture")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("keeps the selection when going back to it from a shape", async () => {
+    render(ToolView, { tool: crop, files: ["/a.jpg"] });
+    const [, , width] = screen.getAllByRole("spinbutton", { hidden: true });
+    await fireEvent.input(width!, { target: { value: "10" } });
+    await fireEvent.click(screen.getByRole("radio", { name: "Selection" }));
+    expect((width as HTMLInputElement).value).toBe("10");
+  });
+});
+
 describe("ToolView and folders", () => {
   const size = tool("files.folder-size", "Folder Size", { inputs: [{ type: "any", extensions: ["*"] }] });
 
