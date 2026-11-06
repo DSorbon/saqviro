@@ -1,4 +1,5 @@
 import type { Tool } from "./types";
+import { isWorkflow, type Workflow } from "./workflow";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -10,6 +11,7 @@ export interface Prefs {
   reduceMotion: boolean;
   /** Where results go. Next to the originals when null. */
   outputDir: string | null;
+  workflows: Workflow[];
 }
 
 const KEY = "saqviro.prefs";
@@ -30,7 +32,7 @@ const POPULAR = [
   "files.zip.create",
 ];
 
-export const defaultPrefs = (): Prefs => ({ favorites: [], usage: {}, theme: "system", reduceMotion: false, outputDir: null });
+export const defaultPrefs = (): Prefs => ({ favorites: [], usage: {}, theme: "system", reduceMotion: false, outputDir: null, workflows: [] });
 
 function isUsage(value: unknown): value is { count: number; last: number } {
   const v = value as { count?: unknown; last?: unknown } | null;
@@ -54,6 +56,7 @@ export function parsePrefs(text: string | null): Prefs {
   if (saved.theme === "light" || saved.theme === "dark") prefs.theme = saved.theme;
   prefs.reduceMotion = saved.reduceMotion === true;
   if (typeof saved.outputDir === "string" && saved.outputDir) prefs.outputDir = saved.outputDir;
+  if (Array.isArray(saved.workflows)) prefs.workflows = saved.workflows.filter(isWorkflow);
   return prefs;
 }
 

@@ -101,6 +101,32 @@ fn run_tool(
     start_job(&registry, &jobs, &tool_id, input, &params, output_dir)
 }
 
+/// Checks a workflow and queues it as one job.
+fn start_workflow(
+    registry: &Registry,
+    jobs: &JobManager,
+    steps: &[saqviro_workflow::Step],
+    input: JobInput,
+    output_dir: Option<PathBuf>,
+) -> Result<JobId, JobError> {
+    let executor = saqviro_workflow::prepare(registry, steps, is_available).map_err(|issues| {
+        let message = issues.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ");
+        JobError::new(ErrorKind::InvalidInput, message)
+    })?;
+    Ok(jobs.submit_to("workflow", executor, input, Params::new(), output_dir))
+}
+
+#[tauri::command]
+fn run_workflow(
+    registry: State<'_, Registry>,
+    jobs: State<'_, JobManager>,
+    steps: Vec<saqviro_workflow::Step>,
+    input: JobInput,
+    output_dir: Option<PathBuf>,
+) -> Result<JobId, JobError> {
+    start_workflow(&registry, &jobs, &steps, input, output_dir)
+}
+
 /// A small picture of an image, for choosing an area of it.
 #[tauri::command]
 async fn image_preview(path: PathBuf) -> Result<saqviro_tools::images::Preview, JobError> {
@@ -310,6 +336,7 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             list_tools,
             tools_for_files,
             run_tool,
+            run_workflow,
             image_preview,
             pick_folder,
             cancel_job,
@@ -459,6 +486,26 @@ mod tests {
         let done = jobs.wait(id).unwrap();
         assert_eq!(done.status, JobStatus::Completed);
         assert_eq!(done.output, Some(JobOutput::Text("[\n  1\n]\n".into())));
+    }
+
+    #[test]
+    fn runs_a_workflow_and_refuses_a_broken_one() {
+        let (jobs, _root) = jobs();
+        let registry = bundled_registry();
+        let step = |tool: &str| saqviro_workflow::Step {
+            tool: tool.into(),
+            params: Params::new(),
+        };
+        let input = || JobInput::Text("b\na\na".into());
+        let steps = [step("text.lines.dedupe"), step("text.lines.reverse")];
+        let id = start_workflow(&registry, &jobs, &steps, input(), None).unwrap();
+        let done = jobs.wait(id).unwrap();
+        assert_eq!(done.output, Some(JobOutput::Text("a\nb".into())));
+
+        let steps = [step("text.lines.dedupe"), step("image.resize")];
+        let err = start_workflow(&registry, &jobs, &steps, input(), None).unwrap_err();
+        assert_eq!(err.kind, ErrorKind::InvalidInput);
+        assert!(err.message.starts_with("step 2: "), "{}", err.message);
     }
 
     #[test]

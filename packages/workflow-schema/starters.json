@@ -1,0 +1,30 @@
+[
+  {
+    "schema_version": 1,
+    "id": "website-images",
+    "name": "Website Images",
+    "steps": [
+      { "tool": "image.resize", "params": { "width": 1920, "fit": "inside" } },
+      { "tool": "image.metadata.remove" },
+      { "tool": "image.to-webp", "params": { "quality": 80 } }
+    ]
+  },
+  {
+    "schema_version": 1,
+    "id": "email-pdf",
+    "name": "Email PDF",
+    "steps": [
+      { "tool": "pdf.metadata.remove" },
+      { "tool": "pdf.compress" }
+    ]
+  },
+  {
+    "schema_version": 1,
+    "id": "share-video",
+    "name": "Share Video",
+    "steps": [
+      { "tool": "video.compress", "params": { "resolution": "720" } },
+      { "tool": "video.faststart" }
+    ]
+  }
+]

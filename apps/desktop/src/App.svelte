@@ -5,6 +5,8 @@
   import Sidebar from "./components/Sidebar.svelte";
   import ToolList from "./components/ToolList.svelte";
   import ToolView from "./components/ToolView.svelte";
+  import WorkflowList from "./components/WorkflowList.svelte";
+  import WorkflowView from "./components/WorkflowView.svelte";
   import { listTools, onFileDrop, pickFiles, toolsForFiles } from "./lib/api";
   import { shortcut } from "./lib/platform";
   import {
@@ -23,10 +25,12 @@
   import { searchTools } from "./lib/search";
   import { relevantGroups, sidebarGroups } from "./lib/sidebar";
   import type { Tool } from "./lib/types";
+  import { blankWorkflow, copyOf, saved, type Workflow } from "./lib/workflow";
 
   let tools = $state<Tool[]>([]);
   let section = $state("home");
   let openTool = $state<Tool | null>(null);
+  let openWorkflow = $state<Workflow | null>(null);
   let query = $state("");
   let hovering = $state(false);
   let dropped = $state<string[]>([]);
@@ -64,6 +68,10 @@
 
   async function receive(paths: string[]) {
     if (paths.length === 0) return;
+    if (openWorkflow) {
+      files = paths;
+      return;
+    }
     const accepting = await toolsForFiles(paths);
     // Files dropped on an open tool that accepts them go to that tool.
     if (openTool && accepting.includes(openTool.id)) {
@@ -87,13 +95,30 @@
   function select(id: string) {
     section = id;
     openTool = null;
+    openWorkflow = null;
     query = "";
   }
 
   function open(tool: Tool) {
     openTool = tool;
+    openWorkflow = null;
     files = suggestionIds.includes(tool.id) ? dropped : [];
     query = "";
+  }
+
+  function keepWorkflow(workflow: Workflow) {
+    openWorkflow = workflow;
+    update({ ...prefs, workflows: saved(prefs.workflows, workflow) });
+  }
+
+  function dropWorkflow(id: string) {
+    update({ ...prefs, workflows: prefs.workflows.filter((w) => w.id !== id) });
+    openWorkflow = null;
+  }
+
+  function showWorkflow(workflow: Workflow) {
+    openWorkflow = workflow;
+    files = [];
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -139,7 +164,7 @@
 
   <Sidebar
     {groups}
-    active={openTool ? (allGroups.find((g) => g.tools.includes(openTool!))?.id ?? "") : section}
+    active={openTool ? (allGroups.find((g) => g.tools.includes(openTool!))?.id ?? "") : openWorkflow ? "workflows" : section}
     onSelect={select}
     hasFavorites={favorites.length > 0}
     hasRecent={recent.length > 0}
@@ -166,6 +191,27 @@
           onSend={send}
         />
       {/key}
+    {:else if openWorkflow}
+      {#key openWorkflow.id}
+        <WorkflowView
+          {tools}
+          workflow={openWorkflow}
+          {files}
+          outputDir={prefs.outputDir}
+          onChange={keepWorkflow}
+          onDelete={() => dropWorkflow(openWorkflow!.id)}
+          onCopy={() => keepWorkflow(copyOf(openWorkflow!, crypto.randomUUID()))}
+          onBack={() => (openWorkflow = null)}
+        />
+      {/key}
+    {:else if section === "workflows"}
+      <WorkflowList
+        {tools}
+        workflows={prefs.workflows}
+        onOpen={showWorkflow}
+        onNew={() => keepWorkflow(blankWorkflow(crypto.randomUUID()))}
+        onCopy={(w) => keepWorkflow({ ...copyOf(w, crypto.randomUUID()), name: w.name })}
+      />
     {:else if section === "home"}
       <Home {hovering} {dropped} specific={suggestions.specific} general={suggestions.general} tilesLabel={home.label} tiles={home.tools} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={() => { dropped = []; suggestionIds = []; }} />
     {:else if section === "favorites"}

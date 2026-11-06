@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { cancelJob, onJobEvent, openFile, pickFiles, revealFile, runTool, saveImage } from "../lib/api";
+  import { cancelJob, onJobEvent, pickFiles, runTool, saveImage } from "../lib/api";
   import {
     canRun,
     errorText,
@@ -9,16 +9,17 @@
     inputKind,
     isActive,
     moved,
-    sizeChange,
     statusLine,
     type JobError,
     type JobSnapshot,
   } from "../lib/job";
   import type { Area } from "../lib/crop";
-  import { initialParams, isAdvanced, paramLabel } from "../lib/params";
+  import { initialParams } from "../lib/params";
   import { shortcut } from "../lib/platform";
-  import type { Parameter, ParamValue, Tool } from "../lib/types";
+  import type { ParamValue, Tool } from "../lib/types";
   import CropBox from "./CropBox.svelte";
+  import ParamFields from "./ParamFields.svelte";
+  import Results from "./Results.svelte";
 
   let { tool, files: dropped, outputDir = null, favorite = false, onToggleFavorite, onRan, onSend }: {
     tool: Tool;
@@ -46,9 +47,6 @@
   let job = $state<JobSnapshot | null>(null);
   let requestError = $state<JobError | null>(null);
 
-  const params = $derived(tool.parameters ?? []);
-  const main = $derived(params.filter((p) => !isAdvanced(tool, p.id)));
-  const advanced = $derived(params.filter((p) => isAdvanced(tool, p.id)));
   const kind = $derived(inputKind(tool));
   const running = $derived(job !== null && isActive(job));
   const ready = $derived(canRun(tool, text, files) && !running);
@@ -112,27 +110,6 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-{#snippet field(p: Parameter)}
-  <label>
-    <span>{paramLabel(p.id)}</span>
-    {#if p.type === "enum"}
-      <select bind:value={values[p.id]}>
-        {#each p.values ?? [] as v (v)}<option value={v}>{v}</option>{/each}
-      </select>
-    {:else if p.type === "boolean"}
-      <input type="checkbox" bind:checked={values[p.id] as boolean} />
-    {:else if p.type === "integer" || p.type === "number"}
-      <input type="number" min={p.min} max={p.max} step={p.type === "integer" ? 1 : "any"} bind:value={values[p.id]} placeholder={p.optional ? "auto" : ""} />
-    {:else if p.multiline}
-      <textarea class="code" spellcheck="false" bind:value={values[p.id]}></textarea>
-    {:else if p.secret}
-      <input type="password" autocomplete="off" bind:value={values[p.id]} />
-    {:else}
-      <input type="text" bind:value={values[p.id]} placeholder={p.optional ? "optional" : ""} />
-    {/if}
-  </label>
-{/snippet}
-
 <article>
   <header>
     <div class="title">
@@ -183,20 +160,7 @@
     </div>
   {/if}
 
-  {#if main.length > 0}
-    <div class="fields">
-      {#each main as p (p.id)}{@render field(p)}{/each}
-    </div>
-  {/if}
-
-  {#if advanced.length > 0}
-    <details>
-      <summary>Advanced</summary>
-      <div class="fields">
-        {#each advanced as p (p.id)}{@render field(p)}{/each}
-      </div>
-    </details>
-  {/if}
+  <ParamFields {tool} bind:values />
 
   {#if output?.kind === "text"}
     <section class="result">
@@ -217,24 +181,7 @@
   {/if}
 
   {#if output?.kind === "files"}
-    <ul class="results" aria-label="Results">
-      {#each output.value as f (f.path)}
-        <li>
-          <div class="result-name">
-            <span title={f.path}>{fileName(f.path)}</span>
-            <span class="muted">{sizeChange(f)}</span>
-            {#if f.note}<span class="muted">{f.note}</span>{/if}
-          </div>
-          <button onclick={() => openFile(f.path)}>Open</button>
-          <button onclick={() => revealFile(f.path)}>Show in folder</button>
-        </li>
-      {/each}
-    </ul>
-    {#if onSend}
-      <div class="actions">
-        <button onclick={() => onSend(output.value.map((f) => f.path))}>Use in another tool…</button>
-      </div>
-    {/if}
+    <Results files={output.value} {onSend} />
   {/if}
 
   {#if failure}
@@ -278,20 +225,10 @@
   .title { display: flex; align-items: center; gap: var(--space-2); }
   .star { border: 0; background: none; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: default; padding: 2px; border-radius: 4px; }
   .star.on { color: var(--accent); }
-  .results { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); max-height: 320px; overflow-y: auto; }
-  .results li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-  .result-name { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  .result-name span:first-child { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .result-name .muted { font-size: var(--text-caption); }
   .drop { padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border); border-radius: var(--radius); }
   .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
   .segmented button { padding: 4px var(--space-3); border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: default; }
   .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
-  .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3); }
-  label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-caption); color: var(--text-muted); }
-  input:not([type="checkbox"]), select { padding: 6px var(--space-2); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
-  input[type="checkbox"] { align-self: flex-start; }
-  summary { color: var(--text-muted); cursor: default; margin-bottom: var(--space-3); }
   .picture { align-self: center; width: 240px; height: 240px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); background: white; }
   .result { display: flex; flex-direction: column; gap: var(--space-2); }
   .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }

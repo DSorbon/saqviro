@@ -160,10 +160,24 @@ pub struct JobContext {
     temp_root: PathBuf,
     temp: OnceLock<TempDir>,
     output_dir: Option<PathBuf>,
-    report: Box<dyn Fn(f32) + Send + Sync>,
+    report: Arc<dyn Fn(f32) + Send + Sync>,
 }
 
 impl JobContext {
+    /// A context for one part of this job: it stops with the job, reports
+    /// progress within `span`, has temp files of its own and sends results
+    /// to `output_dir`.
+    pub fn scoped(&self, output_dir: Option<PathBuf>, span: (f32, f32)) -> Self {
+        let report = self.report.clone();
+        Self {
+            cancel: self.cancel.clone(),
+            temp_root: self.temp_root.clone(),
+            temp: OnceLock::new(),
+            output_dir,
+            report: Arc::new(move |p: f32| report(span.0 + (span.1 - span.0) * p)),
+        }
+    }
+
     pub fn is_cancelled(&self) -> bool {
         self.cancel.load(Ordering::Relaxed)
     }
@@ -437,7 +451,7 @@ fn worker(shared: &Arc<Shared>) {
             temp_root: shared.temp_root.clone(),
             temp: OnceLock::new(),
             output_dir,
-            report: Box::new(report),
+            report: Arc::new(report),
         };
         let result = catch_unwind(AssertUnwindSafe(|| executor.run(&ctx, input, &params)))
             .unwrap_or_else(|_| Err(JobError::new(ErrorKind::Unknown, "the tool crashed")));

@@ -20,6 +20,7 @@
   {@render item("home", "Home")}
   {#if hasFavorites}{@render item("favorites", "Favorites")}{/if}
   {#if hasRecent}{@render item("recent", "Recent")}{/if}
+  {@render item("workflows", "Workflows")}
   <div class="gap"></div>
   {#each groups as group (group.id)}
     {@render item(group.id, group.label)}

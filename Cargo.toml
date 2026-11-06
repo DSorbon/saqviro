@@ -27,6 +27,7 @@ pdfium-render = { version = "0.9", default-features = false, features = ["pdfium
 saqviro-core = { path = "crates/core" }
 saqviro-jobs = { path = "crates/jobs" }
 saqviro-tools = { path = "crates/tools" }
+saqviro-workflow = { path = "crates/workflow" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde-saphyr = "2"

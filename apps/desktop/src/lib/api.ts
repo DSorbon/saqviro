@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { JobInput, JobSnapshot } from "./job";
 import type { ParamValue, Tool } from "./types";
+import type { WorkflowStep } from "./workflow";
 
 export const listTools = () => invoke<Tool[]>("list_tools");
 
@@ -12,6 +13,10 @@ export const toolsForFiles = (paths: string[]) => invoke<string[]>("tools_for_fi
 /** Queues a job and returns its id. Rejects with a `JobError` if the request is invalid. */
 export const runTool = (toolId: string, input: JobInput, params: Record<string, ParamValue>, outputDir: string | null = null) =>
   invoke<number>("run_tool", { toolId, input, params, outputDir });
+
+/** Queues a workflow as one job. Rejects with a `JobError` if it cannot run. */
+export const runWorkflow = (steps: WorkflowStep[], input: JobInput, outputDir: string | null = null) =>
+  invoke<number>("run_workflow", { steps, input, outputDir });
 
 export interface ImagePreview {
   /** A JPEG, in Base64. */

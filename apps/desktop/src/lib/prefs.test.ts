@@ -134,3 +134,19 @@ describe("applyAppearance", () => {
     expect(root.dataset.motion).toBeUndefined();
   });
 });
+
+describe("saved settings", () => {
+  it("keeps the results folder and valid workflows only", () => {
+    const text = JSON.stringify({
+      outputDir: "/out",
+      workflows: [{ id: "a", name: "A", steps: [{ tool: "x" }] }, { id: 1 }, { id: "b", name: "B", steps: [{}] }],
+    });
+    const prefs = parsePrefs(text);
+    expect(prefs.outputDir).toBe("/out");
+    expect(prefs.workflows.map((w) => w.id)).toEqual(["a"]);
+  });
+  it("starts with neither", () => {
+    expect(parsePrefs(null).outputDir).toBeNull();
+    expect(parsePrefs(null).workflows).toEqual([]);
+  });
+});
