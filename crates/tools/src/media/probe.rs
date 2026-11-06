@@ -32,6 +32,8 @@ pub struct Probe {
     pub bit_rate: Option<u64>,
     pub video: Option<VideoStream>,
     pub audio: Vec<AudioStream>,
+    /// Codec of each subtitle track.
+    pub subtitles: Vec<String>,
 }
 
 /// ffprobe writes numbers as strings.
@@ -87,6 +89,7 @@ impl Probe {
                     channels: number(stream, "channels"),
                     bit_rate: number(stream, "bit_rate"),
                 }),
+                Some("subtitle") => probe.subtitles.push(text(stream, "codec_name")),
                 _ => {}
             }
         }

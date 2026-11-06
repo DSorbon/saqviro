@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.xml-to-json
+name: XML to JSON
+category: developer
+tool_version: 1
+description: Turn XML into JSON.
+keywords: [convert, data]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

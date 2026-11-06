@@ -621,3 +621,46 @@ fn explains_a_broken_svg() {
     let (done, _) = run("image.svg-to-png", &[source], json!({}));
     assert_eq!(done.error.unwrap().kind, ErrorKind::UnsupportedFormat);
 }
+
+#[test]
+fn prints_text_on_a_picture_in_any_language() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.png");
+    image::RgbImage::from_pixel(300, 200, image::Rgb([0, 0, 0]))
+        .save(&source)
+        .unwrap();
+    let params = json!({ "text": "Привет", "size": 20, "opacity": 100, "position": "top-left" });
+    let (done, _) = run("image.watermark", &[source], params);
+    let out = rgba(&outputs(&done)[0].path);
+    assert_eq!(out.dimensions(), (300, 200));
+    let (mut left, mut right) = (0, 0);
+    for (x, y, pixel) in out.enumerate_pixels() {
+        if pixel.0[0] > 200 {
+            if x < 150 && y < 100 { left += 1 } else { right += 1 }
+        }
+    }
+    assert!(left > 100 && right < left / 10, "{left} {right}");
+}
+
+#[test]
+fn a_watermark_needs_text() {
+    let dir = tempfile::tempdir().unwrap();
+    let (done, _) = run(
+        "image.watermark",
+        &[half_red(dir.path(), "a.png")],
+        json!({ "text": " " }),
+    );
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn a_long_watermark_stays_inside_the_picture() {
+    use saqviro_tools::images::overlay::Watermark;
+    let p = json!({ "text": "x".repeat(200), "size": 50, "opacity": 100, "position": "center" });
+    let layer = Watermark::from_params(p.as_object().unwrap())
+        .unwrap()
+        .layer((100, 100))
+        .unwrap();
+    assert_eq!(layer.dimensions(), (100, 100));
+    assert_eq!(layer.get_pixel(0, 50).0[3], 0, "the edge stays clear");
+}

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.subtitles
+name: Subtitle Converter
+category: text
+tool_version: 1
+description: Convert subtitles between SRT and WebVTT, and shift their timing.
+keywords: [srt, vtt, captions, sync, delay]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [srt, vtt], default: vtt }
+  - { id: shift_seconds, type: number, min: -36000, max: 36000, default: 0 }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [shift_seconds]

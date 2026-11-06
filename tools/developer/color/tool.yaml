@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.color
+name: Color Converter
+category: developer
+tool_version: 1
+description: See a color in hex, RGB and HSL.
+keywords: [hex, rgb, hsl, css, picker]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

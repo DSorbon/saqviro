@@ -1361,3 +1361,95 @@ pub fn merge_audio(template: String) -> Arc<dyn Executor> {
         deliver_one(ctx, &template, &sources.paths[0], &file, ext, None)
     })
 }
+
+/// Add Watermark to Video. The text is drawn to a picture of the same size
+/// and laid over the video, since this FFmpeg has no fonts of its own.
+pub fn watermark(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let video = step.video()?;
+        let mark = crate::images::overlay::Watermark::from_params(step.params)?;
+        let layer = mark.layer((video.width, video.height))?;
+        let picture = step.temp.join("mark.png");
+        layer
+            .save(&picture)
+            .map_err(|e| JobError::new(ErrorKind::Unknown, format!("could not draw the text: {e}")))?;
+
+        let plan = plan_video(step.engine.encoders(), same_container(&step.ext))?;
+        let bit_rate = same_quality_bit_rate(&step.probe, video).max(MIN_VIDEO_BITRATE);
+        let audio = step.probe.audio.first();
+        let file = step.temp.join(format!("result.{}", plan.container.ext()));
+        let mut after: Vec<OsString> = ["-i".into(), picture.into_os_string()].into();
+        after.extend([
+            "-filter_complex".into(),
+            "[0:v:0][1:v]overlay=0:0:format=auto[v]".into(),
+            "-map".into(),
+            "[v]".into(),
+        ]);
+        if let Some(audio) = audio {
+            after.extend(["-map".into(), format!("0:{}", audio.index).into()]);
+        }
+        after.extend(to_os(&encoder_args(plan.encoder, bit_rate)));
+        after.extend(to_os(&video_audio_args(plan.container, audio, true)));
+        if matches!(plan.container, Container::Mp4 | Container::Mov) {
+            after.extend(["-movflags".into(), "+faststart".into()]);
+        }
+        after.extend(["-y".into(), file.clone().into_os_string()]);
+        step.ffmpeg("error", &[], after, step.probe.duration, step.span)?;
+        Ok(Made {
+            file,
+            ext: plan.container.ext(),
+            note: plan.note,
+        })
+    })
+}
+
+/// Subtitle Extractor. Picture subtitles, as on DVDs, cannot become text.
+pub fn subtitles(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let track = param_u32(step.params, "track").unwrap_or(1).max(1) - 1;
+        let Some(codec) = step.probe.subtitles.get(track as usize) else {
+            return Err(invalid(match step.probe.subtitles.len() {
+                0 => "this video has no subtitles".to_owned(),
+                n => format!("this video has {n} subtitle tracks"),
+            }));
+        };
+        if matches!(codec.as_str(), "dvd_subtitle" | "hdmv_pgs_subtitle" | "dvb_subtitle") {
+            return Err(invalid("these subtitles are pictures, so they cannot become text"));
+        }
+        let (ext, codec) = match param_str(step.params, "format") {
+            Some("vtt") => ("vtt", "webvtt"),
+            _ => ("srt", "srt"),
+        };
+        let map = format!("0:s:{track}");
+        let args = ["-map", &map, "-c:s", codec].map(str::to_owned);
+        step.write(&[], &args, ext, None, None)
+    })
+}
+
+/// Audio Tag Editor. The sound is copied, so nothing is lost.
+pub fn tags(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let ext = copy_ext(&step.ext)?;
+        let mut args: Vec<String> = ["-map", "0", "-map_metadata", "0", "-c", "copy"]
+            .map(str::to_owned)
+            .to_vec();
+        let fields = [
+            ("title", "title"),
+            ("artist", "artist"),
+            ("album", "album"),
+            ("year", "date"),
+            ("genre", "genre"),
+        ];
+        let mut any = false;
+        for (id, tag) in fields {
+            if let Some(value) = param_str(step.params, id) {
+                any = true;
+                args.extend(["-metadata".to_owned(), format!("{tag}={value}")]);
+            }
+        }
+        if !any {
+            return Err(invalid("fill in at least one tag"));
+        }
+        step.write(&[], &args, ext, step.probe.duration, None)
+    })
+}

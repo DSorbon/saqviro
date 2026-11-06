@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.tags
+name: Audio Tag Editor
+category: audio
+tool_version: 1
+description: Set the title, artist and album of audio files.
+keywords: [id3, metadata, artist, album, music]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}-tagged.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: title, type: string, optional: true }
+  - { id: artist, type: string, optional: true }
+  - { id: album, type: string, optional: true }
+  - { id: year, type: string, optional: true }
+  - { id: genre, type: string, optional: true }
+presets:
+  - { id: default, name: Default }

@@ -118,3 +118,14 @@ pub fn number_base(text: &str, params: &Params) -> Result<String, String> {
     let n = parse_number(text, params::text(params, "base").parse().ok())?;
     Ok(format!("Binary: {n:b}\nOctal: {n:o}\nDecimal: {n}\nHex: {n:X}"))
 }
+
+pub fn sql_format(text: &str, params: &Params) -> Result<String, String> {
+    use sqlformat::{FormatOptions, Indent, QueryParams, format};
+    let spaces = if params::text(params, "indent") == "4" { 4 } else { 2 };
+    let options = FormatOptions {
+        indent: Indent::Spaces(spaces),
+        uppercase: Some(params::flag(params, "uppercase")),
+        ..FormatOptions::default()
+    };
+    Ok(format(text, &QueryParams::None, &options))
+}

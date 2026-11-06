@@ -728,3 +728,11 @@ pub fn svg_to_png(template: String) -> Arc<dyn Executor> {
         })
     })
 }
+
+pub fn watermark(template: String) -> Arc<dyn Executor> {
+    batch(template, |path, params| {
+        let mark = super::overlay::Watermark::from_params(params)?;
+        let Picture { image, icc, format } = decode(path)?;
+        Made::image(&mark.apply(&image)?, icc.as_deref(), writable(format), NEAR_LOSSLESS)
+    })
+}

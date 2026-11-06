@@ -172,3 +172,47 @@ fn diffs_lines() {
     let p = json!({ "changed_text": "a  b \n", "ignore_spaces": true });
     assert_eq!(diff::run(" a b\n", &params(p)).unwrap(), "The texts are the same");
 }
+
+const SRT: &str = "1\n00:00:01,000 --> 00:00:02,500\nHello\nthere\n\n2\n00:01:00,000 --> 00:01:01,000\nBye\n";
+const VTT: &str = "WEBVTT\n\n00:01.000 --> 00:02.500 align:start\nHello\n\n";
+
+#[test]
+fn converts_subtitles() {
+    use saqviro_tools::text::subtitles;
+    let vtt = subtitles::run(SRT, &params(json!({ "format": "vtt" }))).unwrap();
+    assert_eq!(
+        vtt,
+        "WEBVTT\n\n00:00:01.000 --> 00:00:02.500\nHello\nthere\n\n00:01:00.000 --> 00:01:01.000\nBye\n\n"
+    );
+    let srt = subtitles::run(VTT, &params(json!({ "format": "srt" }))).unwrap();
+    assert_eq!(srt, "1\n00:00:01,000 --> 00:00:02,500\nHello\n\n");
+}
+
+#[test]
+fn shifts_subtitles() {
+    use saqviro_tools::text::subtitles;
+    let out = subtitles::run(SRT, &params(json!({ "format": "srt", "shift_seconds": -1.5 }))).unwrap();
+    assert!(out.starts_with("1\n00:00:00,000 --> 00:00:01,000\n"), "{out}");
+    let out = subtitles::run(SRT, &params(json!({ "format": "srt", "shift_seconds": -10.0 }))).unwrap();
+    assert!(
+        out.starts_with("1\n00:00:50,000 --> 00:00:51,000\nBye"),
+        "cues before the start go: {out}"
+    );
+}
+
+#[test]
+fn explains_text_that_is_not_subtitles() {
+    use saqviro_tools::text::subtitles;
+    assert!(subtitles::run("hello", &none()).is_err());
+    assert!(subtitles::run("1\nx --> y\nHi", &none()).is_err());
+}
+
+#[test]
+fn turns_markdown_into_html() {
+    use saqviro_tools::text::markdown;
+    assert_eq!(
+        markdown::run("# Hi\n\n**b** ~~s~~", &none()).unwrap(),
+        "<h1>Hi</h1>\n<p><strong>b</strong> <del>s</del></p>\n"
+    );
+    assert!(markdown::run("|a|\n|-|\n|1|", &none()).unwrap().contains("<table>"));
+}

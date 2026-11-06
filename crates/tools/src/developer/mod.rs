@@ -1,4 +1,5 @@
 pub mod base64;
+pub mod color;
 pub mod convert;
 pub mod cron;
 pub mod generate;

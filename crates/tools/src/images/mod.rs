@@ -14,6 +14,7 @@ use saqviro_jobs::{ErrorKind, JobError};
 
 pub mod jpeg;
 pub mod metadata;
+pub mod overlay;
 pub mod tools;
 
 /// Larger images are rejected before any pixel memory is allocated.

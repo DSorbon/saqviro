@@ -264,3 +264,59 @@ fn explains_a_bad_cron_expression() {
     assert!(wrong("a * * * *").contains("minute"));
     assert!(wrong("5-1 * * * *").contains("minute"));
 }
+
+#[test]
+fn xml_turns_into_json() {
+    let out = xml::to_json(r#"<a x="1"><b>one &amp; two</b><b>2</b><c/></a>"#, &none()).unwrap();
+    let value: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value, json!({ "a": { "@x": "1", "b": ["one & two", "2"], "c": null } }));
+    assert!(xml::to_json("plain", &none()).is_err());
+    assert!(xml::to_json("<a><b></a>", &none()).is_err());
+}
+
+#[test]
+fn xml_keeps_unknown_entities_unexpanded() {
+    let doc = r#"<!DOCTYPE a [<!ENTITY lol "lol">]><a>&lol;</a>"#;
+    let value: Value = serde_json::from_str(&xml::to_json(doc, &none()).unwrap()).unwrap();
+    assert_eq!(value, json!({ "a": "&lol;" }));
+}
+
+#[test]
+fn json_turns_into_xml() {
+    let out = xml::from_json(r#"{"a":{"@x":"1","b":["o<e",2],"c":null}}"#, &none()).unwrap();
+    assert_eq!(out, "<a x=\"1\">\n  <b>o&lt;e</b>\n  <b>2</b>\n  <c/>\n</a>\n");
+    let out = xml::from_json("[1,2]", &params(json!({ "root": "list" }))).unwrap();
+    assert_eq!(out, "<list>\n  <item>1</item>\n  <item>2</item>\n</list>\n");
+    assert!(xml::from_json(r#"{"a b":1,"c":2}"#, &none()).is_err());
+}
+
+#[test]
+fn xml_and_json_survive_a_round_trip() {
+    let source = r#"<a x="1"><b>t</b><b>u</b></a>"#;
+    let json = xml::to_json(source, &none()).unwrap();
+    let back = xml::from_json(&json, &none()).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&xml::to_json(&back, &none()).unwrap()).unwrap(),
+        serde_json::from_str::<Value>(&json).unwrap()
+    );
+}
+
+#[test]
+fn formats_sql() {
+    let p = params(json!({ "uppercase": true, "indent": "2" }));
+    let out = generate::sql_format("select a, b from t where x=1", &p).unwrap();
+    assert!(out.starts_with("SELECT\n  a,\n  b\nFROM\n  t\nWHERE"), "{out}");
+}
+
+#[test]
+fn converts_colors() {
+    use saqviro_tools::developer::color;
+    let all = "Hex: #ff8000\nRGB: rgb(255, 128, 0)\nHSL: hsl(30, 100%, 50%)";
+    assert_eq!(color::run("#ff8000", &none()).unwrap(), all);
+    assert_eq!(color::run("rgb(255, 128, 0)", &none()).unwrap(), all);
+    assert_eq!(color::run("255,128,0", &none()).unwrap(), all);
+    assert!(color::run("hsl(30, 100%, 50%)", &none()).unwrap().contains("#ff8000"));
+    assert!(color::run("#000", &none()).unwrap().contains("hsl(0, 0%, 0%)"));
+    assert!(color::run("rgb(300, 0, 0)", &none()).is_err());
+    assert!(color::run("blue-ish", &none()).is_err());
+}

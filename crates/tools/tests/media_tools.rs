@@ -13,6 +13,9 @@ use saqviro_core::registry::Registry;
 use saqviro_jobs::{Config, ErrorKind, JobInput, JobManager, JobOutput, JobSnapshot, JobStatus, OutputFile};
 use serde_json::{Value, json};
 
+/// Linux has no system H.264 encoder here, so results fall back to VP9.
+const VIDEO_EXT: &str = if cfg!(target_os = "linux") { "webm" } else { "mp4" };
+
 fn registry() -> Registry {
     fn collect(dir: &Path, out: &mut Vec<(String, String)>) {
         for entry in fs::read_dir(dir).unwrap() {
@@ -635,7 +638,7 @@ fn crops_video_to_a_shape() {
     let source = video(dir.path(), "a.mp4", "320x180", 1);
     let (done, _) = run("video.crop", &[source], json!({ "aspect": "1:1" }));
     let out = one(&done);
-    assert_eq!(name(&out), "a-cropped.mp4");
+    assert_eq!(name(&out), format!("a-cropped.{VIDEO_EXT}"));
     assert_eq!(size_of(&out.path), (180, 180));
     assert!(stream(&out.path, "audio").is_some());
 }
@@ -658,7 +661,7 @@ fn changes_speed_of_picture_and_sound() {
     let source = video(dir.path(), "a.mp4", "160x120", 2);
     let (done, _) = run("video.speed", std::slice::from_ref(&source), json!({ "speed": "2" }));
     let out = one(&done);
-    assert_eq!(name(&out), "a-2x.mp4");
+    assert_eq!(name(&out), format!("a-2x.{VIDEO_EXT}"));
     assert!((duration(&out.path) - 1.0).abs() < 0.2, "{}", duration(&out.path));
     assert!(stream(&out.path, "audio").is_some());
 
@@ -673,7 +676,7 @@ fn changes_frame_rate() {
     let source = video(dir.path(), "a.mp4", "160x120", 1);
     let (done, _) = run("video.fps", &[source], json!({ "fps": "15" }));
     let out = one(&done);
-    assert_eq!(name(&out), "a-15fps.mp4");
+    assert_eq!(name(&out), format!("a-15fps.{VIDEO_EXT}"));
     assert_eq!(stream(&out.path, "video").unwrap()["avg_frame_rate"], "15/1");
 }
 
@@ -745,7 +748,7 @@ fn merges_videos_of_different_sizes() {
     let (done, _) = run("video.merge", &[a, b, c], json!({}));
     assert_eq!(done.error, None);
     let out = one(&done);
-    assert_eq!(name(&out), "a-merged.mp4");
+    assert_eq!(name(&out), format!("a-merged.{VIDEO_EXT}"));
     assert_eq!(size_of(&out.path), (320, 240));
     assert!(stream(&out.path, "audio").is_some());
     assert!((duration(&out.path) - 3.0).abs() < 0.3, "{}", duration(&out.path));
@@ -908,5 +911,74 @@ fn a_tool_for_sound_refuses_silent_files() {
     let dir = tempfile::tempdir().unwrap();
     let source = silent_video(dir.path(), "a.mp4");
     let (done, _) = run("audio.volume", &[source], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn prints_text_on_a_video() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "320x240", 1);
+    let (done, _) = run("video.watermark", &[source], json!({ "text": "Saqviro", "size": 20 }));
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(name(&out), format!("a-watermarked.{VIDEO_EXT}"));
+    assert_eq!(size_of(&out.path), (320, 240));
+    assert!(stream(&out.path, "audio").is_some());
+}
+
+#[test]
+fn saves_the_subtitles_of_a_video() {
+    let dir = tempfile::tempdir().unwrap();
+    let subs = dir.path().join("s.srt");
+    fs::write(&subs, "1\n00:00:00,000 --> 00:00:01,000\nHello\n").unwrap();
+    let source = dir.path().join("a.mkv");
+    ffmpeg(
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=s=160x120:r=10:d=1",
+            "-i",
+            subs.to_str().unwrap(),
+            "-c:v",
+            "mpeg4",
+            "-c:s",
+            "srt",
+        ],
+        &source,
+    );
+    let (done, _) = run(
+        "video.subtitles",
+        std::slice::from_ref(&source),
+        json!({ "format": "srt" }),
+    );
+    let out = one(&done);
+    assert_eq!(name(&out), "a.srt");
+    assert!(fs::read_to_string(&out.path).unwrap().contains("Hello"));
+
+    let (done, _) = run("video.subtitles", &[source], json!({ "track": 2 }));
+    assert!(done.error.unwrap().message.contains("has 1 subtitle tracks"));
+
+    let plain = video(dir.path(), "b.mp4", "160x120", 1);
+    let (done, _) = run("video.subtitles", &[plain], json!({}));
+    assert!(done.error.unwrap().message.contains("no subtitles"));
+}
+
+#[test]
+fn sets_audio_tags_without_touching_the_sound() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = audio(dir.path(), "a.mp3", 1);
+    let (done, _) = run(
+        "audio.tags",
+        std::slice::from_ref(&source),
+        json!({ "title": "Песня", "artist": "Ann" }),
+    );
+    let out = one(&done);
+    assert_eq!(name(&out), "a-tagged.mp3");
+    let info = streams(&out.path);
+    assert_eq!(info["format"]["tags"]["title"], "Песня");
+    assert_eq!(info["format"]["tags"]["artist"], "Ann");
+
+    let (done, _) = run("audio.tags", &[source], json!({}));
     assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
 }

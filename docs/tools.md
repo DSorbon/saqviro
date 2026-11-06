@@ -1,6 +1,6 @@
 # Tools
 
-139 tools. This file is generated from the manifests in `tools/`.
+149 tools. This file is generated from the manifests in `tools/`.
 
 ## Audio
 
@@ -14,6 +14,7 @@
 | Remove Silence | Cut out the quiet parts of a recording. |
 | Change Sample Rate | Resample audio to another rate. |
 | Spectrogram | Draw the frequencies of a sound over time. |
+| Audio Tag Editor | Set the title, artist and album of audio files. |
 | Stereo to Mono | Mix all channels down to one. |
 | Trim Audio | Keep part of an audio file. Times look like 1:30. |
 | Change Volume | Make audio louder or quieter. |
@@ -24,6 +25,7 @@
 | Tool | What it does |
 |---|---|
 | Base64 Encode / Decode | Encode text as Base64, or decode it back. |
+| Color Converter | See a color in hex, RGB and HSL. |
 | Cron Parser | Read a cron expression and see when it runs next. |
 | CSV to JSON | Turn a CSV table into a JSON array. |
 | Hash Generator | Get the MD5, SHA and BLAKE3 hash of text. |
@@ -33,6 +35,7 @@
 | JSON Diff | Compare two JSON documents, ignoring key order and formatting. |
 | JSON to CSV | Turn a JSON array into a CSV table. |
 | JSON to TypeScript | Write TypeScript types that match a JSON sample. |
+| JSON to XML | Turn JSON into XML. |
 | JSON to YAML | Turn JSON into YAML. |
 | JSON Formatter | Pretty-print, minify and validate JSON. |
 | JWT Decoder | Read the header and claims of a JWT. Signatures are not checked. |
@@ -41,11 +44,13 @@
 | Password Generator | Generate strong random passwords. |
 | Regex Tester | Test a regular expression on text, or replace with it. |
 | Regex Escape | Escape text so a regular expression matches it literally. |
+| SQL Formatter | Indent SQL so it can be read. |
 | Timestamp Converter | Convert Unix time and dates. Leave empty for now. |
 | ULID Generator | Generate sortable unique identifiers. |
 | URL Encode / Decode | Percent-encode text for a URL, or read it back. |
 | URL Parser | Split a URL into its parts and query parameters. |
 | UUID Generator | Generate random or time-ordered UUIDs. |
+| XML to JSON | Turn XML into JSON. |
 | XML Formatter | Indent XML so it can be read. |
 | YAML to JSON | Turn YAML into JSON. |
 
@@ -94,6 +99,7 @@
 | Image to AVIF | Convert images to AVIF, the smallest widely supported format. |
 | Image to ICO | Make a Windows icon from an image. |
 | Image to WebP | Convert images to WebP for smaller web pages. |
+| Add Watermark to Image | Print text on images, in any language. |
 | WebP to JPG / PNG | Turn WebP images into JPG or PNG that open everywhere. |
 
 ## Network
@@ -167,8 +173,10 @@
 | Sort Lines | Sort lines alphabetically, by number or by length. |
 | Trim Lines | Remove spaces at the start and end of every line. |
 | Lorem Ipsum | Generate placeholder text. |
+| Markdown to HTML | Turn Markdown into HTML. |
 | Find and Replace | Replace text everywhere, with plain words or a regular expression. |
 | Slug Generator | Make a URL-friendly slug from a title. |
+| Subtitle Converter | Convert subtitles between SRT and WebVTT, and shift their timing. |
 | Unicode Inspector | See the code point and UTF-8 bytes of every character. |
 | Normalize Whitespace | Turn tabs, odd spaces and repeated blanks into plain single spaces. |
 | Word Counter | Count words, characters, lines and reading time. |
@@ -192,6 +200,8 @@
 | Resize Video | Scale videos down to 1080p, 720p or 480p. |
 | Rotate Video | Rotate videos by 90, 180 or 270 degrees. |
 | Change Playback Speed | Speed a video up or slow it down. |
+| Subtitle Extractor | Save the subtitles inside a video as a file. |
 | Thumbnail Generator | Save one frame of a video as a picture. |
 | Video to GIF | Turn a video or part of it into a GIF. |
 | Trim Video | Keep part of a video. Times look like 1:30. |
+| Add Watermark to Video | Print text on a video, in any language. |
