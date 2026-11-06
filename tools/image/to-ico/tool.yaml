@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.to-ico
+name: Image to ICO
+category: image
+tool_version: 1
+description: Make a Windows icon from an image.
+keywords: [icon, favicon, windows]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}.ico"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

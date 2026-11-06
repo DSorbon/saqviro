@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.flip
+name: Flip Images
+category: image
+tool_version: 1
+description: Mirror images left to right or top to bottom.
+keywords: [mirror, reverse, horizontal, vertical]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-flipped.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: direction, type: enum, values: [horizontal, vertical], default: horizontal }
+presets:
+  - { id: h, name: Horizontal, params: { direction: horizontal } }
+  - { id: v, name: Vertical, params: { direction: vertical } }

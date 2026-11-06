@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.remove-alpha
+name: Remove Alpha
+category: image
+tool_version: 1
+description: Put transparent images on a solid background.
+keywords: [transparency, background, flatten]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-solid.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: color, type: string, default: "#ffffff" }
+presets:
+  - { id: default, name: Default }

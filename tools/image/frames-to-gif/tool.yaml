@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.frames-to-gif
+name: Frames to GIF
+category: image
+tool_version: 1
+description: Make an animated GIF from pictures.
+keywords: [animation, sequence, slideshow]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    filename: "{stem}.gif"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: delay_ms, type: integer, min: 20, max: 10000, default: 200 }
+  - { id: width, type: integer, min: 16, max: 2000, optional: true }
+presets:
+  - { id: default, name: Default }

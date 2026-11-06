@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.round-corners
+name: Rounded Corners
+category: image
+tool_version: 1
+description: Round the corners of images, with a transparent background.
+keywords: [radius, circle, avatar, transparent]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-rounded.png"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: radius, type: integer, min: 1, max: 50, default: 10 }
+presets:
+  - { id: soft, name: Soft, params: { radius: 10 } }
+  - { id: circle, name: Circle, params: { radius: 50 } }

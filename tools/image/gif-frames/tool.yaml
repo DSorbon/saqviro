@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.gif-frames
+name: GIF to Frames
+category: image
+tool_version: 1
+description: Save every frame of a GIF as a picture.
+keywords: [animation, extract, sequence]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/gif]
+    extensions: [gif]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-frames"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

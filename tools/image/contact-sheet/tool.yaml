@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: image.contact-sheet
+name: Contact Sheet
+category: image
+tool_version: 1
+description: Lay out many images in a grid on one sheet.
+keywords: [grid, collage, overview, montage, sprite]
+inputs:
+  - type: image
+    multiple: true
+    mime: [image/jpeg, image/png, image/webp, image/gif, image/bmp, image/tiff]
+    extensions: [jpg, jpeg, png, webp, gif, bmp, tif, tiff]
+outputs:
+  - type: image
+    filename: "{stem}-sheet.{ext}"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: columns, type: integer, min: 1, max: 50, default: 4 }
+  - { id: tile, type: integer, min: 16, max: 2000, default: 300 }
+  - { id: gap, type: integer, min: 0, max: 200, default: 8 }
+  - { id: color, type: string, default: "#ffffff" }
+  - { id: format, type: enum, values: [jpg, png], default: jpg }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [gap, color]

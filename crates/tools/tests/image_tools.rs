@@ -340,3 +340,284 @@ fn results_go_to_the_chosen_folder() {
     assert_eq!(outputs(&done)[0].path.parent().unwrap(), elsewhere.path());
     assert!(!dir.path().join("a-rotated.png").exists());
 }
+
+fn half_red(dir: &Path, file: &str) -> PathBuf {
+    let path = dir.join(file);
+    let mut picture = image::RgbImage::from_pixel(10, 4, image::Rgb([0, 0, 255]));
+    for y in 0..4 {
+        for x in 0..5 {
+            picture.put_pixel(x, y, image::Rgb([255, 0, 0]));
+        }
+    }
+    picture.save(&path).unwrap();
+    path
+}
+
+fn rgba(path: &Path) -> image::RgbaImage {
+    image::open(path).unwrap().to_rgba8()
+}
+
+fn text(done: &JobSnapshot) -> String {
+    match &done.output {
+        Some(JobOutput::Text(text)) => text.clone(),
+        other => panic!("expected text, got {other:?} / {:?}", done.error),
+    }
+}
+
+#[test]
+fn flips_both_ways() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "a.png");
+    let (done, _) = run(
+        "image.flip",
+        std::slice::from_ref(&source),
+        json!({ "direction": "horizontal" }),
+    );
+    assert_eq!(rgba(&outputs(&done)[0].path).get_pixel(0, 0).0, [0, 0, 255, 255]);
+    let (done, _) = run("image.flip", &[source], json!({ "direction": "vertical" }));
+    assert_eq!(rgba(&outputs(&done)[0].path).get_pixel(0, 0).0, [255, 0, 0, 255]);
+}
+
+#[test]
+fn removes_color() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "a.png");
+    let (done, _) = run("image.grayscale", &[source], json!({}));
+    let [r, g, b, _] = rgba(&outputs(&done)[0].path).get_pixel(0, 0).0;
+    assert!(r == g && g == b, "{r} {g} {b}");
+}
+
+#[test]
+fn adds_a_border() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "a.png");
+    let (done, _) = run(
+        "image.border",
+        std::slice::from_ref(&source),
+        json!({ "width": 3, "color": "#0f0" }),
+    );
+    let out = rgba(&outputs(&done)[0].path);
+    assert_eq!(out.dimensions(), (16, 10));
+    assert_eq!(out.get_pixel(0, 0).0, [0, 255, 0, 255]);
+    assert_eq!(out.get_pixel(3, 3).0, [255, 0, 0, 255]);
+
+    let (done, _) = run("image.border", &[source], json!({ "color": "green" }));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn reads_colors() {
+    use saqviro_tools::images::tools::parse_color;
+    assert_eq!(parse_color("#ff8000").unwrap(), [255, 128, 0]);
+    assert_eq!(parse_color("0af").unwrap(), [0, 170, 255]);
+    assert!(parse_color("#12").is_err());
+    assert!(parse_color("#ggg").is_err());
+    assert!(parse_color("#фф").is_err());
+}
+
+#[test]
+fn rounds_corners_with_transparency() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.jpg");
+    image::RgbImage::from_pixel(100, 100, image::Rgb([200, 0, 0]))
+        .save(&source)
+        .unwrap();
+    let (done, _) = run("image.round-corners", &[source], json!({ "radius": 50 }));
+    let file = &outputs(&done)[0];
+    assert_eq!(file.path.file_name().unwrap(), "a-rounded.png");
+    let out = rgba(&file.path);
+    assert_eq!(out.get_pixel(0, 0).0[3], 0);
+    assert_eq!(out.get_pixel(50, 50).0[3], 255);
+    assert!(out.get_pixel(50, 0).0[3] >= 250);
+}
+
+#[test]
+fn flattens_transparency() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.png");
+    image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 0]))
+        .save(&source)
+        .unwrap();
+    let (done, _) = run("image.remove-alpha", &[source], json!({ "color": "#00ff00" }));
+    let out = image::open(&outputs(&done)[0].path).unwrap();
+    assert!(!out.color().has_alpha());
+    assert_eq!(out.to_rgb8().get_pixel(0, 0).0, [0, 255, 0]);
+}
+
+#[test]
+fn describes_images() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "a.png");
+    let (done, _) = run("image.info", &[source], json!({}));
+    let out = text(&done);
+    assert!(out.starts_with("a.png\nSize: 10 × 4\nFormat: PNG\n"), "{out}");
+    assert!(out.contains("Transparency: no"), "{out}");
+}
+
+#[test]
+fn shows_camera_details_and_location() {
+    let dir = tempfile::tempdir().unwrap();
+    let jpeg = encoded(&two_tone(8, 8), ImageFormat::Jpeg);
+    // One tag: Model, four ASCII bytes stored in the entry itself.
+    let mut payload = b"Exif\0\0MM\0\x2a\0\0\0\x08\0\x01".to_vec();
+    payload.extend([0x01, 0x10, 0, 2, 0, 0, 0, 4]);
+    payload.extend(b"Cam\0");
+    payload.extend([0, 0, 0, 0]);
+    let bytes = jpeg_with_segments(&jpeg, &[(0xE1, payload)]);
+    let source = write(dir.path(), "a.jpg", &bytes);
+    let (done, _) = run("image.info", &[source], json!({}));
+    let out = text(&done);
+    assert!(out.contains("Camera: \"Cam\""), "{out}");
+}
+
+#[test]
+fn makes_an_icon_with_every_size() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "a.png");
+    let (done, _) = run("image.to-ico", &[source], json!({}));
+    let file = &outputs(&done)[0];
+    assert_eq!(file.path.file_name().unwrap(), "a.ico");
+    let bytes = fs::read(&file.path).unwrap();
+    assert_eq!(&bytes[..4], [0, 0, 1, 0]);
+    assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), 7);
+    let largest = image::load_from_memory(&bytes).unwrap().to_rgba8();
+    assert_eq!(largest.dimensions(), (256, 256));
+    // A small picture is enlarged to fill the icon, not left in the middle.
+    let [r, _, _, a] = largest.get_pixel(5, 128).0;
+    assert!(r > 200 && a == 255, "{r} {a}");
+}
+
+#[test]
+fn makes_the_icons_of_a_website() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "logo.png");
+    let (done, _) = run("image.favicon", &[source], json!({}));
+    let folder = &outputs(&done)[0].path;
+    assert_eq!(folder.file_name().unwrap(), "logo-favicon");
+    assert_eq!(
+        image::image_dimensions(folder.join("apple-touch-icon.png")).unwrap(),
+        (180, 180)
+    );
+    assert_eq!(
+        image::image_dimensions(folder.join("icon-512.png")).unwrap(),
+        (512, 512)
+    );
+    assert!(folder.join("favicon.ico").exists());
+    let manifest: Value = serde_json::from_slice(&fs::read(folder.join("manifest.webmanifest")).unwrap()).unwrap();
+    assert_eq!(manifest["icons"][1]["sizes"], "512x512");
+}
+
+#[test]
+fn lays_images_out_on_a_sheet() {
+    let dir = tempfile::tempdir().unwrap();
+    let sources: Vec<PathBuf> = (0..3).map(|i| half_red(dir.path(), &format!("{i}.png"))).collect();
+    let params = json!({ "columns": 2, "tile": 20, "gap": 2, "format": "png", "color": "#000000" });
+    let (done, _) = run("image.contact-sheet", &sources, params);
+    let file = &outputs(&done)[0];
+    assert_eq!(file.path.file_name().unwrap(), "0-sheet.png");
+    let out = rgba(&file.path);
+    assert_eq!(out.dimensions(), (46, 46));
+    assert_eq!(out.get_pixel(0, 0).0, [0, 0, 0, 255]);
+    assert_eq!(out.get_pixel(3, 12).0, [255, 0, 0, 255]);
+}
+
+#[test]
+fn a_sheet_is_never_wider_than_its_images_need() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = half_red(dir.path(), "a.png");
+    let params = json!({ "columns": 9, "tile": 20, "gap": 0, "format": "png" });
+    let (done, _) = run("image.contact-sheet", &[source], params);
+    assert_eq!(rgba(&outputs(&done)[0].path).dimensions(), (20, 20));
+}
+
+#[test]
+fn gif_frames_go_both_ways() {
+    let dir = tempfile::tempdir().unwrap();
+    let sources = [half_red(dir.path(), "a.png"), half_red(dir.path(), "b.png")];
+    let (done, _) = run("image.frames-to-gif", &sources, json!({ "delay_ms": 100 }));
+    let gif = outputs(&done)[0].path.clone();
+    assert_eq!(gif.file_name().unwrap(), "a.gif");
+
+    let (done, _) = run("image.gif-frames", &[gif], json!({}));
+    let folder = &outputs(&done)[0].path;
+    assert_eq!(folder.file_name().unwrap(), "a-frames");
+    let frame = image::open(folder.join("frame-0001.png")).unwrap();
+    assert_eq!(frame.dimensions(), (10, 4));
+    assert!(fs::read_dir(folder).unwrap().count() >= 1);
+}
+
+#[test]
+fn a_gif_needs_two_frames() {
+    let dir = tempfile::tempdir().unwrap();
+    let (done, _) = run("image.frames-to-gif", &[half_red(dir.path(), "a.png")], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn compares_images() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = half_red(dir.path(), "a.png");
+    let b = dir.path().join("b.png");
+    let mut other = image::open(&a).unwrap().to_rgb8();
+    other.put_pixel(0, 0, image::Rgb([0, 255, 0]));
+    other.save(&b).unwrap();
+
+    let (done, _) = run("image.compare", &[a.clone(), b], json!({}));
+    let file = &outputs(&done)[0];
+    assert_eq!(file.note.as_deref(), Some("2.50% of the pixels differ."));
+    assert_eq!(rgba(&file.path).get_pixel(0, 0).0, [255, 0, 0, 255]);
+
+    let (done, _) = run("image.compare", &[a.clone(), a.clone()], json!({}));
+    assert_eq!(outputs(&done)[0].note.as_deref(), Some("The images are the same."));
+}
+
+#[test]
+fn only_compares_what_can_be_compared() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = half_red(dir.path(), "a.png");
+    let b = dir.path().join("b.png");
+    image::RgbImage::new(3, 3).save(&b).unwrap();
+    let (done, _) = run("image.compare", &[a.clone(), b], json!({}));
+    assert!(done.error.unwrap().message.contains("different sizes"));
+    let (done, _) = run("image.compare", &[a], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+const SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="#ff0000"/></svg>"##;
+
+#[test]
+fn draws_svg_at_any_size() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.svg");
+    fs::write(&source, SVG).unwrap();
+    let (done, _) = run("image.svg-to-png", std::slice::from_ref(&source), json!({}));
+    assert_eq!(image::image_dimensions(&outputs(&done)[0].path).unwrap(), (20, 10));
+
+    let (done, _) = run("image.svg-to-png", &[source], json!({ "width": 200 }));
+    let out = rgba(&outputs(&done)[0].path);
+    assert_eq!(out.dimensions(), (200, 100));
+    assert_eq!(out.get_pixel(100, 50).0, [255, 0, 0, 255]);
+}
+
+#[test]
+fn an_svg_cannot_pull_in_other_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let secret = half_red(dir.path(), "secret.png");
+    let source = dir.path().join("a.svg");
+    let svg = format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="4"><image width="10" height="4" xlink:href="{}"/></svg>"#,
+        secret.display()
+    );
+    fs::write(&source, svg).unwrap();
+    let (done, _) = run("image.svg-to-png", &[source], json!({}));
+    assert_eq!(rgba(&outputs(&done)[0].path).get_pixel(1, 1).0[3], 0);
+}
+
+#[test]
+fn explains_a_broken_svg() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.svg");
+    fs::write(&source, "<svg").unwrap();
+    let (done, _) = run("image.svg-to-png", &[source], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::UnsupportedFormat);
+}

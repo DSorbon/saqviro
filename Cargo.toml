@@ -33,12 +33,14 @@ serde-saphyr = "2"
 schemars = "1"
 thiserror = "2"
 tempfile = "3"
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp", "avif"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp", "avif", "ico"] }
 fast_image_resize = { version = "6", features = ["image"] }
 mozjpeg = "0.10"
 webp = { version = "0.3", default-features = false, features = ["img"] }
 oxipng = { version = "10", default-features = false, features = ["parallel"] }
 crc32fast = "1"
+kamadak-exif = "0.6"
+resvg = "0.45"
 csv = "1"
 deunicode = "1"
 hmac = "0.13"
