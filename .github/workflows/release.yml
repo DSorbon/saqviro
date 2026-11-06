@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"os":"ubuntu-24.04","name":"linux-x64","bundles":"deb,appimage"},{"os":"windows-latest","name":"windows-x64","bundles":"nsis"}]' || '[{"os":"macos-14","name":"macos-arm64","bundles":"app,dmg"},{"os":"macos-15-intel","name":"macos-x64","bundles":"app,dmg"},{"os":"ubuntu-24.04","name":"linux-x64","bundles":"deb,appimage"},{"os":"windows-latest","name":"windows-x64","bundles":"nsis"}]') }}
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"os":"ubuntu-24.04","name":"linux-x64","bundles":"deb,appimage"},{"os":"windows-latest","name":"windows-x64","bundles":"nsis"}]' || '[{"os":"macos-15","name":"macos-arm64","bundles":"app,dmg"},{"os":"macos-15-intel","name":"macos-x64","bundles":"app,dmg"},{"os":"ubuntu-24.04","name":"linux-x64","bundles":"deb,appimage"},{"os":"windows-latest","name":"windows-x64","bundles":"nsis"}]') }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
