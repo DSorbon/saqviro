@@ -5231,6 +5231,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "saqviro-cli"
+version = "0.1.0"
+dependencies = [
+ "saqviro-core",
+ "saqviro-jobs",
+ "saqviro-tools",
+ "saqviro-workflow",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "saqviro-core"
 version = "0.1.0"
 dependencies = [

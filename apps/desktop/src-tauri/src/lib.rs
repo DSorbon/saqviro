@@ -9,19 +9,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
-mod catalog {
-    include!(concat!(env!("OUT_DIR"), "/manifests.rs"));
-}
-
-fn bundled_registry() -> Registry {
-    Registry::from_sources(catalog::MANIFESTS.iter().copied())
-        .unwrap_or_else(|e| panic!("bundled tool manifests are invalid: {e}"))
-}
-
-/// Only tools with an implementation are shown. A manifest alone is not a tool.
-fn is_available(tool: &ToolManifest) -> bool {
-    saqviro_tools::executor(tool).is_some()
-}
+use saqviro_tools::{catalog::registry as bundled_registry, is_available};
 
 /// File extensions one tool accepts, or every available tool when `tool_id` is `None`.
 fn accepted_extensions(registry: &Registry, tool_id: Option<&str>) -> Vec<String> {
@@ -482,7 +470,7 @@ mod tests {
     #[test]
     fn bundled_manifests_load() {
         let registry = bundled_registry();
-        assert_eq!(registry.tools().len(), catalog::MANIFESTS.len());
+        assert_eq!(registry.tools().len(), saqviro_tools::catalog::MANIFESTS.len());
         assert!(registry.get("image.resize").is_some());
     }
 

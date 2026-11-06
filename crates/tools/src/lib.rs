@@ -7,6 +7,19 @@ use std::sync::Arc;
 use saqviro_core::manifest::ToolManifest;
 use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, Params};
 
+pub mod catalog {
+    //! The manifests in `tools/`, built into the program.
+
+    use saqviro_core::registry::Registry;
+
+    include!(concat!(env!("OUT_DIR"), "/manifests.rs"));
+
+    pub fn registry() -> Registry {
+        Registry::from_sources(MANIFESTS.iter().copied())
+            .unwrap_or_else(|e| panic!("bundled tool manifests are invalid: {e}"))
+    }
+}
+
 pub mod developer;
 pub mod files;
 pub mod images;
@@ -168,6 +181,11 @@ pub const IMPLEMENTED: &[&str] = &[
 /// Tools that exist only when a cargo feature is enabled: (tool id, feature).
 /// Without the feature the app hides the tool.
 pub const NEEDS_FEATURE: &[(&str, &str)] = &[("image.heic-to-jpg", "heic")];
+
+/// Only tools with an implementation are offered. A manifest alone is not a tool.
+pub fn is_available(tool: &ToolManifest) -> bool {
+    executor(tool).is_some()
+}
 
 /// An executor for a tool that turns text into text.
 fn text_tool(run: fn(&str, &Params) -> Result<String, String>) -> Arc<dyn Executor> {

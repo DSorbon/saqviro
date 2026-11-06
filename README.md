@@ -21,11 +21,28 @@ pnpm test         # frontend tests
 cargo test --workspace
 ```
 
+## Command line
+
+The tools also run from a terminal, with the same checks as in the app:
+
+```bash
+cargo run -p saqviro-cli -- list text
+```
+
+```bash
+cargo run -p saqviro-cli -- run image.resize --width 800 --out results photo.jpg
+```
+
+```bash
+echo hello | cargo run -p saqviro-cli -- run text.case --case upper
+```
+
 ## Repository layout
 
 | Path | What |
 |---|---|
 | `apps/desktop` | Tauri 2 + Svelte 5 desktop app |
+| `apps/cli` | The same tools on the command line |
 | `crates/core` | Tool manifests, registry and parameter validation |
 | `crates/jobs` | Job queue with progress, cancellation and temp directories |
 | `crates/tools` | Tool implementations |
