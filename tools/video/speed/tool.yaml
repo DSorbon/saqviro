@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.speed
+name: Change Playback Speed
+category: video
+tool_version: 1
+description: Speed a video up or slow it down.
+keywords: [fast, slow motion, timelapse, tempo]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-{speed}x.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: speed, type: enum, values: ["0.25", "0.5", "0.75", "1.25", "1.5", "2", "4"], default: "2" }
+presets:
+  - { id: slow, name: Half speed, params: { speed: "0.5" } }
+  - { id: fast, name: Double speed, params: { speed: "2" } }

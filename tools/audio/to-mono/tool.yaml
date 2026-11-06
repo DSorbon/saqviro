@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.to-mono
+name: Stereo to Mono
+category: audio
+tool_version: 1
+description: Mix all channels down to one.
+keywords: [mono, channels, downmix]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}-mono.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

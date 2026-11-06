@@ -628,3 +628,285 @@ fn cancelling_stops_ffmpeg_and_leaves_nothing_behind() {
     assert!(asked.elapsed() < Duration::from_secs(2), "took {:?}", asked.elapsed());
     assert_eq!(entries(dir.path()), ["long.mkv"]);
 }
+
+#[test]
+fn crops_video_to_a_shape() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "320x180", 1);
+    let (done, _) = run("video.crop", &[source], json!({ "aspect": "1:1" }));
+    let out = one(&done);
+    assert_eq!(name(&out), "a-cropped.mp4");
+    assert_eq!(size_of(&out.path), (180, 180));
+    assert!(stream(&out.path, "audio").is_some());
+}
+
+#[test]
+fn crops_video_to_an_area_and_stops_at_the_edge() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "320x180", 1);
+    let params = json!({ "aspect": "area", "x": 300, "y": 100, "width": 999, "height": 50 });
+    let (done, _) = run("video.crop", std::slice::from_ref(&source), params);
+    assert_eq!(size_of(&one(&done).path), (20, 50));
+
+    let (done, _) = run("video.crop", &[source], json!({ "aspect": "area", "x": 320 }));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn changes_speed_of_picture_and_sound() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 2);
+    let (done, _) = run("video.speed", std::slice::from_ref(&source), json!({ "speed": "2" }));
+    let out = one(&done);
+    assert_eq!(name(&out), "a-2x.mp4");
+    assert!((duration(&out.path) - 1.0).abs() < 0.2, "{}", duration(&out.path));
+    assert!(stream(&out.path, "audio").is_some());
+
+    // Beyond what one `atempo` can do.
+    let (done, _) = run("video.speed", &[source], json!({ "speed": "0.25" }));
+    assert!((duration(&one(&done).path) - 8.0).abs() < 0.3);
+}
+
+#[test]
+fn changes_frame_rate() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 1);
+    let (done, _) = run("video.fps", &[source], json!({ "fps": "15" }));
+    let out = one(&done);
+    assert_eq!(name(&out), "a-15fps.mp4");
+    assert_eq!(stream(&out.path, "video").unwrap()["avg_frame_rate"], "15/1");
+}
+
+#[test]
+fn saves_a_thumbnail() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 2);
+    let (done, _) = run(
+        "video.thumbnail",
+        std::slice::from_ref(&source),
+        json!({ "format": "png", "time": "1" }),
+    );
+    let out = one(&done);
+    assert_eq!(name(&out), "a-thumbnail.png");
+    assert_eq!(image::image_dimensions(&out.path).unwrap(), (160, 120));
+
+    let (done, _) = run("video.thumbnail", std::slice::from_ref(&source), json!({}));
+    assert_eq!(name(&one(&done)), "a-thumbnail.jpg");
+
+    let (done, _) = run("video.thumbnail", &[source], json!({ "time": "9" }));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn extracts_frames_into_a_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 3);
+    let (done, _) = run(
+        "video.frames",
+        &[source],
+        json!({ "every_seconds": 1.0, "format": "png" }),
+    );
+    let out = one(&done);
+    assert_eq!(name(&out), "a-frames");
+    let count = fs::read_dir(&out.path).unwrap().count();
+    assert!((3..=4).contains(&count), "{count} frames");
+    assert!(out.path.join("frame-00001.png").exists());
+    assert!(out.size > 0);
+}
+
+#[test]
+fn moves_the_index_to_the_front() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 1);
+    let (done, _) = run("video.faststart", &[source], json!({}));
+    let out = one(&done);
+    let bytes = fs::read(&out.path).unwrap();
+    let at = |tag: &[u8]| bytes.windows(4).position(|w| w == tag).unwrap();
+    assert!(at(b"moov") < at(b"mdat"));
+}
+
+#[test]
+fn turns_a_gif_into_video() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.gif");
+    ffmpeg(&["-f", "lavfi", "-i", "testsrc2=s=161x121:r=10:d=1"], &source);
+    let (done, _) = run("video.from-gif", &[source], json!({}));
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(size_of(&out.path), (160, 120));
+}
+
+#[test]
+fn merges_videos_of_different_sizes() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = video(dir.path(), "a.mp4", "320x240", 1);
+    let b = video(dir.path(), "b.mov", "160x160", 1);
+    let c = silent_video(dir.path(), "c.mp4");
+    let (done, _) = run("video.merge", &[a, b, c], json!({}));
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(name(&out), "a-merged.mp4");
+    assert_eq!(size_of(&out.path), (320, 240));
+    assert!(stream(&out.path, "audio").is_some());
+    assert!((duration(&out.path) - 3.0).abs() < 0.3, "{}", duration(&out.path));
+}
+
+#[test]
+fn merging_needs_two_videos() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = video(dir.path(), "a.mp4", "160x120", 1);
+    let (done, _) = run("video.merge", std::slice::from_ref(&a), json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+
+    let sound = audio(dir.path(), "s.mp3", 1);
+    let (done, _) = run("video.merge", &[a, sound], json!({}));
+    assert!(done.error.unwrap().message.contains("s.mp3"));
+}
+
+#[test]
+fn replaces_the_sound_of_a_video() {
+    let dir = tempfile::tempdir().unwrap();
+    let clip = video(dir.path(), "clip.mp4", "160x120", 2);
+    let sound = audio(dir.path(), "song.wav", 1);
+    // The order of the two files does not matter.
+    let (done, _) = run("video.replace-audio", &[sound, clip], json!({}));
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(name(&out), "clip-new-audio.mp4");
+    assert_eq!(stream(&out.path, "audio").unwrap()["codec_name"], "aac");
+    assert!(duration(&out.path) < 1.6, "{}", duration(&out.path));
+}
+
+#[test]
+fn replacing_audio_needs_a_video_and_a_sound() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = audio(dir.path(), "a.mp3", 1);
+    let b = audio(dir.path(), "b.mp3", 1);
+    let (done, _) = run("video.replace-audio", &[a.clone(), b], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+    let (done, _) = run("video.replace-audio", &[a], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn changes_volume() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = audio(dir.path(), "a.wav", 1);
+    let (done, _) = run("audio.volume", std::slice::from_ref(&source), json!({ "gain": 12 }));
+    let out = one(&done);
+    assert_eq!(name(&out), "a-volume.wav");
+    let peak = |p: &Path| {
+        let bytes = fs::read(p).unwrap();
+        bytes[100..]
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| i16::from_le_bytes(*c).unsigned_abs())
+            .max()
+            .unwrap()
+    };
+    let gain = f64::from(peak(&out.path)) / f64::from(peak(&source));
+    assert!((3.5..4.5).contains(&gain), "{gain}");
+}
+
+#[test]
+fn mixes_down_and_resamples() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.wav");
+    ffmpeg(&["-f", "lavfi", "-i", "sine=d=1", "-ac", "2", "-ar", "44100"], &source);
+
+    let (done, _) = run("audio.to-mono", std::slice::from_ref(&source), json!({}));
+    assert_eq!(stream(&one(&done).path, "audio").unwrap()["channels"], 1);
+
+    let (done, _) = run("audio.sample-rate", &[source], json!({ "rate": "16000" }));
+    let out = one(&done);
+    assert_eq!(name(&out), "a-16000hz.wav");
+    assert_eq!(stream(&out.path, "audio").unwrap()["sample_rate"], "16000");
+}
+
+/// One second of tone, two of silence, one of tone.
+fn gappy(dir: &Path) -> PathBuf {
+    let path = dir.join("gap.wav");
+    let graph = "sine=d=1[a];anullsrc=r=44100:cl=mono:d=2[b];sine=d=1[c];[a][b][c]concat=n=3:v=0:a=1";
+    ffmpeg(&["-f", "lavfi", "-i", graph], &path);
+    path
+}
+
+#[test]
+fn removes_silence() {
+    let dir = tempfile::tempdir().unwrap();
+    let (done, _) = run("audio.remove-silence", &[gappy(dir.path())], json!({}));
+    let length = duration(&one(&done).path);
+    assert!(length < 3.0, "{length}");
+}
+
+#[test]
+fn lists_silence() {
+    let dir = tempfile::tempdir().unwrap();
+    let (done, _) = run("audio.detect-silence", &[gappy(dir.path())], json!({}));
+    let Some(JobOutput::Text(text)) = done.output else {
+        panic!("{:?}", done.error)
+    };
+    assert!(text.starts_with("gap.wav\n0:00:01"), "{text}");
+    assert!(text.contains("(2.0 s)"), "{text}");
+}
+
+#[test]
+fn says_when_there_is_no_silence() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a.wav");
+    ffmpeg(&["-f", "lavfi", "-i", "sine=d=1"], &source);
+    let (done, _) = run("audio.detect-silence", &[source], json!({}));
+    let Some(JobOutput::Text(text)) = done.output else {
+        panic!("{:?}", done.error)
+    };
+    assert!(text.contains("No silence found"), "{text}");
+}
+
+#[test]
+fn reads_the_silence_log() {
+    use saqviro_tools::media::tools::parse_silence;
+    let log = "[silencedetect @ 0x1] silence_start: 1.5\n\
+               [silencedetect @ 0x1] silence_end: 3 | silence_duration: 1.5\n\
+               [silencedetect @ 0x1] silence_start: 9\n";
+    assert_eq!(parse_silence(log, Some(10.0)), [(1.5, 3.0), (9.0, 10.0)]);
+    assert_eq!(parse_silence(log, None), [(1.5, 3.0)]);
+    assert_eq!(parse_silence("", Some(1.0)), []);
+}
+
+#[test]
+fn draws_sound() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = audio(dir.path(), "a.mp3", 1);
+    let (done, _) = run(
+        "audio.waveform",
+        std::slice::from_ref(&source),
+        json!({ "width": 400, "height": 100 }),
+    );
+    let out = one(&done);
+    assert_eq!(name(&out), "a-waveform.png");
+    assert_eq!(image::image_dimensions(&out.path).unwrap(), (400, 100));
+
+    let (done, _) = run("audio.spectrogram", &[source], json!({ "width": 300, "height": 200 }));
+    assert_eq!(image::image_dimensions(&one(&done).path).unwrap(), (300, 200));
+}
+
+#[test]
+fn merges_audio_in_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = audio(dir.path(), "a.mp3", 1);
+    let b = audio(dir.path(), "b.wav", 2);
+    let (done, _) = run("audio.merge", &[a, b], json!({ "format": "flac" }));
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(name(&out), "a-merged.flac");
+    assert!((duration(&out.path) - 3.0).abs() < 0.2, "{}", duration(&out.path));
+}
+
+#[test]
+fn a_tool_for_sound_refuses_silent_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = silent_video(dir.path(), "a.mp4");
+    let (done, _) = run("audio.volume", &[source], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}

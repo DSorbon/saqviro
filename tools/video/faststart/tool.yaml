@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.faststart
+name: Faststart Optimizer
+category: video
+tool_version: 1
+description: Make an MP4 start playing on the web before it has fully loaded.
+keywords: [web, streaming, moov, progressive]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v]
+    extensions: [mp4, mov, m4v]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-faststart.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

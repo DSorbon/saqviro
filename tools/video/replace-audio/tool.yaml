@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.replace-audio
+name: Replace Audio
+category: video
+tool_version: 1
+description: Give a video a new soundtrack.
+keywords: [soundtrack, music, dub, audio track]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t, audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts, mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: video
+    filename: "{stem}-new-audio.{ext}"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: stop_at_shortest, type: boolean, default: true }
+presets:
+  - { id: default, name: Default }

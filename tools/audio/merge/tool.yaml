@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.merge
+name: Merge Audio
+category: audio
+tool_version: 1
+description: Join audio files one after another.
+keywords: [join, combine, concat, append]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: audio
+    filename: "{stem}-merged.{ext}"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [mp3, m4a, wav, flac, ogg], default: mp3 }
+  - { id: bitrate, type: integer, min: 32, max: 320, default: 192 }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [bitrate]

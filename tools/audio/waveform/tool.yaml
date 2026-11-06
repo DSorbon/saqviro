@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.waveform
+name: Audio Waveform
+category: audio
+tool_version: 1
+description: Draw a picture of the sound wave.
+keywords: [visualize, wave, image, png]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-waveform.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: width, type: integer, min: 200, max: 4000, default: 1200 }
+  - { id: height, type: integer, min: 50, max: 2000, default: 300 }
+presets:
+  - { id: default, name: Default }

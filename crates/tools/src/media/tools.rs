@@ -399,6 +399,21 @@ impl Step<'_> {
         before_input: &[String],
         length: Option<f64>,
     ) -> Result<Made, JobError> {
+        self.encode_filtered(wanted, bit_rate, filter, None, keep_audio, before_input, length)
+    }
+
+    /// Like `encode_video`, with a filter for the audio as well.
+    #[allow(clippy::too_many_arguments)]
+    fn encode_filtered(
+        &self,
+        wanted: Container,
+        bit_rate: u64,
+        filter: Option<&str>,
+        audio_filter: Option<&str>,
+        keep_audio: bool,
+        before_input: &[String],
+        length: Option<f64>,
+    ) -> Result<Made, JobError> {
         let video = self.video()?;
         let plan = plan_video(self.engine.encoders(), wanted)?;
         let mut args = vec!["-map".to_owned(), format!("0:{}", video.index)];
@@ -412,8 +427,19 @@ impl Step<'_> {
         }
         args.extend(encoder_args(plan.encoder, bit_rate.max(MIN_VIDEO_BITRATE)));
         args.extend(video_audio_args(plan.container, audio, keep_audio));
+        if let (Some(filter), Some(_)) = (audio_filter, audio) {
+            args.extend(["-af".into(), filter.into()]);
+        }
         self.write(before_input, &args, plan.container.ext(), length, plan.note)
     }
+}
+
+/// Parameters a tool's file name can mention.
+fn name_vars(params: &Params) -> Vec<(&'static str, String)> {
+    ["speed", "fps", "rate"]
+        .into_iter()
+        .filter_map(|id| Some((id, param_str(params, id)?.to_owned())))
+        .collect()
 }
 
 fn file_ext(path: &Path) -> String {
@@ -450,7 +476,11 @@ fn batch(
             };
             let made = make(&step).map_err(|e| name_error(path, e))?;
 
-            let name = render_name(&template, &[("stem", &file_stem(path)), ("ext", made.ext)]);
+            let vars = name_vars(params);
+            let mut vars: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
+            let stem = file_stem(path);
+            vars.extend([("stem", stem.as_str()), ("ext", made.ext)]);
+            let name = render_name(&template, &vars);
             let dir = target_dir(ctx, path);
             let size = fs::metadata(&made.file)?.len();
             let written = outputs.adopt(&dir, &name, &made.file)?;
@@ -752,5 +782,582 @@ pub fn info() -> Arc<dyn Executor> {
             ctx.progress((i + 1) as f32 / files.len() as f32);
         }
         Ok(JobOutput::Text(sections.join("\n\n")))
+    })
+}
+
+/// Keeps sizes even, which H.264 needs. Commas are escaped for the filter.
+fn even(expression: &str) -> String {
+    format!("trunc({}/2)*2", expression.replace(',', "\\,"))
+}
+
+/// Crop Video. Works on the frame as it is shown, so also on rotated video.
+pub fn crop(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let video = step.video()?;
+        let ratio = param_str(step.params, "aspect")
+            .and_then(|a| a.split_once(':'))
+            .and_then(|(w, h)| Some((w.parse::<f64>().ok()?, h.parse::<f64>().ok()?)));
+        let filter = if let Some((w, h)) = ratio {
+            let r = w / h;
+            format!(
+                "crop={}:{}",
+                even(&format!("min(iw,ih*{r})")),
+                even(&format!("min(ih,iw/{r})"))
+            )
+        } else {
+            let (x, y) = (
+                param_u32(step.params, "x").unwrap_or(0),
+                param_u32(step.params, "y").unwrap_or(0),
+            );
+            if x >= video.width || y >= video.height {
+                return Err(invalid(format!(
+                    "the area starts outside the {}×{} frame",
+                    video.width, video.height
+                )));
+            }
+            let side = |id: &str, whole: &str, from: u32| match param_u32(step.params, id) {
+                Some(size) => even(&format!("min({size},{whole}-{from})")),
+                None => even(&format!("{whole}-{from}")),
+            };
+            format!("crop={}:{}:{x}:{y}", side("width", "iw", x), side("height", "ih", y))
+        };
+        let bit_rate = same_quality_bit_rate(&step.probe, video);
+        let wanted = same_container(&step.ext);
+        step.encode_video(wanted, bit_rate, Some(&filter), true, &[], step.probe.duration)
+    })
+}
+
+/// `atempo` takes 0.5 to 2 at a time.
+fn tempo_filter(speed: f64) -> String {
+    let mut left = speed;
+    let mut steps = Vec::new();
+    while !(0.5..=2.0).contains(&left) {
+        let step = if left > 2.0 { 2.0 } else { 0.5 };
+        steps.push(format!("atempo={step}"));
+        left /= step;
+    }
+    steps.push(format!("atempo={left}"));
+    steps.join(",")
+}
+
+pub fn speed(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let video = step.video()?;
+        let speed: f64 = param_str(step.params, "speed")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(2.0);
+        let filter = format!("setpts=PTS/{speed}");
+        let bit_rate = same_quality_bit_rate(&step.probe, video);
+        let wanted = same_container(&step.ext);
+        let length = step.probe.duration.map(|d| d / speed);
+        let tempo = tempo_filter(speed);
+        step.encode_filtered(wanted, bit_rate, Some(&filter), Some(&tempo), false, &[], length)
+    })
+}
+
+pub fn fps(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let video = step.video()?;
+        let filter = format!("fps={}", param_str(step.params, "fps").unwrap_or("30"));
+        let bit_rate = same_quality_bit_rate(&step.probe, video);
+        let wanted = same_container(&step.ext);
+        step.encode_video(wanted, bit_rate, Some(&filter), true, &[], step.probe.duration)
+    })
+}
+
+fn picture_format(params: &Params) -> (&'static str, Vec<String>) {
+    match param_str(params, "format") {
+        Some("png") => ("png", Vec::new()),
+        _ => ("jpg", vec!["-q:v".into(), "2".into()]),
+    }
+}
+
+/// Thumbnail Generator. A tenth of the way in usually shows more than the
+/// first frame, which is often black.
+pub fn thumbnail(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        step.video()?;
+        let duration = step.probe.duration;
+        let time = match param_str(step.params, "time") {
+            Some(text) => parse_time(text).ok_or_else(|| invalid(format!("`{text}` is not a time, try 1:30")))?,
+            None => duration.unwrap_or(0.0) / 10.0,
+        };
+        if duration.is_some_and(|d| time >= d) {
+            return Err(invalid("that time is past the end of the video"));
+        }
+        let (ext, quality) = picture_format(step.params);
+        let mut args: Vec<String> = ["-an", "-frames:v", "1", "-update", "1"].map(str::to_owned).to_vec();
+        args.extend(quality);
+        step.write(&["-ss".into(), format!("{time:.3}")], &args, ext, None, None)
+    })
+}
+
+/// Extract Frames. Each video gets a folder of its own.
+pub fn frames(template: String) -> Arc<dyn Executor> {
+    Arc::new(move |ctx: &JobContext, input: JobInput, params: &Params| {
+        let files = input_files(input)?;
+        let engine = Engine::get()?;
+        let every = params
+            .get("every_seconds")
+            .and_then(Value::as_f64)
+            .unwrap_or(1.0)
+            .max(0.04);
+        let (ext, quality) = picture_format(params);
+        let mut outputs = Outputs::new();
+        let mut results = Vec::with_capacity(files.len());
+        for (i, path) in files.iter().enumerate() {
+            ctx.check_cancelled()?;
+            let share = 1.0 / files.len() as f32;
+            let temp = ctx.temp_dir()?.join(i.to_string());
+            fs::create_dir_all(&temp)?;
+            let step = Step {
+                ctx,
+                engine,
+                path,
+                ext: file_ext(path),
+                probe: engine.probe(ctx, path).map_err(|e| name_error(path, e))?,
+                params,
+                temp: temp.clone(),
+                span: (i as f32 * share, (i + 1) as f32 * share),
+            };
+            step.video().map_err(|e| name_error(path, e))?;
+            let mut after: Vec<OsString> = vec!["-an".into(), "-vf".into(), format!("fps=1/{every}").into()];
+            after.extend(to_os(&quality));
+            after.extend(["-y".into(), temp.join(format!("frame-%05d.{ext}")).into_os_string()]);
+            step.ffmpeg("error", &[], after, step.probe.duration, step.span)
+                .map_err(|e| name_error(path, e))?;
+
+            let name = render_name(&template, &[("stem", &file_stem(path))]);
+            let folder = outputs.folder(&target_dir(ctx, path), &name)?;
+            let mut size = 0;
+            for frame in fs::read_dir(&temp)? {
+                let frame = frame?;
+                size += frame.metadata()?.len();
+                fs::rename(frame.path(), folder.join(frame.file_name()))
+                    .or_else(|_| fs::copy(frame.path(), folder.join(frame.file_name())).map(|_| ()))?;
+            }
+            results.push(OutputFile {
+                path: folder,
+                size,
+                source_size: None,
+                note: None,
+            });
+        }
+        ctx.check_cancelled()?;
+        outputs.finish();
+        Ok(JobOutput::Files(results))
+    })
+}
+
+pub fn faststart(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let ext = copy_ext(&step.ext)?;
+        let args = ["-map", "0", "-map_metadata", "0", "-c", "copy"].map(str::to_owned);
+        step.write(&[], &args, ext, step.probe.duration, None)
+    })
+}
+
+pub fn from_gif(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let video = step.video()?;
+        let bit_rate = same_quality_bit_rate(&step.probe, video);
+        let filter = format!("scale={}:{}", even("iw"), even("ih"));
+        step.encode_video(Container::Mp4, bit_rate, Some(&filter), false, &[], step.probe.duration)
+    })
+}
+
+/// What a tool that makes one file out of many needs to know.
+struct Sources {
+    paths: Vec<PathBuf>,
+    probes: Vec<Probe>,
+    total: f64,
+}
+
+fn read_sources(
+    ctx: &JobContext,
+    engine: &Engine,
+    files: Vec<PathBuf>,
+    least: usize,
+    what: &str,
+) -> Result<Sources, JobError> {
+    if files.len() < least {
+        return Err(invalid(format!("add at least {least} {what}")));
+    }
+    let probes = files
+        .iter()
+        .map(|p| engine.probe(ctx, p).map_err(|e| name_error(p, e)))
+        .collect::<Result<Vec<_>, _>>()?;
+    let total = probes.iter().filter_map(|p| p.duration).sum();
+    Ok(Sources {
+        paths: files,
+        probes,
+        total,
+    })
+}
+
+impl Sources {
+    fn inputs(&self) -> Vec<OsString> {
+        self.paths.iter().flat_map(|p| Engine::input(p)).collect()
+    }
+}
+
+/// Runs FFmpeg over several inputs, reporting progress against `total` seconds.
+fn run_many(ctx: &JobContext, engine: &Engine, args: Vec<OsString>, total: f64) -> Result<(), JobError> {
+    let mut furthest: f64 = 0.0;
+    engine.run(ctx, "error", args, |seconds| {
+        if total > 0.0 {
+            furthest = (seconds / total).clamp(0.0, 1.0).max(furthest);
+            ctx.progress(furthest as f32);
+        }
+    })?;
+    Ok(())
+}
+
+/// Moves the one result of a many-to-one tool next to the first source.
+fn deliver_one(
+    ctx: &JobContext,
+    template: &str,
+    first: &Path,
+    file: &Path,
+    ext: &str,
+    note: Option<String>,
+) -> Result<JobOutput, JobError> {
+    ctx.check_cancelled()?;
+    let name = render_name(template, &[("stem", &file_stem(first)), ("ext", ext)]);
+    let size = fs::metadata(file)?.len();
+    let mut outputs = Outputs::new();
+    let path = outputs.adopt(&target_dir(ctx, first), &name, file)?;
+    outputs.finish();
+    Ok(JobOutput::Files(vec![OutputFile {
+        path,
+        size,
+        source_size: None,
+        note,
+    }]))
+}
+
+const MERGE_AUDIO: &str = "aresample=48000,aformat=channel_layouts=stereo";
+
+/// Filter graph joining videos of any size: each is fitted into the frame of
+/// the first, and those without sound get silence.
+fn merge_graph(probes: &[Probe], width: u32, height: u32, fps: f64) -> String {
+    let with_audio = probes.iter().any(|p| !p.audio.is_empty());
+    let mut graph = String::new();
+    let mut joined = String::new();
+    for (i, probe) in probes.iter().enumerate() {
+        graph.push_str(&format!(
+            "[{i}:v:0]scale={width}:{height}:force_original_aspect_ratio=decrease,\
+             pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},format=yuv420p[v{i}];"
+        ));
+        joined.push_str(&format!("[v{i}]"));
+        if with_audio {
+            if probe.audio.is_empty() {
+                let length = probe.duration.unwrap_or(0.0);
+                graph.push_str(&format!("anullsrc=r=48000:cl=stereo:d={length}[a{i}];"));
+            } else {
+                graph.push_str(&format!("[{i}:a:0]{MERGE_AUDIO}[a{i}];"));
+            }
+            joined.push_str(&format!("[a{i}]"));
+        }
+    }
+    let outputs = if with_audio { "[v][a]" } else { "[v]" };
+    format!(
+        "{graph}{joined}concat=n={}:v=1:a={}{outputs}",
+        probes.len(),
+        u8::from(with_audio)
+    )
+}
+
+/// Merge Videos. Sizes and codecs may differ, so everything is encoded again.
+pub fn merge_video(template: String) -> Arc<dyn Executor> {
+    Arc::new(move |ctx: &JobContext, input: JobInput, _: &Params| {
+        let engine = Engine::get()?;
+        let sources = read_sources(ctx, engine, input_files(input)?, 2, "videos")?;
+        for (path, probe) in sources.paths.iter().zip(&sources.probes) {
+            if probe.video.is_none() {
+                return Err(name_error(path, invalid("this file has no video")));
+            }
+        }
+        let first = sources.probes[0]
+            .video
+            .clone()
+            .ok_or_else(|| invalid("this file has no video"))?;
+        let (width, height) = (first.width / 2 * 2, first.height / 2 * 2);
+        let fps = first.fps.unwrap_or(30.0).min(60.0);
+        let plan = plan_video(engine.encoders(), Container::Mp4)?;
+        let bit_rate = sources
+            .probes
+            .iter()
+            .filter_map(|p| Some(same_quality_bit_rate(p, p.video.as_ref()?)))
+            .max()
+            .unwrap_or(MIN_VIDEO_BITRATE);
+        let with_audio = sources.probes.iter().any(|p| !p.audio.is_empty());
+
+        let file = ctx.temp_dir()?.join(format!("merged.{}", plan.container.ext()));
+        let mut args = sources.inputs();
+        args.extend([
+            "-filter_complex".into(),
+            merge_graph(&sources.probes, width, height, fps).into(),
+        ]);
+        args.extend(["-map".into(), "[v]".into()]);
+        args.extend(to_os(&encoder_args(plan.encoder, bit_rate.max(MIN_VIDEO_BITRATE))));
+        if with_audio {
+            let audio = if plan.container == Container::Webm {
+                "libopus"
+            } else {
+                "aac"
+            };
+            args.extend(["-map".into(), "[a]".into(), "-c:a".into(), audio.into()]);
+            args.extend(["-b:a".into(), format!("{VIDEO_AUDIO_KBPS}k").into()]);
+        }
+        if plan.container == Container::Mp4 {
+            args.extend(["-movflags".into(), "+faststart".into()]);
+        }
+        args.extend(["-y".into(), file.clone().into_os_string()]);
+        run_many(ctx, engine, args, sources.total)?;
+        deliver_one(
+            ctx,
+            &template,
+            &sources.paths[0],
+            &file,
+            plan.container.ext(),
+            plan.note,
+        )
+    })
+}
+
+/// Replace Audio. The video stream is copied, so this takes seconds.
+pub fn replace_audio(template: String) -> Arc<dyn Executor> {
+    Arc::new(move |ctx: &JobContext, input: JobInput, params: &Params| {
+        let files = input_files(input)?;
+        if files.len() != 2 {
+            return Err(invalid("add one video and one audio file"));
+        }
+        let engine = Engine::get()?;
+        let sources = read_sources(ctx, engine, files, 2, "files")?;
+        let video_at = sources
+            .probes
+            .iter()
+            .position(|p| p.video.is_some())
+            .ok_or_else(|| invalid("add one video and one audio file"))?;
+        let audio_at = 1 - video_at;
+        let audio = sources.probes[audio_at]
+            .audio
+            .first()
+            .ok_or_else(|| invalid("add one video and one audio file"))?;
+        let path = &sources.paths[video_at];
+        let ext = copy_ext(&file_ext(path))?;
+        let container = same_container(ext);
+
+        let file = ctx.temp_dir()?.join(format!("result.{ext}"));
+        let mut args = Engine::input(path);
+        args.extend(Engine::input(&sources.paths[audio_at]));
+        args.extend([
+            "-map".into(),
+            "0:v:0".into(),
+            "-map".into(),
+            "1:a:0".into(),
+            "-c:v".into(),
+            "copy".into(),
+        ]);
+        args.extend(to_os(&video_audio_args(container, Some(audio), true)));
+        if params.get("stop_at_shortest").and_then(Value::as_bool).unwrap_or(true) {
+            args.push("-shortest".into());
+        }
+        args.extend(["-y".into(), file.clone().into_os_string()]);
+        let length = sources.probes[video_at].duration.unwrap_or(0.0);
+        run_many(ctx, engine, args, length)?;
+        deliver_one(ctx, &template, path, &file, ext, None)
+    })
+}
+
+/// A tool that passes audio through a filter and keeps its format.
+fn audio_filtered(step: &Step<'_>, filter: &str, extra: &[&str]) -> Result<Made, JobError> {
+    let audio = step.audio()?;
+    let kbps = audio.bit_rate.map_or(192, |b| (b / 1000) as u32).clamp(96, 320);
+    let (ext, codec) = audio_args(audio_format_of(&step.ext), kbps, "")?;
+    let map = format!("0:{}", audio.index);
+    let mut args: Vec<String> = ["-map", &map, "-map_metadata", "0", "-vn"].map(str::to_owned).to_vec();
+    if !filter.is_empty() {
+        args.extend(["-af".into(), filter.into()]);
+    }
+    args.extend(extra.iter().map(|a| (*a).to_owned()));
+    args.extend(codec);
+    step.write(&[], &args, ext, step.probe.duration, None)
+}
+
+pub fn volume(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let gain = step.params.get("gain").and_then(Value::as_i64).unwrap_or(6);
+        audio_filtered(step, &format!("volume={gain}dB"), &[])
+    })
+}
+
+pub fn to_mono(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| audio_filtered(step, "", &["-ac", "1"]))
+}
+
+pub fn sample_rate(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        audio_filtered(step, "", &["-ar", param_str(step.params, "rate").unwrap_or("44100")])
+    })
+}
+
+/// The `threshold` and `min_seconds` parameters as FFmpeg writes them.
+fn silence_params(params: &Params) -> (i64, f64) {
+    let threshold = params.get("threshold").and_then(Value::as_i64).unwrap_or(-45);
+    let seconds = params.get("min_seconds").and_then(Value::as_f64).unwrap_or(0.5);
+    (threshold, seconds)
+}
+
+pub fn remove_silence(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let (threshold, seconds) = silence_params(step.params);
+        let filter = format!(
+            "silenceremove=start_periods=1:start_duration=0:start_threshold={threshold}dB:\
+             stop_periods=-1:stop_duration={seconds}:stop_threshold={threshold}dB"
+        );
+        audio_filtered(step, &filter, &[])
+    })
+}
+
+/// Silent stretches from FFmpeg's `silencedetect` log, in seconds. A stretch
+/// that runs to the end of the file has no end in the log.
+pub fn parse_silence(log: &str, duration: Option<f64>) -> Vec<(f64, f64)> {
+    let value =
+        |line: &str, key: &str| -> Option<f64> { line.split(key).nth(1)?.split_whitespace().next()?.parse().ok() };
+    let mut found = Vec::new();
+    let mut start = None;
+    for line in log.lines() {
+        if let Some(at) = value(line, "silence_start: ") {
+            start = Some(at);
+        } else if let (Some(from), Some(to)) = (start, value(line, "silence_end: ")) {
+            found.push((from, to));
+            start = None;
+        }
+    }
+    if let (Some(from), Some(to)) = (start, duration) {
+        found.push((from, to));
+    }
+    found
+}
+
+fn clock(seconds: f64) -> String {
+    let whole = seconds as u64;
+    format!(
+        "{}:{:02}:{:02}.{:03}",
+        whole / 3600,
+        whole / 60 % 60,
+        whole % 60,
+        (seconds.fract() * 1000.0) as u64
+    )
+}
+
+pub fn detect_silence() -> Arc<dyn Executor> {
+    Arc::new(|ctx: &JobContext, input: JobInput, params: &Params| {
+        let files = input_files(input)?;
+        let engine = Engine::get()?;
+        let (threshold, seconds) = silence_params(params);
+        let mut sections = Vec::with_capacity(files.len());
+        for (i, path) in files.iter().enumerate() {
+            ctx.check_cancelled()?;
+            let probe = engine.probe(ctx, path).map_err(|e| name_error(path, e))?;
+            let filter = format!("silencedetect=noise={threshold}dB:d={seconds}");
+            let mut args = Engine::input(path);
+            args.extend([
+                "-vn".into(),
+                "-af".into(),
+                filter.into(),
+                "-f".into(),
+                "null".into(),
+                "-".into(),
+            ]);
+            let log = engine.run(ctx, "info", args, |_| {}).map_err(|e| name_error(path, e))?;
+            let found = parse_silence(&log, probe.duration);
+            let mut lines = vec![
+                path.file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+            ];
+            if found.is_empty() {
+                lines.push("No silence found".into());
+            }
+            lines.extend(
+                found
+                    .iter()
+                    .map(|(from, to)| format!("{} – {} ({:.1} s)", clock(*from), clock(*to), to - from)),
+            );
+            sections.push(lines.join("\n"));
+            ctx.progress((i + 1) as f32 / files.len() as f32);
+        }
+        Ok(JobOutput::Text(sections.join("\n\n")))
+    })
+}
+
+/// A picture of the sound, drawn by the filter `draw`.
+fn audio_picture(step: &Step<'_>, draw: String) -> Result<Made, JobError> {
+    step.audio()?;
+    let graph = format!("[0:a:0]{draw}[picture]");
+    let args = [
+        "-filter_complex",
+        &graph,
+        "-map",
+        "[picture]",
+        "-frames:v",
+        "1",
+        "-update",
+        "1",
+    ]
+    .map(str::to_owned);
+    step.write(&[], &args, "png", None, None)
+}
+
+pub fn waveform(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let (w, h) = (
+            param_u32(step.params, "width").unwrap_or(1200),
+            param_u32(step.params, "height").unwrap_or(300),
+        );
+        audio_picture(step, format!("showwavespic=s={w}x{h}:split_channels=0:colors=0x0a84ff"))
+    })
+}
+
+pub fn spectrogram(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let (w, h) = (
+            param_u32(step.params, "width").unwrap_or(1200),
+            param_u32(step.params, "height").unwrap_or(512),
+        );
+        audio_picture(step, format!("showspectrumpic=s={w}x{h}:legend=0:color=intensity"))
+    })
+}
+
+/// Merge Audio.
+pub fn merge_audio(template: String) -> Arc<dyn Executor> {
+    Arc::new(move |ctx: &JobContext, input: JobInput, params: &Params| {
+        let engine = Engine::get()?;
+        let sources = read_sources(ctx, engine, input_files(input)?, 2, "audio files")?;
+        for (path, probe) in sources.paths.iter().zip(&sources.probes) {
+            if probe.audio.is_empty() {
+                return Err(name_error(path, invalid("this file has no audio")));
+            }
+        }
+        let (ext, codec) = audio_args(param_str(params, "format").unwrap_or("mp3"), kbps(params), "")?;
+        let count = sources.paths.len();
+        let mut graph = String::new();
+        let mut joined = String::new();
+        for i in 0..count {
+            graph.push_str(&format!("[{i}:a:0]{MERGE_AUDIO}[a{i}];"));
+            joined.push_str(&format!("[a{i}]"));
+        }
+        let graph = format!("{graph}{joined}concat=n={count}:v=0:a=1[out]");
+
+        let file = ctx.temp_dir()?.join(format!("merged.{ext}"));
+        let mut args = sources.inputs();
+        args.extend(["-filter_complex".into(), graph.into(), "-map".into(), "[out]".into()]);
+        args.extend(to_os(&codec));
+        args.extend(["-y".into(), file.clone().into_os_string()]);
+        run_many(ctx, engine, args, sources.total)?;
+        deliver_one(ctx, &template, &sources.paths[0], &file, ext, None)
     })
 }

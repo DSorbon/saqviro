@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.sample-rate
+name: Change Sample Rate
+category: audio
+tool_version: 1
+description: Resample audio to another rate.
+keywords: [hz, khz, resample, 44100, 48000]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}-{rate}hz.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: rate, type: enum, values: ["8000", "16000", "22050", "32000", "44100", "48000", "96000"], default: "44100" }
+presets:
+  - { id: default, name: Default }

@@ -19,7 +19,7 @@ use probe::Probe;
 
 /// Demuxers allowed to open user files. Formats that reference other files
 /// (concat, HLS, DASH) are deliberately missing.
-const FORMATS: &str = "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,mpeg,mpegts,asf,flv,ogg,mp3,aac,wav,flac,aiff";
+const FORMATS: &str = "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,mpeg,mpegts,asf,flv,ogg,mp3,aac,wav,flac,aiff,gif";
 
 /// H.264 encoders from the operating system, tried in order.
 const H264_ENCODERS: &[&str] = if cfg!(target_os = "macos") {

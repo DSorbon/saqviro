@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.fps
+name: Change FPS
+category: video
+tool_version: 1
+description: Change how many frames per second a video has.
+keywords: [frame rate, frames, smooth]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-{fps}fps.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: fps, type: enum, values: ["15", "24", "25", "30", "50", "60"], default: "30" }
+presets:
+  - { id: default, name: Default }

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.frames
+name: Extract Frames
+category: video
+tool_version: 1
+description: Save frames of a video as pictures, one every few seconds.
+keywords: [images, frames, stills, sequence]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: image
+    multiple: true
+    filename: "{stem}-frames"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: every_seconds, type: number, min: 0.04, max: 3600, default: 1 }
+  - { id: format, type: enum, values: [jpg, png], default: jpg }
+presets:
+  - { id: default, name: Default }

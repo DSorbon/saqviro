@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.volume
+name: Change Volume
+category: audio
+tool_version: 1
+description: Make audio louder or quieter.
+keywords: [gain, boost, quiet, loud, decibel]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}-volume.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: gain, type: integer, min: -40, max: 40, default: 6 }
+presets:
+  - { id: louder, name: Louder, params: { gain: 6 } }
+  - { id: quieter, name: Quieter, params: { gain: -6 } }

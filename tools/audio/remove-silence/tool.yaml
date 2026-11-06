@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: audio.remove-silence
+name: Remove Silence
+category: audio
+tool_version: 1
+description: Cut out the quiet parts of a recording.
+keywords: [silence, pause, gaps, podcast]
+inputs:
+  - type: audio
+    multiple: true
+    mime: [audio/mpeg, audio/mp4, audio/aac, audio/wav, audio/flac, audio/ogg, audio/opus, audio/aiff, audio/x-ms-wma]
+    extensions: [mp3, m4a, aac, wav, flac, ogg, opus, aiff, aif, wma]
+outputs:
+  - type: audio
+    multiple: true
+    filename: "{stem}-no-silence.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: threshold, type: integer, min: -80, max: -10, default: -45 }
+  - { id: min_seconds, type: number, min: 0.1, max: 60, default: 0.5 }
+presets:
+  - { id: default, name: Default }

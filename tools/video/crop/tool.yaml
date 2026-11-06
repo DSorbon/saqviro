@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: video.crop
+name: Crop Video
+category: video
+tool_version: 1
+description: Cut the frame down to a shape or an area.
+keywords: [crop, frame, square, vertical, aspect ratio]
+inputs:
+  - type: video
+    multiple: true
+    mime: [video/mp4, video/quicktime, video/x-m4v, video/x-matroska, video/webm, video/x-msvideo, video/mpeg, video/x-ms-wmv, video/x-flv, video/3gpp, video/mp2t]
+    extensions: [mp4, mov, m4v, mkv, webm, avi, mpg, mpeg, wmv, flv, 3gp, ts]
+outputs:
+  - type: video
+    multiple: true
+    filename: "{stem}-cropped.{ext}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: aspect, type: enum, values: [area, "1:1", "4:3", "16:9", "9:16"], default: "1:1" }
+  - { id: x, type: integer, min: 0, default: 0 }
+  - { id: y, type: integer, min: 0, default: 0 }
+  - { id: width, type: integer, min: 2, optional: true }
+  - { id: height, type: integer, min: 2, optional: true }
+presets:
+  - { id: square, name: Square, params: { aspect: "1:1" } }
+  - { id: vertical, name: Vertical, params: { aspect: "9:16" } }
+  - { id: wide, name: Wide, params: { aspect: "16:9" } }
+  - { id: area, name: Area, params: { aspect: area } }
+ui:
+  advanced: [x, y, width, height]
