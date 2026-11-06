@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { blankWorkflow, brokenStep, canFollow, copyOf, isWorkflow, nextTools, saved, starters, stepOf, workflowInput } from "./workflow";
+import { blankWorkflow, brokenStep, canFollow, copyOf, isWorkflow, nextTools, saved, starters, stepOf, withDefaults, workflowInput } from "./workflow";
 
 const image = (id: string) => tool(id, id, { inputs: [{ type: "image" }], outputs: [{ type: "image" }] });
 const resize = image("image.resize");
@@ -49,6 +49,14 @@ describe("workflows", () => {
       presets: [{ id: "a", name: "A" }],
     });
     expect(stepOf(quality)).toEqual({ tool: "image.compress", params: { quality: 75 } });
+  });
+  it("fills in settings a saved step left out", () => {
+    const quality = tool("image.compress", "C", {
+      parameters: [{ id: "quality", type: "integer", default: 75 }, { id: "keep", type: "boolean", default: true }],
+      presets: [{ id: "a", name: "A" }],
+    });
+    const filled = withDefaults({ ...blankWorkflow("a"), steps: [{ tool: "image.compress", params: { quality: 10 } }] }, [quality]);
+    expect(filled.steps[0]!.params).toEqual({ quality: 10, keep: true });
   });
   it("copies without sharing steps", () => {
     const original = { ...blankWorkflow("a"), steps: [{ tool: "x", params: { n: 1 } }] };

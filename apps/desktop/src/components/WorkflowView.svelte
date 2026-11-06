@@ -3,7 +3,7 @@
   import { cancelJob, onJobEvent, pickFiles, runWorkflow } from "../lib/api";
   import { errorText, fileName, isActive, moved, statusLine, type JobError, type JobSnapshot } from "../lib/job";
   import { shortcut } from "../lib/platform";
-  import type { ParamValue, Tool } from "../lib/types";
+  import type { Tool } from "../lib/types";
   import { brokenStep, nextTools, stepOf, workflowInput, type Workflow } from "../lib/workflow";
   import ParamFields from "./ParamFields.svelte";
   import Results from "./Results.svelte";
@@ -52,10 +52,6 @@
     const tool = toolOf(adding);
     if (tool) steps([...workflow.steps, stepOf(tool)]);
     adding = "";
-  }
-
-  function setParams(index: number, params: Record<string, ParamValue>) {
-    steps(workflow.steps.map((s, i) => (i === index ? { ...s, params } : s)));
   }
 
   async function choose() {
@@ -114,7 +110,10 @@
           <p class="error">{tool ? `${tool.name} cannot use what the step before it makes.` : "This tool is not available."}</p>
         {/if}
         {#if tool}
-          <ParamFields {tool} bind:values={() => step.params ?? {}, (v) => setParams(i, v)} />
+          <!-- Fields change `step.params` in place; this keeps the change. -->
+          <div role="group" aria-label="Settings of step {i + 1}" oninput={() => onChange({ ...workflow })} onchange={() => onChange({ ...workflow })}>
+            <ParamFields {tool} bind:values={step.params!} />
+          </div>
         {/if}
       </li>
     {/each}

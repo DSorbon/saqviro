@@ -25,7 +25,7 @@
   import { searchTools } from "./lib/search";
   import { relevantGroups, sidebarGroups } from "./lib/sidebar";
   import type { Tool } from "./lib/types";
-  import { blankWorkflow, copyOf, saved, type Workflow } from "./lib/workflow";
+  import { blankWorkflow, copyOf, saved, withDefaults, type Workflow } from "./lib/workflow";
 
   let tools = $state<Tool[]>([]);
   let section = $state("home");
@@ -117,7 +117,7 @@
   }
 
   function showWorkflow(workflow: Workflow) {
-    openWorkflow = workflow;
+    openWorkflow = withDefaults(workflow, tools);
     files = [];
   }
 
@@ -210,7 +210,7 @@
         workflows={prefs.workflows}
         onOpen={showWorkflow}
         onNew={() => keepWorkflow(blankWorkflow(crypto.randomUUID()))}
-        onCopy={(w) => keepWorkflow({ ...copyOf(w, crypto.randomUUID()), name: w.name })}
+        onCopy={(w) => keepWorkflow(withDefaults({ ...copyOf(w, crypto.randomUUID()), name: w.name }, tools))}
       />
     {:else if section === "home"}
       <Home {hovering} {dropped} specific={suggestions.specific} general={suggestions.general} tilesLabel={home.label} tiles={home.tools} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={() => { dropped = []; suggestionIds = []; }} />

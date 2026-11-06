@@ -64,6 +64,15 @@ export const copyOf = (workflow: Workflow, id: string): Workflow => ({
   name: `${workflow.name} copy`,
 });
 
+/** Every step with a value for each setting, so the editor can show them. */
+export function withDefaults(workflow: Workflow, tools: Tool[]): Workflow {
+  const steps = workflow.steps.map((step) => {
+    const tool = tools.find((t) => t.id === step.tool);
+    return { ...step, params: { ...(tool ? initialParams(tool) : {}), ...step.params } };
+  });
+  return { ...workflow, steps };
+}
+
 /** Replaces the workflow with the same id, or adds it. */
 export function saved(list: Workflow[], workflow: Workflow): Workflow[] {
   return list.some((w) => w.id === workflow.id)

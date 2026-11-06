@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobSnapshot } from "../lib/job";
 import { tool } from "../lib/fixtures";
-import { blankWorkflow, type Workflow } from "../lib/workflow";
+import { blankWorkflow, withDefaults, type Workflow } from "../lib/workflow";
 import WorkflowView from "./WorkflowView.svelte";
 
 const api = vi.hoisted(() => ({
@@ -39,7 +39,9 @@ const merge = tool("pdf.merge", "Merge PDF", { inputs: [{ type: "pdf" }], output
 const upper = tool("text.case", "Case", { inputs: [{ type: "text" }], outputs: [{ type: "text" }] });
 const tools = [resize, webp, merge, upper];
 
-const workflow = (steps: Workflow["steps"]): Workflow => ({ ...blankWorkflow("w"), steps });
+/** The app gives the view steps with their settings filled in. */
+const workflow = (steps: Workflow["steps"]): Workflow =>
+  withDefaults({ ...blankWorkflow("w"), steps }, tools);
 
 /** Renders a view that keeps its changes, as the app does. */
 function show(start: Workflow, files: string[] = []) {
@@ -126,6 +128,12 @@ describe("WorkflowView", () => {
     show(workflow([{ tool: "image.resize" }]), ["/a.png"]);
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     expect((await screen.findByRole("alert")).textContent).toContain("step 1: width is wrong");
+  });
+
+  it("keeps changed settings", async () => {
+    const { current } = show(workflow([{ tool: "image.resize", params: {} }]));
+    await fireEvent.input(screen.getByRole("spinbutton", { name: "Width" }), { target: { value: "640" } });
+    expect(current().steps[0]!.params).toEqual({ width: 640 });
   });
 
   it("renames", async () => {
