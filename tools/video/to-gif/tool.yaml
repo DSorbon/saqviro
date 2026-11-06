@@ -29,4 +29,5 @@ presets:
   - { id: small, name: Small, params: { fps: 8, width: 320 } }
   - { id: smooth, name: Smooth, params: { fps: 20, width: 640 } }
 ui:
-  advanced: [fps, width]
+  preview: timeline
+  advanced: [fps, width, start, end]

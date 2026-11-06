@@ -48,4 +48,5 @@ presets:
     name: Thumbnail
     params: { width: 400, height: 400, fit: cover }
 ui:
+  preview: compare
   advanced: [fit]

@@ -3,6 +3,7 @@
 use std::sync::Mutex;
 
 use saqviro_jobs::{ErrorKind, JobError, Params};
+use saqviro_tools::media::timeline::peaks;
 use saqviro_tools::media::{
     Encoders, failure, parse_progress,
     probe::{Probe, describe},
@@ -266,4 +267,12 @@ fn tries_one_encoder_when_the_failure_is_not_the_encoder() {
         Err(JobError::new(ErrorKind::ProcessFailed, "no packets"))
     });
     assert_eq!(failed.unwrap_err().message, "no packets");
+}
+
+#[test]
+fn peaks_show_the_shape_of_the_sound() {
+    assert_eq!(peaks(&[0, 100, -200, 50], 2), [0.5, 1.0]);
+    assert_eq!(peaks(&[], 3), Vec::<f32>::new());
+    assert_eq!(peaks(&[0, 0], 2), [0.0, 0.0]);
+    assert_eq!(peaks(&[i16::MIN], 1), [1.0]);
 }

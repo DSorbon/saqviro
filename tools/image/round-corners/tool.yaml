@@ -24,3 +24,5 @@ parameters:
 presets:
   - { id: soft, name: Soft, params: { radius: 10 } }
   - { id: circle, name: Circle, params: { radius: 50 } }
+ui:
+  preview: compare

@@ -27,4 +27,6 @@ presets:
   - { id: fast, name: Fast, params: { exact: false } }
   - { id: exact, name: Frame accurate, params: { exact: true } }
 ui:
+  preview: timeline
   one_of: [start, end]
+  advanced: [start, end]

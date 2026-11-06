@@ -26,4 +26,5 @@ presets:
   - { id: jpg, name: JPG, params: { format: jpg } }
   - { id: png, name: PNG, params: { format: png } }
 ui:
+  preview: compare
   advanced: [quality]

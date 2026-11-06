@@ -13,6 +13,7 @@ use saqviro_jobs::{ErrorKind, JobContext, JobError};
 use crate::process::{self, hide_console};
 
 pub mod probe;
+pub mod timeline;
 pub mod tools;
 
 use probe::Probe;

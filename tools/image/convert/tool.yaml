@@ -28,4 +28,5 @@ presets:
   - { id: webp, name: WebP, params: { format: webp } }
   - { id: avif, name: AVIF, params: { format: avif } }
 ui:
+  preview: compare
   advanced: [quality]

@@ -26,4 +26,5 @@ presets:
   - { id: smaller, name: Smaller, params: { quality: 45 } }
   - { id: best, name: Best quality, params: { quality: 85 } }
 ui:
+  preview: compare
   advanced: [quality]

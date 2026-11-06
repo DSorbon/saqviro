@@ -140,6 +140,88 @@ fn run_workflow(
     start_workflow(&registry, &jobs, "workflow", &steps, input, output_dir, keep_going)
 }
 
+/// What a tool would make of one file, before anything is saved.
+#[derive(Serialize)]
+struct ToolPreview {
+    /// A JPEG in Base64, when the result can be shown.
+    data: Option<String>,
+    size: u64,
+    source_size: Option<u64>,
+}
+
+/// Runs the tool into a temp folder that goes away with this call.
+fn preview_tool_now(
+    registry: &Registry,
+    jobs: &JobManager,
+    tool_id: &str,
+    path: PathBuf,
+    params: &Params,
+) -> Result<ToolPreview, JobError> {
+    let dir = tempfile::tempdir()?;
+    let input = JobInput::Files(vec![path]);
+    let id = start_job(registry, jobs, tool_id, input, params, Some(dir.path().to_path_buf()))?;
+    let done = jobs
+        .wait(id)
+        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "the preview was lost"))?;
+    let Some(JobOutput::Files(files)) = done.output else {
+        return Err(done
+            .error
+            .unwrap_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show")));
+    };
+    let first = files
+        .first()
+        .ok_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show"))?;
+    let data = saqviro_tools::images::preview(&first.path, PREVIEW_SIZE)
+        .ok()
+        .map(|p| p.data);
+    Ok(ToolPreview {
+        data,
+        size: first.size,
+        source_size: first.source_size,
+    })
+}
+
+#[tauri::command]
+async fn preview_tool<R: Runtime>(
+    app: AppHandle<R>,
+    tool_id: String,
+    path: PathBuf,
+    params: Params,
+) -> Result<ToolPreview, JobError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        preview_tool_now(
+            &app.state::<Registry>(),
+            &app.state::<JobManager>(),
+            &tool_id,
+            path,
+            &params,
+        )
+    })
+    .await
+    .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
+}
+
+/// Frames and sound of a video or audio file, as JSON.
+#[tauri::command]
+async fn media_timeline<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<String, JobError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let jobs = app.state::<JobManager>();
+        let executor = saqviro_tools::media::timeline::timeline();
+        let id = jobs.submit("timeline", executor, JobInput::Files(vec![path]), Params::new());
+        let done = jobs
+            .wait(id)
+            .ok_or_else(|| JobError::new(ErrorKind::Unknown, "the timeline was lost"))?;
+        match done.output {
+            Some(JobOutput::Text(json)) => Ok(json),
+            _ => Err(done
+                .error
+                .unwrap_or_else(|| JobError::new(ErrorKind::Unknown, "no timeline"))),
+        }
+    })
+    .await
+    .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
+}
+
 /// A small picture of an image, for choosing an area of it.
 #[tauri::command]
 async fn image_preview(path: PathBuf) -> Result<saqviro_tools::images::Preview, JobError> {
@@ -371,6 +453,8 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             list_tools,
             tools_for_files,
             run_tool,
+            preview_tool,
+            media_timeline,
             run_workflow,
             image_preview,
             advise_files,
@@ -530,6 +614,19 @@ mod tests {
         83, 222, 0, 0, 0, 12, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 0, 0, 3, 1, 1, 0, 201, 254, 146, 239, 0, 0,
         0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
     ];
+
+    #[test]
+    fn a_preview_shows_the_result_and_saves_nothing() {
+        let (jobs, _root) = jobs();
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("a.png");
+        std::fs::write(&source, PNG).unwrap();
+        let found = preview_tool_now(&bundled_registry(), &jobs, "image.grayscale", source, &Params::new()).unwrap();
+        assert!(found.data.is_some());
+        assert!(found.size > 0);
+        assert_eq!(found.source_size, Some(PNG.len() as u64));
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1, "only the original");
+    }
 
     #[test]
     fn one_bad_file_costs_a_batch_only_its_own_result() {

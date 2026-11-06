@@ -24,3 +24,5 @@ parameters:
 presets:
   - { id: h, name: Horizontal, params: { direction: horizontal } }
   - { id: v, name: Vertical, params: { direction: vertical } }
+ui:
+  preview: compare

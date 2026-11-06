@@ -25,4 +25,6 @@ parameters:
 presets:
   - { id: default, name: Default }
 ui:
+  preview: timeline
   one_of: [start, end]
+  advanced: [start, end]

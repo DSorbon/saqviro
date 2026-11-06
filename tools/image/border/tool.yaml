@@ -24,3 +24,5 @@ parameters:
   - { id: color, type: string, default: "#ffffff" }
 presets:
   - { id: default, name: Default }
+ui:
+  preview: compare

@@ -1028,3 +1028,26 @@ fn a_watermark_lands_on_a_video_turned_by_metadata() {
         .count();
     assert!(magenta > 100, "{magenta}");
 }
+
+#[test]
+fn a_timeline_has_frames_sound_and_a_length() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "160x120", 2);
+    let root = tempfile::tempdir().unwrap();
+    let config = Config {
+        temp_root: root.path().join("jobs"),
+        workers: 1,
+    };
+    let jobs = JobManager::new(config, |_: &JobSnapshot| {}).unwrap();
+    let exec = saqviro_tools::media::timeline::timeline();
+    let done = jobs
+        .wait(jobs.submit("timeline", exec, JobInput::Files(vec![source]), serde_json::Map::new()))
+        .unwrap();
+    let Some(JobOutput::Text(text)) = done.output else {
+        panic!("{:?}", done.error);
+    };
+    let found: Value = serde_json::from_str(&text).unwrap();
+    assert!((found["duration"].as_f64().unwrap() - 2.0).abs() < 0.2);
+    assert!(found["frames"].as_array().unwrap().len() >= 8);
+    assert!(!found["peaks"].as_array().unwrap().is_empty());
+}
