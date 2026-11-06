@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatOrder, formatPages, moveTo, parsePages, pageHint, typedOrder } from "./pages";
+import { formatOrder, formatPages, moveTo, parsePages, pageHint, typedOrder, parseTurns, formatTurns, turned } from "./pages";
 
 describe("formatPages", () => {
   it("joins runs of pages", () => {
@@ -42,5 +42,19 @@ describe("typedOrder", () => {
     expect(typedOrder("", 3)).toBeNull();
     expect(typedOrder("1,1", 3)).toBeNull();
     expect(typedOrder("4", 3)).toBeNull();
+  });
+});
+
+describe("turns", () => {
+  it("reads and writes what the tool takes", () => {
+    expect(parseTurns("2:90, 6:270,x")).toEqual({ 2: 90, 6: 270 });
+    expect(formatTurns({ 6: 270, 2: 90 })).toBe("2:90,6:270");
+    expect(formatTurns({})).toBe("");
+  });
+  it("adds up, both ways, and forgets a full turn", () => {
+    expect(turned({}, [3], 90)).toEqual({ 3: 90 });
+    expect(turned({ 3: 90 }, [3], -90)).toEqual({});
+    expect(turned({}, [3], -90)).toEqual({ 3: 270 });
+    expect(turned({ 1: 270 }, [1, 2], 90)).toEqual({ 2: 90 });
   });
 });

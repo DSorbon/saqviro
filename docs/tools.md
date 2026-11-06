@@ -127,7 +127,7 @@
 | Remove PDF Password | Remove the password from a PDF when you know it. |
 | Reorder PDF Pages | List pages in the new order. The rest follow them. |
 | Repair PDF | Rebuild a damaged PDF so it opens again. |
-| Rotate PDF Pages | Rotate all pages, or only those you list. |
+| Rotate PDF Pages | Turn pages the right way up. Each page can turn on its own. |
 | Split PDF | Split a PDF into single pages or equal parts. |
 | PDF to Images | Save every page of a PDF as an image. |
 | PDF to Text | Extract the text of a PDF. |

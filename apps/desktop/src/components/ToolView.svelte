@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { cancelJob, onJobEvent, pickFiles, pickFolder, runTool } from "../lib/api";
   import {
     canRun,
@@ -12,6 +12,7 @@
     type JobSnapshot,
   } from "../lib/job";
   import { needsArea, type Area } from "../lib/crop";
+  import { isLive } from "../lib/surface";
   import { initialParams, matchingPreset, paramsIssue } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { ParamValue, Tool } from "../lib/types";
@@ -50,13 +51,26 @@
   let requestError = $state<JobError | null>(null);
 
   const kind = $derived(inputKind(tool));
-  const running = $derived(job !== null && isActive(job));
+  const live = $derived(isLive(tool));
+  const working = $derived(job !== null && isActive(job));
+  // A live tool stays open to typing while it works.
+  const running = $derived(working && !live);
+  // Page pictures replace the form when they can show every choice.
+  const turning = $derived(tool.ui?.preview === "pages-turn" && files.length === 1);
   const isCrop = $derived(tool.ui?.preview === "crop");
-  const issue = $derived(isCrop && needsArea(values) ? "Choose an area on the picture" : paramsIssue(tool, values));
+  const issue = $derived(
+    isCrop && needsArea(values)
+      ? "Choose an area on the picture"
+      : turning && !values.turns
+        ? "Click a page to turn it"
+        : paramsIssue(tool, values),
+  );
   const hasInput = $derived(canRun(tool, text, files));
   const hint = $derived(hasInput ? issue : kind === "text" ? "Paste some text to start" : "Add a file to start");
   const ready = $derived(hasInput && issue === null && !running);
-  const output = $derived(job?.status === "completed" ? job.output : null);
+  // Typing keeps the last result on screen until the next one arrives.
+  let settled = $state<JobSnapshot["output"]>(null);
+  const output = $derived(live ? settled : job?.status === "completed" ? job.output : null);
   const failure = $derived(requestError ?? (job?.status === "failed" ? job.error : null));
 
   // A job can finish before its id comes back.
@@ -64,7 +78,10 @@
 
   function follow(snapshot: JobSnapshot) {
     job = snapshot;
-    onJob?.(snapshot);
+    if (live) {
+      if (snapshot.status === "completed") settled = snapshot.output;
+      if (snapshot.status === "failed") settled = null;
+    } else onJob?.(snapshot);
   }
 
   onMount(() => {
@@ -84,7 +101,26 @@
   });
 
   $effect(() => {
-    if (output || failure) resultBox?.scrollIntoView?.({ block: "nearest" });
+    if (!live && (output || failure)) resultBox?.scrollIntoView?.({ block: "nearest" });
+  });
+
+  // Fast enough to feel instant, slow enough not to run on every key.
+  const LIVE_DELAY = 250;
+
+  $effect(() => {
+    if (!live || !active) return;
+    void text;
+    void JSON.stringify(values);
+    if (!hasInput || issue !== null) {
+      untrack(() => {
+        settled = null;
+        job = null;
+        requestError = null;
+      });
+      return;
+    }
+    const timer = setTimeout(() => void start(), kind === "none" ? 0 : LIVE_DELAY);
+    return () => clearTimeout(timer);
   });
 
   // The last free selection, for coming back to it from a shape.
@@ -121,20 +157,28 @@
     if (folder) add([folder]);
   }
 
+  let told = false;
+
   async function run() {
-    if (!ready) return;
+    if (ready) await start();
+  }
+
+  async function start() {
     requestError = null;
-    job = null;
+    if (live && job && isActive(job)) void cancelJob(job.id);
+    if (!live) job = null;
     jobId = null;
     early.clear();
     // Empty optional fields are left out; the core fills in defaults.
-    const chosen = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null && v !== undefined && v !== ""));
+    const filled = Object.entries(values).filter(([id, v]) => v !== null && v !== undefined && v !== "" && (id !== "turns" || turning));
+    const chosen = Object.fromEntries(filled);
     const input = kind === "files" ? { kind: "files" as const, value: files } : { kind: "text" as const, value: text };
     try {
       const id = await runTool(tool.id, input, chosen, outputDir);
       jobId = id;
       follow(early.get(id) ?? queued(id, tool.id));
-      onRan?.();
+      if (!told) onRan?.();
+      told = live;
     } catch (e) {
       requestError = e as JobError;
     }
@@ -142,8 +186,9 @@
 
   /** Which field the page pictures fill in. */
   const pageParam = $derived(
-    tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-select" ? "pages" : null,
+    tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-select" ? "pages" : tool.ui?.preview === "pages-turn" ? "turns" : null,
   );
+  const pickerMode = $derived(tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-turn" ? "turn" : "select");
 
   function selectArea(area: Area) {
     values = { ...values, ...area };
@@ -164,7 +209,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#snippet options()}
-  {#if tool.presets.length > 1}
+  {#if tool.presets.length > 1 && !turning}
     <fieldset class="plain" disabled={running}>
       <div class="segmented" role="radiogroup" aria-label="Preset">
         {#each tool.presets as preset (preset.id)}
@@ -173,12 +218,14 @@
       </div>
     </fieldset>
   {/if}
-  <fieldset class="plain" disabled={running}>
-    <ParamFields {tool} bind:values />
-  </fieldset>
+  {#if !turning}
+    <fieldset class="plain" disabled={running}>
+      <ParamFields {tool} bind:values />
+    </fieldset>
+  {/if}
 {/snippet}
 
-<article>
+<article class:wide={live}>
   <header>
     <div class="title">
       <ToolIcon {tool} size={36} />
@@ -190,9 +237,7 @@
     <p class="muted">{tool.description}</p>
   </header>
 
-  {#if kind === "text"}
-    <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
-  {:else if kind === "files"}
+  {#if kind === "files"}
     <FileList bind:files {ordered} folders={takesFolders(tool)} disabled={running} onChoose={choose} onChooseFolder={chooseFolder} />
   {/if}
 
@@ -200,7 +245,7 @@
     {#key files[0]}
       <PagePicker
         path={files[0]!}
-        mode={tool.ui?.preview === "pages-order" ? "order" : "select"}
+        mode={pickerMode}
         toolId={tool.id}
         value={String(values[pageParam] ?? "")}
         disabled={running}
@@ -222,19 +267,38 @@
     {@render options()}
   {/if}
 
-  <div class="outcome" bind:this={resultBox}>
-    <Outcome {output} {failure} {jobId} {onSend} />
-  </div>
+  {#if live}
+    <div class="live" class:single={kind === "none"}>
+      {#if kind === "text"}
+        <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
+      {/if}
+      <div class="result" aria-live="polite">
+        {#if output || failure}
+          <Outcome {output} {failure} {jobId} {onSend} quiet />
+        {:else}
+          <p class="muted waiting">{hint ?? "Working…"}</p>
+        {/if}
+      </div>
+    </div>
+  {:else}
+    <div class="outcome" bind:this={resultBox}>
+      <Outcome {output} {failure} {jobId} {onSend} />
+    </div>
+  {/if}
 
+  {#if !live || kind === "none"}
   <footer>
-    <span class="status muted" aria-live="polite">{job && job.status !== "failed" ? statusLine(job) : (hint ?? "")}</span>
-    {#if running}
+    <span class="status muted" aria-live="polite">{!live && job && job.status !== "failed" ? statusLine(job) : (hint ?? "")}</span>
+    {#if live}
+      <button onclick={run} disabled={!ready}>Make another</button>
+    {:else if running}
       <progress max="1" value={job?.progress || undefined}></progress>
       <button onclick={() => jobId !== null && cancelJob(jobId)}>Cancel</button>
     {:else}
       <button class:primary={!output} class="run" disabled={!ready} onclick={run}>{output ? "Run again" : "Run"} <kbd>{shortcut("↵")}</kbd></button>
     {/if}
   </footer>
+  {/if}
 </article>
 
 <style>
@@ -258,6 +322,12 @@
     user-select: text;
   }
   .plain { display: contents; }
+  article.wide { max-width: 1040px !important; }
+  .live { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); min-height: 280px; padding-bottom: var(--space-6); }
+  .live.single { grid-template-columns: minmax(0, 1fr); }
+  .live .code { min-height: 0; height: 100%; }
+  .result { display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; }
+  .waiting { margin: 0; padding: var(--space-3); }
   .title { display: flex; align-items: center; gap: var(--space-3); }
   .split { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--space-4); align-items: start; }
   .options { display: flex; flex-direction: column; gap: var(--space-3); }

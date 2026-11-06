@@ -48,6 +48,8 @@ const json = tool("developer.json.format", "JSON Formatter", {
   ui: { advanced: ["sort_keys"] },
 });
 
+const onFile = { ...json, id: "files.format", inputs: [{ type: "any", extensions: ["*"] }] };
+
 const emit = (over: Partial<JobSnapshot>) =>
   api.listeners.forEach((l) =>
     l({ id: 7, tool_id: json.id, status: "running", progress: 0, output: null, error: null, started_at: 0, finished_at: null, ...over }),
@@ -119,24 +121,8 @@ describe("ToolView with files", () => {
 });
 
 describe("ToolView", () => {
-  it("runs a tool that takes no input", async () => {
-    const tool = { ...json, inputs: [{ type: "none" }], presets: [{ id: "d", name: "D" }], parameters: [], ui: {} };
-    const { container } = render(ToolView, { tool, files: [] });
-    expect(container.querySelector("textarea")).toBeNull();
-    expect(screen.queryByText("Drop files on this window")).toBeNull();
-    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
-    expect(api.runTool).toHaveBeenCalledWith(tool.id, { kind: "text", value: "" }, {}, null);
-  });
-
-  it("allows optional text to stay empty", () => {
-    const tool = { ...json, inputs: [{ type: "text", optional: true }] };
-    render(ToolView, { tool, files: [] });
-    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(false);
-  });
-
   it("shows an image result and saves it", async () => {
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "x" } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     emit({ status: "completed", progress: 1, finished_at: 900, output: { kind: "image", value: { ext: "png", data: "QQ==" } } });
 
@@ -171,8 +157,7 @@ describe("ToolView", () => {
   it("says when text was copied", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "x" } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     emit({ status: "completed", progress: 1, finished_at: 900, output: { kind: "text", value: "done" } });
     await fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
@@ -187,19 +172,18 @@ describe("ToolView", () => {
   });
 
   it("renders presets and hides advanced parameters", () => {
-    render(ToolView, { tool: json, files: [] });
+    render(ToolView, { tool: onFile, files: [] });
     expect(screen.getByRole("radio", { name: "Pretty" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText("Advanced")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
   });
 
   it("runs with the chosen preset and shows the result", async () => {
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: '{"a":1}' } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("radio", { name: "Minify" }));
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
 
-    expect(api.runTool).toHaveBeenCalledWith(json.id, { kind: "text", value: '{"a":1}' }, { indent: "minify", sort_keys: false }, null);
+    expect(api.runTool).toHaveBeenCalledWith(onFile.id, { kind: "files", value: ["/a.json"] }, { indent: "minify", sort_keys: false }, null);
 
     emit({ status: "running", progress: 0.5 });
     expect(await screen.findByText("Working… 50%")).toBeTruthy();
@@ -211,18 +195,17 @@ describe("ToolView", () => {
   });
 
   it("runs with Cmd/Ctrl+Enter, but only when the input is ready", async () => {
-    render(ToolView, { tool: json, files: [] });
+    const view = render(ToolView, { tool: onFile, files: [] });
     await fireEvent.keyDown(window, { key: "Enter", metaKey: true });
     expect(api.runTool).not.toHaveBeenCalled();
 
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[]" } });
+    await view.rerender({ tool: onFile, files: ["/a.json"] });
     await fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
-    expect(api.runTool).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(1));
   });
 
   it("cancels a running job", async () => {
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[]" } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     emit({ status: "running" });
     await fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
@@ -230,8 +213,7 @@ describe("ToolView", () => {
   });
 
   it("shows errors from a failed job and from a rejected request", async () => {
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "{" } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     emit({ status: "failed", error: { kind: "invalid_input", message: "line 1, column 2: unexpected end of input" } });
     expect((await screen.findByRole("alert")).textContent).toContain("line 1, column 2");
@@ -242,11 +224,140 @@ describe("ToolView", () => {
   });
 
   it("ignores events from other jobs", async () => {
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[]" } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     emit({ id: 99, status: "completed", output: { kind: "text", value: "other" } });
     expect(screen.queryByLabelText("Result")).toBeNull();
+  });
+});
+
+describe("ToolView that needs no file", () => {
+  it("has no Run: the result follows the text", async () => {
+    render(ToolView, { tool: json, files: [] });
+    expect(screen.queryByRole("button", { name: /Run/ })).toBeNull();
+    expect(screen.getByText("Paste some text to start")).toBeTruthy();
+
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[1]" } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(json.id, { kind: "text", value: "[1]" }, expect.anything(), null));
+    emit({ status: "completed", output: { kind: "text", value: "[\n  1\n]" } });
+    expect(((await screen.findByLabelText("Result")) as HTMLTextAreaElement).value).toContain("1");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("runs once after a burst of typing", async () => {
+    render(ToolView, { tool: json, files: [] });
+    const input = screen.getByLabelText("Input");
+    for (const value of ["[", "[1", "[1]"]) await fireEvent.input(input, { target: { value } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(1));
+    expect(api.runTool.mock.calls[0]![1]).toEqual({ kind: "text", value: "[1]" });
+  });
+
+  it("runs again when a setting changes", async () => {
+    render(ToolView, { tool: json, files: [] });
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[1]" } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(1));
+    await fireEvent.click(screen.getByRole("radio", { name: "Minify" }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps the last result while the next one is made, and stops the old job", async () => {
+    render(ToolView, { tool: json, files: [] });
+    const input = screen.getByLabelText("Input");
+    await fireEvent.input(input, { target: { value: "[1]" } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(1));
+    emit({ status: "running" });
+    await fireEvent.input(input, { target: { value: "[2]" } });
+    await vi.waitFor(() => expect(api.cancelJob).toHaveBeenCalledWith(7));
+  });
+
+  it("clears the result with the text", async () => {
+    render(ToolView, { tool: json, files: [] });
+    const input = screen.getByLabelText("Input");
+    await fireEvent.input(input, { target: { value: "[1]" } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(1));
+    emit({ status: "completed", output: { kind: "text", value: "x" } });
+    await screen.findByLabelText("Result");
+    await fireEvent.input(input, { target: { value: "" } });
+    await vi.waitFor(() => expect(screen.queryByLabelText("Result")).toBeNull());
+  });
+
+  it("shows what is wrong with the text in place of the result", async () => {
+    render(ToolView, { tool: json, files: [] });
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "{" } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(1));
+    emit({ status: "failed", error: { kind: "invalid_input", message: "line 1, column 2: unexpected end of input" } });
+    expect((await screen.findByRole("alert")).textContent).toContain("line 1, column 2");
+  });
+
+  it("makes something at once when it needs no input, and can make another", async () => {
+    const tool = { ...json, inputs: [{ type: "none" }], presets: [{ id: "d", name: "D" }], parameters: [], ui: {} };
+    const { container } = render(ToolView, { tool, files: [] });
+    expect(container.querySelector("textarea")).toBeNull();
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(tool.id, { kind: "text", value: "" }, {}, null));
+    await fireEvent.click(await screen.findByRole("button", { name: "Make another" }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(2));
+  });
+
+  it("works on empty text where the tool allows it", async () => {
+    render(ToolView, { tool: { ...json, inputs: [{ type: "text", optional: true }] }, files: [] });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledOnce());
+  });
+
+  it("counts as used once, not on every key", async () => {
+    const onRan = vi.fn();
+    render(ToolView, { tool: json, files: [], onRan });
+    const input = screen.getByLabelText("Input");
+    await fireEvent.input(input, { target: { value: "[1]" } });
+    await vi.waitFor(() => expect(onRan).toHaveBeenCalledTimes(1));
+    await fireEvent.input(input, { target: { value: "[2]" } });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledTimes(2));
+    expect(onRan).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ToolView turning pages", () => {
+  const turn = tool("pdf.rotate-pages", "Rotate PDF Pages", {
+    inputs: [{ type: "pdf", extensions: ["pdf"] }],
+    parameters: [
+      { id: "angle", type: "enum", values: ["90", "180", "270"], default: "90" },
+      { id: "pages", type: "string", optional: true },
+      { id: "turns", type: "string", optional: true },
+    ],
+    presets: [{ id: "right", name: "Right", params: { angle: "90" } }, { id: "left", name: "Left", params: { angle: "270" } }],
+    ui: { preview: "pages-turn", advanced: ["turns"] },
+  });
+
+  beforeEach(() => api.pdfThumbnails.mockResolvedValue({ pages: ["AA", "AA", "AA"], count: 3 }));
+
+  it("turns a page on the page, without a form", async () => {
+    render(ToolView, { tool: turn, files: ["/a.pdf"] });
+    await fireEvent.click(await screen.findByRole("button", { name: "Page 2" }));
+    expect(screen.getByRole("button", { name: "Page 2, turned 90 degrees" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Right" })).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(turn.id, expect.anything(), expect.objectContaining({ turns: "2:90" }), null));
+  });
+
+  it("will not run until something is turned", async () => {
+    render(ToolView, { tool: turn, files: ["/a.pdf"] });
+    await screen.findByRole("button", { name: "Page 1" });
+    expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("turns back with Shift, and all pages at once", async () => {
+    render(ToolView, { tool: turn, files: ["/a.pdf"] });
+    await fireEvent.click(await screen.findByRole("button", { name: "Page 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Page 1, turned 90 degrees" }), { shiftKey: true });
+    expect(screen.getByRole("button", { name: "Page 1" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Turn all right" }));
+    expect(screen.getByText("3 pages turned")).toBeTruthy();
+  });
+
+  it("falls back to the form for several files", () => {
+    render(ToolView, { tool: turn, files: ["/a.pdf", "/b.pdf"] });
+    expect(screen.getByRole("radio", { name: "Right" })).toBeTruthy();
   });
 });
 
@@ -387,7 +498,7 @@ describe("ToolView helps with what is missing", () => {
   });
 
   it("marks the preset the fields stand at", async () => {
-    render(ToolView, { tool: json, files: [] });
+    render(ToolView, { tool: onFile, files: [] });
     await fireEvent.change(screen.getByRole("combobox", { hidden: true }), { target: { value: "minify" } });
     expect(screen.getByRole("radio", { name: "Minify" }).getAttribute("aria-checked")).toBe("true");
   });
@@ -458,8 +569,7 @@ describe("ToolView out of sight", () => {
       emit({ status: "completed", output: { kind: "text", value: "early" } });
       return 7;
     });
-    render(ToolView, { tool: json, files: [] });
-    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "[]" } });
+    render(ToolView, { tool: onFile, files: ["/a.json"] });
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     expect(((await screen.findByLabelText("Result")) as HTMLTextAreaElement).value).toBe("early");
   });

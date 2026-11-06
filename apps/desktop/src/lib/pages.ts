@@ -50,6 +50,37 @@ export function typedOrder(text: string, count: number): number[] | null {
   return valid ? pages : null;
 }
 
+export type Turns = Record<number, number>;
+
+/** Pages and their quarter turns from text like `2:90,6:270`. */
+export function parseTurns(text: string): Turns {
+  const turns: Turns = {};
+  for (const part of text.split(",")) {
+    const match = /^\s*(\d+)\s*:\s*(90|180|270)\s*$/.exec(part);
+    if (match) turns[Number(match[1])] = Number(match[2]);
+  }
+  return turns;
+}
+
+export function formatTurns(turns: Turns): string {
+  return Object.entries(turns)
+    .filter(([, angle]) => angle % 360 !== 0)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([page, angle]) => `${page}:${angle}`)
+    .join(",");
+}
+
+/** The turns with `pages` turned by `degrees`. A full turn drops out. */
+export function turned(turns: Turns, pages: number[], degrees: number): Turns {
+  const next = { ...turns };
+  for (const page of pages) {
+    const angle = (((next[page] ?? 0) + degrees) % 360 + 360) % 360;
+    if (angle === 0) delete next[page];
+    else next[page] = angle;
+  }
+  return next;
+}
+
 /** What clicking a page does in this tool. */
 export function pageHint(toolId: string): { text: string; removes: boolean } {
   switch (toolId) {

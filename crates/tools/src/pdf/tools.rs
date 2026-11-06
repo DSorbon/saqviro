@@ -2,6 +2,7 @@
 //! next to their originals only when the whole job succeeds.
 
 use std::{
+    collections::BTreeMap,
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
@@ -260,10 +261,41 @@ pub fn reorder_pages(template: String) -> Arc<dyn Executor> {
     })
 }
 
+/// One `--rotate` for each angle in text like `2:90,6:270`.
+fn rotations(turns: &str, count: u32) -> Result<Vec<String>, JobError> {
+    let mut by_angle: BTreeMap<&str, Vec<u32>> = BTreeMap::new();
+    for part in turns.split(',') {
+        let wrong = || invalid(format!("`{}` is not a page and a turn, like 2:90", part.trim()));
+        let (page, angle) = part.trim().split_once(':').ok_or_else(wrong)?;
+        let page: u32 = page.trim().parse().map_err(|_| wrong())?;
+        if !(1..=count).contains(&page) {
+            return Err(invalid(format!("there is no page {page}")));
+        }
+        let angle = angle.trim();
+        if !matches!(angle, "90" | "180" | "270") {
+            return Err(wrong());
+        }
+        by_angle.entry(angle).or_default().push(page);
+    }
+    Ok(by_angle
+        .iter()
+        .map(|(angle, pages)| format!("--rotate=+{angle}:{}", super::pages::qpdf_range(pages)))
+        .collect())
+}
+
 /// Rotate PDF Pages, all of them unless `pages` is set.
 pub fn rotate_pages(template: String) -> Arc<dyn Executor> {
     batch(template, |step| {
         let count = step.qpdf.page_count(step.ctx, step.path)?;
+        if let Some(turns) = param_str(step.params, "turns") {
+            let rotations = rotations(turns, count)?;
+            let input = absolute(step.path)?;
+            let result = step.result();
+            let mut list: Vec<OsString> = rotations.into_iter().map(OsString::from).collect();
+            list.extend([input.into_os_string(), result.clone().into_os_string()]);
+            step.qpdf.run(step.ctx, &list)?;
+            return Ok(Made::pdf(result));
+        }
         let angle = match param_str(step.params, "angle").unwrap_or("90") {
             angle @ ("90" | "180" | "270") => angle,
             other => return Err(invalid(format!("unknown angle `{other}`"))),

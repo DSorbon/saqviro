@@ -4,7 +4,7 @@ id: pdf.rotate-pages
 name: Rotate PDF Pages
 category: pdf
 tool_version: 1
-description: Rotate all pages, or only those you list.
+description: Turn pages the right way up. Each page can turn on its own.
 keywords: [turn, flip, sideways, landscape, portrait, orientation]
 inputs:
   - type: pdf
@@ -22,9 +22,11 @@ platforms: [windows, macos, linux]
 parameters:
   - { id: angle, type: enum, values: ["90", "180", "270"], default: "90" }
   - { id: pages, type: string, optional: true }
+  - { id: turns, type: string, optional: true }
 presets:
   - { id: right, name: Right, params: { angle: "90" } }
   - { id: left, name: Left, params: { angle: "270" } }
   - { id: flip, name: Upside down, params: { angle: "180" } }
 ui:
-  preview: pages-select
+  preview: pages-turn
+  advanced: [turns]

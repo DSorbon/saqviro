@@ -1,11 +1,11 @@
 <script lang="ts">
   import { tick, untrack } from "svelte";
   import { pdfThumbnails, type Thumbnails } from "../lib/api";
-  import { formatOrder, formatPages, moveTo, pageHint, parsePages, typedOrder } from "../lib/pages";
+  import { formatOrder, formatPages, formatTurns, moveTo, pageHint, parsePages, parseTurns, turned, typedOrder } from "../lib/pages";
 
   let { path, mode, toolId = "", value, disabled = false, onChange }: {
     path: string;
-    mode: "order" | "select";
+    mode: "order" | "select" | "turn";
     toolId?: string;
     value: string;
     disabled?: boolean;
@@ -31,6 +31,17 @@
   });
 
   const hint = $derived(pageHint(toolId));
+  const turns = $derived(mode === "turn" ? parseTurns(value) : {});
+  const turnedCount = $derived(Object.keys(turns).length);
+
+  function turnPage(page: number, degrees: number) {
+    onChange(formatTurns(turned(turns, [page], degrees)));
+  }
+
+  function turnAll(degrees: number) {
+    if (shown) onChange(formatTurns(turned(turns, Array.from({ length: shown.count }, (_, i) => i + 1), degrees)));
+  }
+
   let grid = $state<HTMLElement>();
   const chosen = $derived(shown ? parsePages(value, shown.count) : []);
   // The rest of a very long document keeps its place at the end.
@@ -67,8 +78,12 @@
 
   function key(e: KeyboardEvent, at: number) {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (mode !== "order" || step === 0) return;
+    if (step === 0 || mode === "select") return;
     e.preventDefault();
+    if (mode === "turn") {
+      turnPage(order[at]!, step * 90);
+      return;
+    }
     reorder(at, at + step);
     dragging = null;
     // Moving a page takes the keyboard focus away from it.
@@ -85,32 +100,52 @@
         data-at={at}
         class:chosen={mode === "select" && chosen.includes(page)}
         class:removes={hint.removes}
+        class:chosen-turn={turns[page] !== undefined}
         aria-pressed={mode === "select" ? chosen.includes(page) : undefined}
-        aria-label="Page {page}"
+        aria-label={turns[page] ? `Page ${page}, turned ${turns[page]} degrees` : `Page ${page}`}
         {disabled}
         onpointerdown={() => { if (mode === "order") dragging = at; }}
-        onclick={() => { if (mode === "select") toggle(page); }}
+        onclick={(e) => {
+          if (mode === "select") toggle(page);
+          else if (mode === "turn") turnPage(page, e.shiftKey ? -90 : 90);
+        }}
         onkeydown={(e) => key(e, at)}
       >
-        <img alt="" draggable="false" src="data:image/jpeg;base64,{shown.pages[page - 1]}" />
+        <span class="frame">
+          <img alt="" draggable="false" style:transform="rotate({turns[page] ?? 0}deg)" src="data:image/jpeg;base64,{shown.pages[page - 1]}" />
+        </span>
         <span>{page}</span>
       </button>
     {/each}
   </div>
+  {#if mode === "turn"}
+    <div class="turn-all">
+      <span class="muted">{turnedCount === 0 ? "Click a page to turn it. Shift-click turns it back." : `${turnedCount} ${turnedCount === 1 ? "page" : "pages"} turned`}</span>
+      <button class="plain" {disabled} onclick={() => turnAll(-90)}>Turn all left</button>
+      <button class="plain" {disabled} onclick={() => turnAll(90)}>Turn all right</button>
+      {#if turnedCount > 0}<button class="plain" {disabled} onclick={() => onChange("")}>Reset</button>{/if}
+    </div>
+  {:else}
   <p class="muted">
     {#if mode === "order"}Drag pages into the order you want.{:else if chosen.length > 0}{hint.removes ? "Removing pages" : "Pages"} {formatPages(chosen)}{:else}{hint.text}{/if}
     {#if rest.length > 0}Pages after {order.length} stay at the end.{/if}
   </p>
+  {/if}
 {/if}
 
 <style>
   .pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-2); max-height: 300px; overflow-y: auto; padding: 2px; touch-action: none; }
   button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--space-1); border: 2px solid transparent; border-radius: var(--radius); background: none; color: var(--text-muted); cursor: default; }
   button:hover:not(:disabled) { background: var(--hover); }
+  button.chosen-turn { border-color: var(--accent); color: var(--text); }
+  .frame { display: grid; place-items: center; width: 100%; height: 104px; }
+  .turn-all { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); }
+  .turn-all span { flex: 1; font-size: var(--text-caption); }
+  button.plain { flex: none; flex-direction: row; min-height: var(--control); padding: 0 var(--space-3); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
   button.chosen { border-color: var(--accent); color: var(--text); }
   button.chosen.removes { border-color: var(--danger); }
   button.chosen.removes img { opacity: 0.4; }
-  img { max-width: 100%; max-height: 100px; box-shadow: 0 0 0 1px var(--border); user-select: none; pointer-events: none; }
+  img { max-width: 76px; max-height: 100px; box-shadow: 0 0 0 1px var(--border); user-select: none; pointer-events: none; transition: transform var(--fast); }
   span { font-size: var(--text-caption); }
   p { margin: 0; font-size: var(--text-caption); }
 </style>

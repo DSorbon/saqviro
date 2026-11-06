@@ -378,6 +378,29 @@ fn rotates_listed_pages_or_all_of_them() {
 }
 
 #[test]
+fn each_page_can_turn_on_its_own() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = pdf(dir.path(), "doc.pdf", 4);
+    let done = run(
+        "pdf.rotate-pages",
+        std::slice::from_ref(&src),
+        json!({ "turns": "2:90,3:90,4:270" }),
+    );
+    let out = one(&done);
+    assert_eq!(rotations(&out.path), [0, 90, 90, 270]);
+    check(&out.path, None);
+
+    let done = run(
+        "pdf.rotate-pages",
+        std::slice::from_ref(&src),
+        json!({ "turns": "9:90" }),
+    );
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+    let done = run("pdf.rotate-pages", &[src], json!({ "turns": "1:45" }));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
 fn a_password_protects_a_pdf_and_can_be_removed() {
     let dir = tempfile::tempdir().unwrap();
     let src = pdf(dir.path(), "doc.pdf", 2);
