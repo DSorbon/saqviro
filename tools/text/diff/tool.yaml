@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.diff
+name: Text Diff
+category: text
+tool_version: 1
+description: Compare two texts line by line.
+keywords: [compare, difference, changes, patch]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: changed_text, type: string, multiline: true }
+  - { id: ignore_spaces, type: boolean, default: false }
+  - { id: only_changes, type: boolean, default: false }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [ignore_spaces, only_changes]

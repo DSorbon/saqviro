@@ -256,6 +256,11 @@
           ],
           "format": "double"
         },
+        "multiline": {
+          "description": "The value spans lines: the UI gives it a text area. Only for `string`.",
+          "type": "boolean",
+          "default": false
+        },
         "optional": {
           "type": "boolean",
           "default": false

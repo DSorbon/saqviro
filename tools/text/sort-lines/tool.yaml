@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.lines.sort
+name: Sort Lines
+category: text
+tool_version: 1
+description: Sort lines alphabetically, by number or by length.
+keywords: [sort, order, alphabetical, natural]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: by, type: enum, values: [natural, text, number, length], default: natural }
+  - { id: descending, type: boolean, default: false }
+  - { id: ignore_case, type: boolean, default: true }
+presets:
+  - { id: az, name: A to Z, params: { descending: false } }
+  - { id: za, name: Z to A, params: { descending: true } }

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.replace
+name: Find and Replace
+category: text
+tool_version: 1
+description: Replace text everywhere, with plain words or a regular expression.
+keywords: [find, replace, search, substitute, regex]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: find, type: string }
+  - { id: replace_with, type: string, optional: true }
+  - { id: use_regex, type: boolean, default: false }
+  - { id: ignore_case, type: boolean, default: false }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [use_regex]

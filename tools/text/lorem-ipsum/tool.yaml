@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.lorem
+name: Lorem Ipsum
+category: text
+tool_version: 1
+description: Generate placeholder text.
+keywords: [placeholder, dummy, filler, latin]
+inputs:
+  - type: none
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: paragraphs, type: integer, min: 1, max: 100, default: 3 }
+  - { id: sentences, type: integer, min: 1, max: 30, default: 5 }
+presets:
+  - { id: default, name: Default }

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.lines.trim
+name: Trim Lines
+category: text
+tool_version: 1
+description: Remove spaces at the start and end of every line.
+keywords: [trim, strip, spaces, leading, trailing]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: side, type: enum, values: [both, start, end], default: both }
+presets:
+  - { id: default, name: Default }

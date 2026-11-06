@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.lines.dedupe
+name: Remove Duplicate Lines
+category: text
+tool_version: 1
+description: Keep the first of every repeated line.
+keywords: [unique, dedupe, duplicates, distinct]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: ignore_case, type: boolean, default: false }
+  - { id: ignore_spaces, type: boolean, default: false }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [ignore_spaces]

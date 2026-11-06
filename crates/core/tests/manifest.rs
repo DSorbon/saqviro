@@ -196,3 +196,13 @@ fn only_strings_can_be_secret() {
     let issues = ToolManifest::from_yaml(&source).unwrap_err();
     assert!(format!("{issues:?}").contains("parameters.pin.secret"), "{issues:?}");
 }
+
+#[test]
+fn only_strings_can_span_lines() {
+    let source = VALID.replace(
+        "{ id: fit, type: enum, values: [contain, cover] }",
+        "{ id: pin, type: integer, multiline: true }",
+    );
+    let issues = ToolManifest::from_yaml(&source).unwrap_err();
+    assert!(format!("{issues:?}").contains("parameters.pin.multiline"), "{issues:?}");
+}

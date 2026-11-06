@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.invisible
+name: Remove Invisible Characters
+category: text
+tool_version: 1
+description: Remove zero-width and control characters that hide in copied text.
+keywords: [zero width, hidden, control, bom, soft hyphen, clean]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

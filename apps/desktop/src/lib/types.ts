@@ -11,6 +11,7 @@ export interface Parameter {
   type: "integer" | "number" | "boolean" | "string" | "enum";
   optional?: boolean;
   secret?: boolean;
+  multiline?: boolean;
   min?: number;
   max?: number;
   values?: string[];

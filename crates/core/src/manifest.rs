@@ -219,6 +219,9 @@ pub struct Parameter {
     /// The value is a password: the UI hides it. Only for `string`.
     #[serde(default)]
     pub secret: bool,
+    /// The value spans lines: the UI gives it a text area. Only for `string`.
+    #[serde(default)]
+    pub multiline: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -370,6 +373,12 @@ impl ToolManifest {
             }
             if p.secret && p.param_type != ParamType::String {
                 issue(format!("parameters.{}.secret", p.id), "only allowed for string".into());
+            }
+            if p.multiline && p.param_type != ParamType::String {
+                issue(
+                    format!("parameters.{}.multiline", p.id),
+                    "only allowed for string".into(),
+                );
             }
             if let Some(default) = &p.default
                 && let Err(e) = p.check(default)

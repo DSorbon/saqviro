@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: text.whitespace
+name: Normalize Whitespace
+category: text
+tool_version: 1
+description: Turn tabs, odd spaces and repeated blanks into plain single spaces.
+keywords: [spaces, tabs, nbsp, collapse, clean]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: keep_line_breaks, type: boolean, default: true }
+presets:
+  - { id: default, name: Default }
