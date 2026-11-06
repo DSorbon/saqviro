@@ -16,12 +16,14 @@
   import { initialParams, matchingPreset, paramsIssue } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { ParamValue, Tool } from "../lib/types";
+  import Compare from "./Compare.svelte";
   import CropBox from "./CropBox.svelte";
   import FileList from "./FileList.svelte";
   import Outcome from "./Outcome.svelte";
   import ToolIcon from "./ToolIcon.svelte";
   import PagePicker from "./PagePicker.svelte";
   import ParamFields from "./ParamFields.svelte";
+  import Timeline from "./Timeline.svelte";
 
   let { tool, files: dropped, active = true, outputDir = null, favorite = false, onToggleFavorite, onRan, onSend, onJob }: {
     tool: Tool;
@@ -55,6 +57,7 @@
   const working = $derived(job !== null && isActive(job));
   // A live tool stays open to typing while it works.
   const running = $derived(working && !live);
+  const usesTimeline = $derived(tool.ui?.preview === "timeline");
   // Page pictures replace the form when they can show every choice.
   const turning = $derived(tool.ui?.preview === "pages-turn" && files.length === 1);
   const isCrop = $derived(tool.ui?.preview === "crop");
@@ -63,7 +66,9 @@
       ? "Choose an area on the picture"
       : turning && !values.turns
         ? "Click a page to turn it"
-        : paramsIssue(tool, values),
+        : usesTimeline && files.length === 1 && !values.start && !values.end && tool.ui?.one_of
+          ? "Drag the edges to choose a part"
+          : paramsIssue(tool, values),
   );
   const hasInput = $derived(canRun(tool, text, files));
   const hint = $derived(hasInput ? issue : kind === "text" ? "Paste some text to start" : "Add a file to start");
@@ -158,6 +163,14 @@
   }
 
   let told = false;
+  // What each preset would give, once it is known.
+  let presetSizes = $state<Record<string, string>>({});
+
+  /** Empty optional fields are left out; the core fills in defaults. */
+  function chosenParams() {
+    const filled = Object.entries(values).filter(([id, v]) => v !== null && v !== undefined && v !== "" && (id !== "turns" || turning));
+    return Object.fromEntries(filled);
+  }
 
   async function run() {
     if (ready) await start();
@@ -169,9 +182,7 @@
     if (!live) job = null;
     jobId = null;
     early.clear();
-    // Empty optional fields are left out; the core fills in defaults.
-    const filled = Object.entries(values).filter(([id, v]) => v !== null && v !== undefined && v !== "" && (id !== "turns" || turning));
-    const chosen = Object.fromEntries(filled);
+    const chosen = chosenParams();
     const input = kind === "files" ? { kind: "files" as const, value: files } : { kind: "text" as const, value: text };
     try {
       const id = await runTool(tool.id, input, chosen, outputDir);
@@ -213,7 +224,7 @@
     <fieldset class="plain" disabled={running}>
       <div class="segmented" role="radiogroup" aria-label="Preset">
         {#each tool.presets as preset (preset.id)}
-          <button role="radio" aria-checked={presetId === preset.id} onclick={() => choosePreset(preset.id)}>{preset.name}</button>
+          <button role="radio" aria-checked={presetId === preset.id} onclick={() => choosePreset(preset.id)}>{preset.name}{#if presetSizes[preset.id]}<small>{presetSizes[preset.id]}</small>{/if}</button>
         {/each}
       </div>
     </fieldset>
@@ -239,6 +250,24 @@
 
   {#if kind === "files"}
     <FileList bind:files {ordered} folders={takesFolders(tool)} disabled={running} onChoose={choose} onChooseFolder={chooseFolder} />
+  {/if}
+
+  {#if tool.ui?.preview === "compare" && files[0]}
+    {#key files[0]}
+      <Compare {tool} path={files[0]} params={chosenParams()} others={files.length - 1} onSizes={(s) => (presetSizes = s)} />
+    {/key}
+  {/if}
+
+  {#if usesTimeline && files.length === 1}
+    {#key files[0]}
+      <Timeline
+        path={files[0]!}
+        {values}
+        single={tool.parameters?.some((p) => p.id === "time")}
+        disabled={running}
+        onChange={(changes) => (values = { ...values, ...changes })}
+      />
+    {/key}
   {/if}
 
   {#if pageParam && files.length === 1 && !values.reverse}
@@ -335,6 +364,7 @@
   .star.on { color: var(--accent); }
   .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
   .segmented button { padding: 4px var(--space-3); border: 0; border-radius: var(--radius); background: none; color: var(--text-muted); cursor: default; }
+  .segmented small { margin-left: var(--space-1); color: var(--text-muted); font-size: var(--text-caption); }
   .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
   footer { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); background: var(--bg); }
   .status { flex: 1; }

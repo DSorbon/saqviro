@@ -1,6 +1,8 @@
 <script lang="ts">
   import { saveImage } from "../lib/api";
   import { errorText, imageSource, successText, type JobError, type JobOutput } from "../lib/job";
+  import { parseReport } from "../lib/report";
+  import Report from "./Report.svelte";
   import Results from "./Results.svelte";
 
   let { output, failure = null, jobId = null, onSend, quiet = false }: {
@@ -13,6 +15,7 @@
   } = $props();
 
   let copied = $state(false);
+  const report = $derived(output?.kind === "text" ? parseReport(output.value) : null);
 
   async function copy(value: string) {
     await navigator.clipboard.writeText(value);
@@ -28,8 +31,11 @@
   </p>
 {/if}
 
+{#if report}
+  <Report {report} />
+{/if}
 {#if output?.kind === "text"}
-  <textarea class="code" class:fill={quiet} aria-label="Result" readonly value={output.value}></textarea>
+  {#if !report}<textarea class="code" class:fill={quiet} aria-label="Result" readonly value={output.value}></textarea>{/if}
   <div class="actions">
     <button onclick={() => copy(output.value)}>{copied ? "Copied" : "Copy"}</button>
   </div>

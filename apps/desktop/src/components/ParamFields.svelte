@@ -4,6 +4,8 @@
 
   let { tool, values = $bindable() }: { tool: Tool; values: Record<string, ParamValue> } = $props();
 
+  const PLACES = ["top-left", "top-center", "top-right", "left", "center", "right", "bottom-left", "bottom-center", "bottom-right"];
+
   const params = $derived(tool.parameters ?? []);
   const main = $derived(params.filter((p) => !isAdvanced(tool, p.id)));
   const advanced = $derived(params.filter((p) => isAdvanced(tool, p.id)));
@@ -13,7 +15,17 @@
   {@const problem = paramProblem(p, values[p.id])}
   <label>
     <span>{paramLabel(p.id)}</span>
-    {#if p.type === "enum"}
+    {#if p.id === "position" && p.values}
+      <div class="pad" role="radiogroup" aria-label="Position">
+        {#each PLACES as place (place)}
+          {#if p.values.includes(place)}
+            <button type="button" role="radio" aria-checked={values[p.id] === place} aria-label={valueLabel(p.id, place)} onclick={() => (values[p.id] = place)}></button>
+          {:else}
+            <span></span>
+          {/if}
+        {/each}
+      </div>
+    {:else if p.type === "enum"}
       <select bind:value={values[p.id]}>
         {#each p.values ?? [] as v (v)}<option value={v}>{valueLabel(p.id, v)}</option>{/each}
       </select>
@@ -56,5 +68,8 @@
   textarea { width: 100%; min-height: 140px; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
   input[aria-invalid="true"] { border-color: var(--danger); }
   .problem { color: var(--danger); }
+  .pad { display: grid; grid-template-columns: repeat(3, 28px); grid-auto-rows: 20px; gap: 3px; padding: 4px; width: max-content; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); }
+  .pad button { padding: 0; border: 0; border-radius: 3px; background: var(--hover); cursor: default; }
+  .pad button[aria-checked="true"] { background: var(--accent); }
   summary { color: var(--text-muted); cursor: default; margin-bottom: var(--space-3); }
 </style>

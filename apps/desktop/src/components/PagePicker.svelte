@@ -112,7 +112,7 @@
         onkeydown={(e) => key(e, at)}
       >
         <span class="frame">
-          <img alt="" draggable="false" style:transform="rotate({turns[page] ?? 0}deg)" src="data:image/jpeg;base64,{shown.pages[page - 1]}" />
+          <img alt="" draggable="false" style:transform="rotate({turns[page] ?? 0}deg) scale({(turns[page] ?? 0) % 180 === 0 ? 1 : 0.76})" src="data:image/jpeg;base64,{shown.pages[page - 1]}" />
         </span>
         <span>{page}</span>
       </button>

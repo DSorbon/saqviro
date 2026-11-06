@@ -16,6 +16,8 @@ const api = vi.hoisted(() => ({
   saveImage: vi.fn(),
   imagePreview: vi.fn(),
   pdfThumbnails: vi.fn(),
+  previewTool: vi.fn(),
+  mediaTimeline: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -28,6 +30,8 @@ vi.mock("../lib/api", () => ({
   saveImage: api.saveImage,
   imagePreview: api.imagePreview,
   pdfThumbnails: api.pdfThumbnails,
+  previewTool: api.previewTool,
+  mediaTimeline: api.mediaTimeline,
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -315,6 +319,108 @@ describe("ToolView that needs no file", () => {
   });
 });
 
+describe("ToolView comparing", () => {
+  const shrink = tool("image.compress", "Compress Images", {
+    inputs: [{ type: "image", extensions: ["jpg"] }],
+    parameters: [{ id: "quality", type: "integer", min: 1, max: 100, default: 75 }],
+    presets: [{ id: "balanced", name: "Balanced", params: { quality: 75 } }, { id: "small", name: "Smaller", params: { quality: 40 } }],
+    ui: { preview: "compare", advanced: ["quality"] },
+  });
+
+  beforeEach(() => {
+    api.imagePreview.mockResolvedValue({ data: "AA", width: 10, height: 10 });
+    api.previewTool.mockReset().mockImplementation(async (_: string, __: string, params: { quality: number }) => ({ data: "BB", size: params.quality * 1024, source_size: 1024 * 100 }));
+  });
+
+  it("shows the result and its size before anything is saved", async () => {
+    render(ToolView, { tool: shrink, files: ["/a.jpg"] });
+    expect(await screen.findByAltText("Result")).toBeTruthy();
+    expect(await screen.findByText(/Result 75 KB/)).toBeTruthy();
+    expect(screen.getByText(/−25%/)).toBeTruthy();
+    expect(api.runTool).not.toHaveBeenCalled();
+  });
+
+  it("puts what each preset gives on the preset", async () => {
+    render(ToolView, { tool: shrink, files: ["/a.jpg"] });
+    expect(await screen.findByRole("radio", { name: /Smaller.*40 KB/ })).toBeTruthy();
+  });
+
+  it("follows the settings", async () => {
+    render(ToolView, { tool: shrink, files: ["/a.jpg"] });
+    await screen.findByText(/Result 75 KB/);
+    await fireEvent.click(screen.getByRole("radio", { name: /Smaller/ }));
+    expect(await screen.findByText(/Result 40 KB/)).toBeTruthy();
+  });
+
+  it("says what is wrong instead of showing nothing", async () => {
+    api.previewTool.mockReset().mockRejectedValue({ kind: "invalid_input", message: "this picture is damaged" });
+    render(ToolView, { tool: shrink, files: ["/a.jpg"] });
+    expect(await screen.findByText("This picture is damaged")).toBeTruthy();
+  });
+
+  it("moves the divider with the keyboard", async () => {
+    render(ToolView, { tool: shrink, files: ["/a.jpg"] });
+    const divider = await screen.findByRole("slider");
+    await fireEvent.keyDown(divider, { key: "ArrowRight" });
+    expect(divider.getAttribute("aria-valuenow")).toBe("55");
+  });
+});
+
+describe("ToolView on a timeline", () => {
+  const trim = tool("video.trim", "Trim Video", {
+    inputs: [{ type: "video", extensions: ["mp4"] }],
+    parameters: [{ id: "start", type: "string", optional: true }, { id: "end", type: "string", optional: true }],
+    ui: { preview: "timeline", one_of: ["start", "end"], advanced: ["start", "end"] },
+  });
+
+  beforeEach(() => {
+    api.mediaTimeline.mockResolvedValue({ duration: 100, frames: ["AA", "BB"], peaks: [0.5, 1] });
+  });
+
+  it("asks for a part, then cuts what the edges show", async () => {
+    render(ToolView, { tool: trim, files: ["/a.mp4"] });
+    const start = await screen.findByRole("slider", { name: "Start" });
+    expect(screen.getByText("Drag the edges to choose a part")).toBeTruthy();
+    await fireEvent.keyDown(start, { key: "ArrowRight", shiftKey: true });
+    await screen.findByText("1:30");
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(trim.id, expect.anything(), { start: "0:10" }, null));
+  });
+
+  it("keeps the start before the end", async () => {
+    render(ToolView, { tool: trim, files: ["/a.mp4"] });
+    const end = await screen.findByRole("slider", { name: "End" });
+    await fireEvent.keyDown(end, { key: "ArrowLeft" });
+    expect(end.getAttribute("aria-valuetext")).toBe("1:39");
+  });
+
+  it("says when a file cannot be read", async () => {
+    api.mediaTimeline.mockRejectedValue({ kind: "unsupported_format", message: "this file is damaged or is not a media file" });
+    render(ToolView, { tool: trim, files: ["/a.mp4"] });
+    expect(await screen.findByText("This file is damaged or is not a media file")).toBeTruthy();
+  });
+});
+
+describe("ToolView reports", () => {
+  it("shows sizes as bars, not as a log", async () => {
+    render(ToolView, { tool: onFile, files: ["/a"] });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    emit({ status: "completed", output: { kind: "text", value: "a: 3.0 GB in 2 files\n\n    2.0 GB  Video\n    1.0 GB  Photos" } });
+    expect(await screen.findByRole("list", { name: "Sizes" })).toBeTruthy();
+    expect(screen.queryByLabelText("Result")).toBeNull();
+  });
+
+  it("offers places as places", async () => {
+    const mark = tool("image.watermark", "Watermark", {
+      inputs: [{ type: "image", extensions: ["jpg"] }],
+      parameters: [{ id: "position", type: "enum", values: ["top-left", "center", "bottom-right"], default: "center" }],
+    });
+    render(ToolView, { tool: mark, files: [] });
+    await fireEvent.click(screen.getByRole("radio", { name: "Bottom right" }));
+    expect(screen.getByRole("radio", { name: "Bottom right" }).getAttribute("aria-checked")).toBe("true");
+  });
+});
+
 describe("ToolView turning pages", () => {
   const turn = tool("pdf.rotate-pages", "Rotate PDF Pages", {
     inputs: [{ type: "pdf", extensions: ["pdf"] }],
@@ -327,7 +433,9 @@ describe("ToolView turning pages", () => {
     ui: { preview: "pages-turn", advanced: ["turns"] },
   });
 
-  beforeEach(() => api.pdfThumbnails.mockResolvedValue({ pages: ["AA", "AA", "AA"], count: 3 }));
+  beforeEach(() => {
+    api.pdfThumbnails.mockResolvedValue({ pages: ["AA", "AA", "AA"], count: 3 });
+  });
 
   it("turns a page on the page, without a form", async () => {
     render(ToolView, { tool: turn, files: ["/a.pdf"] });

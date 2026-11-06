@@ -44,6 +44,29 @@ export interface Thumbnails {
 
 export const pdfThumbnails = (path: string) => invoke<Thumbnails>("pdf_thumbnails", { path });
 
+export interface ToolPreview {
+  /** A JPEG in Base64, when the result can be shown. */
+  data: string | null;
+  size: number;
+  source_size: number | null;
+}
+
+/** What a tool would make of one file, before anything is saved. */
+export const previewTool = (toolId: string, path: string, params: Record<string, ParamValue>) =>
+  invoke<ToolPreview>("preview_tool", { toolId, path, params });
+
+export interface Timeline {
+  duration: number;
+  /** JPEGs in Base64, evenly spread over the file. */
+  frames: string[];
+  /** Loudest moment of each slice, from 0 to 1. */
+  peaks: number[];
+}
+
+/** Frames and sound of a video or audio file. */
+export const mediaTimeline = async (path: string) =>
+  JSON.parse(await invoke<string>("media_timeline", { path })) as Timeline;
+
 /** Native folder picker. Resolves to null if the user cancels. */
 export const pickFolder = () => invoke<string | null>("pick_folder");
 
