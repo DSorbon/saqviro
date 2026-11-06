@@ -14,6 +14,7 @@ use crate::process::{engine, supervise};
 
 pub mod edit;
 pub mod pages;
+pub mod stamp;
 pub mod tools;
 
 /// The exit code of `saqviro-pdf-render` for a PDF it cannot open without a password.

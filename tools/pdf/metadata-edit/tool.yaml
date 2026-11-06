@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.metadata.edit
+name: PDF Metadata Editor
+category: pdf
+tool_version: 1
+description: Set the title, author and other properties of a PDF.
+keywords: [title, author, subject, keywords, properties]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-edited.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: title, type: string, optional: true }
+  - { id: author, type: string, optional: true }
+  - { id: subject, type: string, optional: true }
+  - { id: keywords, type: string, optional: true }
+presets:
+  - { id: default, name: Default }

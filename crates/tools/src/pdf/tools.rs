@@ -15,7 +15,7 @@ use serde_json::Value;
 use super::{
     Qpdf, RENDER_NEEDS_PASSWORD, absolute, args, edit, failure,
     pages::{parse_pages, reordered, without},
-    secret_file,
+    secret_file, stamp,
 };
 use crate::{
     output::{Outputs, file_stem, input_files, name_error, render_name, target_dir},
@@ -384,44 +384,17 @@ pub fn compress(template: String) -> Arc<dyn Executor> {
 /// PDF to Images, one image per page, drawn by `saqviro-pdf-render`.
 pub fn to_images(template: String) -> Arc<dyn Executor> {
     batch(template, |step| {
-        let helper = find_binary(search_dirs(), "saqviro-pdf-render").ok_or_else(|| {
-            JobError::new(
-                ErrorKind::EngineMissing,
-                "the PDF renderer is missing from this installation",
-            )
-        })?;
         let format = param_str(step.params, "format").unwrap_or("png");
         let ext = if format == "jpg" { "jpg" } else { "png" };
         let dpi = param_u32(step.params, "dpi").unwrap_or(150).clamp(36, 600);
         let quality = param_u32(step.params, "quality").unwrap_or(85).clamp(1, 100);
+        let mut args = vec![
+            absolute(step.path)?.into_os_string(),
+            step.temp.clone().into_os_string(),
+        ];
+        args.extend([dpi.to_string(), ext.to_owned(), quality.to_string()].map(OsString::from));
+        let count = run_helper(step, &args)?;
 
-        let total = Mutex::new(0usize);
-        let mut command = Command::new(helper);
-        command
-            .arg(absolute(step.path)?)
-            .arg(&step.temp)
-            .args([dpi.to_string(), ext.to_owned(), quality.to_string()]);
-        let (status, stderr) = supervise(step.ctx, &mut command, |line| {
-            let mut parts = line.split_whitespace().skip(1).filter_map(|n| n.parse::<usize>().ok());
-            if let (Some(done), Some(count)) = (parts.next(), parts.next()) {
-                *total.lock().unwrap() = count;
-                step.progress(done as f32 / count.max(1) as f32);
-            }
-        })?;
-        if status.code() == Some(RENDER_NEEDS_PASSWORD) {
-            return Err(failure("invalid password"));
-        }
-        if !status.success() {
-            let reason = stderr.trim();
-            let reason = if reason.is_empty() {
-                "the renderer stopped on this file"
-            } else {
-                reason
-            };
-            return Err(JobError::new(ErrorKind::UnsupportedFormat, reason));
-        }
-
-        let count = total.into_inner().unwrap();
         let width = count.to_string().len();
         (1..=count)
             .map(|page| {
@@ -456,5 +429,269 @@ pub fn from_images(template: String) -> Arc<dyn Executor> {
         let raw = result.with_file_name("built.pdf");
         edit::save(&mut doc, &raw)?;
         Qpdf::get()?.finish(ctx, &raw, result)
+    })
+}
+
+/// Spacing from the edge of the page for page numbers, in points.
+const NUMBER_MARGIN: f32 = 28.0;
+const POINTS_PER_MM: f64 = 72.0 / 25.4;
+
+pub fn page_numbers(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let position = param_str(step.params, "position").unwrap_or("bottom-center").to_owned();
+        let style = param_str(step.params, "style").unwrap_or("number").to_owned();
+        let start = param_u32(step.params, "start_at").unwrap_or(1);
+        let size = param_u32(step.params, "size").unwrap_or(11) as f32;
+        step.lopdf_edit(|doc| {
+            stamp::stamp_pages(doc, |page, count, view| {
+                let shown = start + page - 1;
+                let text = match style.as_str() {
+                    "page" => format!("Page {shown}"),
+                    "of-total" => format!("{shown} / {}", start + count - 1),
+                    _ => shown.to_string(),
+                };
+                let (width, height) = view.size();
+                let used = stamp::text_width(&text, size);
+                let x = match position.rsplit('-').next() {
+                    Some("left") => NUMBER_MARGIN,
+                    Some("right") => width - NUMBER_MARGIN - used,
+                    _ => (width - used) / 2.0,
+                };
+                let y = if position.starts_with("top") {
+                    height - NUMBER_MARGIN - size
+                } else {
+                    NUMBER_MARGIN
+                };
+                Ok(stamp::Stamp {
+                    text: stamp::latin_bytes(&text)?,
+                    size,
+                    matrix: view.matrix(x, y, 0.0),
+                    opacity: 1.0,
+                    gray: 0.0,
+                })
+            })
+        })?;
+        Ok(Made::pdf(step.result()))
+    })
+}
+
+/// Add Watermark to PDF. The text runs corner to corner, centered.
+pub fn watermark(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let text = param_str(step.params, "text")
+            .ok_or_else(|| invalid("enter the text to print"))?
+            .to_owned();
+        let bytes = stamp::latin_bytes(&text)?;
+        let opacity = param_u32(step.params, "opacity").unwrap_or(20).clamp(1, 100) as f32 / 100.0;
+        let wanted = param_u32(step.params, "size").unwrap_or(60) as f32;
+        step.lopdf_edit(|doc| {
+            stamp::stamp_pages(doc, |_, _, view| {
+                let (width, height) = view.size();
+                let angle = height.atan2(width);
+                // A long text is made smaller rather than cut off by the page.
+                let diagonal = width.hypot(height) * 0.9;
+                let size = wanted.min(wanted * diagonal / stamp::text_width(&text, wanted).max(1.0));
+                let used = stamp::text_width(&text, size);
+                let (sin, cos) = angle.sin_cos();
+                let x = width / 2.0 - (used * cos - size * 0.7 * sin) / 2.0;
+                let y = height / 2.0 - (used * sin + size * 0.7 * cos) / 2.0;
+                Ok(stamp::Stamp {
+                    text: bytes.clone(),
+                    size,
+                    matrix: view.matrix(x, y, angle.to_degrees()),
+                    opacity,
+                    gray: 0.5,
+                })
+            })
+        })?;
+        Ok(Made::pdf(step.result()))
+    })
+}
+
+/// Crop PDF. Margins are in millimetres. Nothing is deleted: the page only
+/// shows less of what it holds.
+pub fn crop(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let margin = |id: &str| {
+            let mm = step.params.get(id).and_then(Value::as_f64).unwrap_or(0.0);
+            (mm * POINTS_PER_MM) as f32
+        };
+        let (top, right, bottom, left) = (margin("top"), margin("right"), margin("bottom"), margin("left"));
+        step.lopdf_edit(|doc| stamp::crop_pages(doc, top, right, bottom, left))?;
+        Ok(Made::pdf(step.result()))
+    })
+}
+
+pub fn edit_metadata(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let keys = [
+            ("title", "Title"),
+            ("author", "Author"),
+            ("subject", "Subject"),
+            ("keywords", "Keywords"),
+        ];
+        let entries: Vec<(&str, &str)> = keys
+            .iter()
+            .filter_map(|(id, key)| Some((*key, param_str(step.params, id)?)))
+            .collect();
+        if entries.is_empty() {
+            return Err(invalid("fill in at least one property"));
+        }
+        step.lopdf_edit(|doc| stamp::set_info(doc, &entries))?;
+        Ok(Made::pdf(step.result()))
+    })
+}
+
+/// Repair PDF. qpdf rebuilds what it can while reading the file.
+pub fn repair(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        step.qpdf.finish(step.ctx, &absolute(step.path)?, &step.result())?;
+        // qpdf can write a file from what it found and still have no document.
+        step.qpdf
+            .page_count(step.ctx, &step.result())
+            .map_err(|_| JobError::new(ErrorKind::UnsupportedFormat, "this PDF is too damaged to repair"))?;
+        Ok(Made::pdf(step.result()))
+    })
+}
+
+pub fn info() -> Arc<dyn Executor> {
+    Arc::new(|ctx: &JobContext, input: JobInput, _: &Params| {
+        let files = input_files(input)?;
+        let qpdf = Qpdf::get()?;
+        let mut sections = Vec::with_capacity(files.len());
+        for (i, path) in files.iter().enumerate() {
+            ctx.check_cancelled()?;
+            let temp = ctx.temp_dir()?.join(format!("info-{i}.pdf"));
+            qpdf.expand(ctx, path, &temp).map_err(|e| name_error(path, e))?;
+            let doc = edit::load(&temp).map_err(|e| name_error(path, e))?;
+            let pages = doc.get_pages();
+            let mut lines = vec![
+                path.file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+                format!("Pages: {}", pages.len()),
+                format!("PDF version: {}", doc.version),
+                format!("File size: {} KB", fs::metadata(path)?.len().div_ceil(1024)),
+            ];
+            if let Some(view) = pages.values().next().and_then(|p| stamp::PageView::of(&doc, *p)) {
+                let (w, h) = view.size();
+                lines.push(format!(
+                    "Page size: {:.0} × {:.0} mm",
+                    f64::from(w) / POINTS_PER_MM,
+                    f64::from(h) / POINTS_PER_MM
+                ));
+            }
+            lines.extend(stamp::info_entries(&doc).into_iter().map(|(k, v)| format!("{k}: {v}")));
+            sections.push(lines.join("\n"));
+            ctx.progress((i + 1) as f32 / files.len() as f32);
+        }
+        Ok(JobOutput::Text(sections.join("\n\n")))
+    })
+}
+
+/// Runs the PDFium helper with `args`, reporting its `page n count` lines.
+fn run_helper(step: &Step<'_>, args: &[OsString]) -> Result<usize, JobError> {
+    let helper = find_binary(search_dirs(), "saqviro-pdf-render").ok_or_else(|| {
+        JobError::new(
+            ErrorKind::EngineMissing,
+            "the PDF renderer is missing from this installation",
+        )
+    })?;
+    let total = Mutex::new(0usize);
+    let mut command = Command::new(helper);
+    command.args(args);
+    let (status, stderr) = supervise(step.ctx, &mut command, |line| {
+        let mut parts = line.split_whitespace().skip(1).filter_map(|n| n.parse::<usize>().ok());
+        if let (Some(done), Some(count)) = (parts.next(), parts.next()) {
+            *total.lock().unwrap() = count;
+            step.progress(done as f32 / count.max(1) as f32);
+        }
+    })?;
+    if status.code() == Some(RENDER_NEEDS_PASSWORD) {
+        return Err(failure("invalid password"));
+    }
+    if !status.success() {
+        let reason = stderr.trim();
+        let reason = if reason.is_empty() {
+            "the renderer stopped on this file"
+        } else {
+            reason
+        };
+        return Err(JobError::new(ErrorKind::UnsupportedFormat, reason));
+    }
+    Ok(total.into_inner().unwrap())
+}
+
+pub fn to_text(template: String) -> Arc<dyn Executor> {
+    batch(template, |step| {
+        let file = step.temp.join("text.txt");
+        let args = [
+            "--text".into(),
+            absolute(step.path)?.into_os_string(),
+            file.clone().into_os_string(),
+        ];
+        run_helper(step, &args)?;
+        let note = (fs::metadata(&file)?.len() < 8)
+            .then(|| "This PDF has almost no text. It may be scanned pictures of pages.".to_owned());
+        Ok(vec![Made {
+            file,
+            part: String::new(),
+            ext: "txt",
+            note,
+        }])
+    })
+}
+
+/// Extract Images from PDF. Each PDF gets a folder of its own.
+pub fn extract_images(template: String) -> Arc<dyn Executor> {
+    Arc::new(move |ctx: &JobContext, input: JobInput, params: &Params| {
+        let files = input_files(input)?;
+        let qpdf = Qpdf::get()?;
+        let mut outputs = Outputs::new();
+        let mut results = Vec::with_capacity(files.len());
+        for (i, path) in files.iter().enumerate() {
+            ctx.check_cancelled()?;
+            let share = 1.0 / files.len() as f32;
+            let temp = ctx.temp_dir()?.join(i.to_string());
+            fs::create_dir_all(&temp)?;
+            let step = Step {
+                ctx,
+                qpdf,
+                path,
+                params,
+                temp: temp.clone(),
+                span: (i as f32 * share, (i + 1) as f32 * share),
+            };
+            let args = [
+                "--images".into(),
+                absolute(path)?.into_os_string(),
+                temp.clone().into_os_string(),
+            ];
+            run_helper(&step, &args).map_err(|e| name_error(path, e))?;
+
+            let found: Vec<_> = fs::read_dir(&temp)?.collect::<Result<_, _>>()?;
+            if found.is_empty() {
+                return Err(name_error(path, invalid("this PDF has no images")));
+            }
+            let name = render_name(&template, &[("stem", &file_stem(path))]);
+            let folder = outputs.folder(&target_dir(ctx, path), &name)?;
+            let mut size = 0;
+            for image in found {
+                size += image.metadata()?.len();
+                let target = folder.join(image.file_name());
+                if fs::rename(image.path(), &target).is_err() {
+                    fs::copy(image.path(), &target)?;
+                }
+            }
+            results.push(OutputFile {
+                path: folder,
+                size,
+                source_size: None,
+                note: None,
+            });
+        }
+        ctx.check_cancelled()?;
+        outputs.finish();
+        Ok(JobOutput::Files(results))
     })
 }

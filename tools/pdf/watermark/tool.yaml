@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.watermark
+name: Add Watermark to PDF
+category: pdf
+tool_version: 1
+description: Print text across every page.
+keywords: [stamp, draft, confidential, overlay]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-watermarked.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: text, type: string, default: CONFIDENTIAL }
+  - { id: opacity, type: integer, min: 5, max: 100, default: 20 }
+  - { id: size, type: integer, min: 8, max: 200, default: 60 }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [size]

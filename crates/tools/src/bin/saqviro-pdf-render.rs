@@ -2,6 +2,8 @@
 //! hostile file fails one job and nothing else.
 //!
 //! Usage: saqviro-pdf-render <pdf> <output dir> <dpi> <png|jpg> <quality>
+//!        saqviro-pdf-render --text <pdf> <output file>
+//!        saqviro-pdf-render --images <pdf> <output dir>
 //! Writes `<page>.<ext>` and prints `page <done> <count>` after each page.
 
 use std::{
@@ -50,10 +52,7 @@ fn text(e: impl Display) -> String {
 }
 
 fn render(path: &str, out: &Path, dpi: f32, ext: &str, quality: u8, pdfium: &Pdfium) -> Result<(), RenderError> {
-    let document = pdfium.load_pdf_from_file(path, None).map_err(|e| match e {
-        PdfiumError::PdfiumLibraryInternalError(PdfiumInternalError::PasswordError) => RenderError::NeedsPassword,
-        other => RenderError::Failed(format!("this PDF could not be opened: {other}")),
-    })?;
+    let document = open(path, pdfium)?;
     let format = if ext == "jpg" { Format::Jpeg } else { Format::Png };
     let pages = document.pages();
     let count = pages.len();
@@ -69,8 +68,58 @@ fn render(path: &str, out: &Path, dpi: f32, ext: &str, quality: u8, pdfium: &Pdf
         let image = bitmap.as_image().map_err(|e| failed(text(e)))?;
         let bytes = encode(&image, None, format, quality).map_err(|e| failed(e.message))?;
         fs::write(out.join(format!("{}.{ext}", i + 1)), bytes).map_err(|e| failed(text(e)))?;
-        println!("page {} {count}", i + 1);
-        let _ = stdout().flush();
+        report(i + 1, count);
+    }
+    Ok(())
+}
+
+fn open<'a>(path: &str, pdfium: &'a Pdfium) -> Result<PdfDocument<'a>, RenderError> {
+    pdfium.load_pdf_from_file(path, None).map_err(|e| match e {
+        PdfiumError::PdfiumLibraryInternalError(PdfiumInternalError::PasswordError) => RenderError::NeedsPassword,
+        other => RenderError::Failed(format!("this PDF could not be opened: {other}")),
+    })
+}
+
+fn report(done: usize, count: impl Display) {
+    println!("page {done} {count}");
+    let _ = stdout().flush();
+}
+
+/// The text of every page, with a blank line between pages.
+fn extract_text(path: &str, out: &Path, pdfium: &Pdfium) -> Result<(), RenderError> {
+    let document = open(path, pdfium)?;
+    let pages = document.pages();
+    let count = pages.len();
+    let mut all = String::new();
+    for (i, page) in pages.iter().enumerate() {
+        let failed = |e: String| RenderError::Failed(format!("page {} could not be read: {e}", i + 1));
+        let page_text = page.text().map_err(|e| failed(text(e)))?.all();
+        all.push_str(page_text.trim_end());
+        all.push_str("\n\n");
+        report(i + 1, count);
+    }
+    fs::write(out, all.trim_end().as_bytes()).map_err(|e| RenderError::Failed(text(e)))
+}
+
+/// Every picture on every page, as `page-<n>-<m>.png`.
+fn extract_images(path: &str, out: &Path, pdfium: &Pdfium) -> Result<(), RenderError> {
+    let document = open(path, pdfium)?;
+    let pages = document.pages();
+    let count = pages.len();
+    for (i, page) in pages.iter().enumerate() {
+        let failed = |e: String| RenderError::Failed(format!("page {} could not be read: {e}", i + 1));
+        let mut found = 0;
+        for object in page.objects().iter() {
+            let Some(picture) = object.as_image_object() else {
+                continue;
+            };
+            let Ok(image) = picture.get_raw_image() else { continue };
+            found += 1;
+            let bytes = encode(&image, None, Format::Png, 100).map_err(|e| failed(e.message))?;
+            let name = format!("page-{}-{found}.png", i + 1);
+            fs::write(out.join(name), bytes).map_err(|e| failed(text(e)))?;
+        }
+        report(i + 1, count);
     }
     Ok(())
 }
@@ -82,17 +131,27 @@ enum RenderError {
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
-    let [path, out, dpi, ext, quality] = args.as_slice() else {
-        eprintln!("usage: saqviro-pdf-render <pdf> <output dir> <dpi> <png|jpg> <quality>");
-        return ExitCode::from(2);
+    let run = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        ["--text", path, out] => bind()
+            .map_err(RenderError::Failed)
+            .and_then(|pdfium| extract_text(path, Path::new(out), &pdfium)),
+        ["--images", path, out] => bind()
+            .map_err(RenderError::Failed)
+            .and_then(|pdfium| extract_images(path, Path::new(out), &pdfium)),
+        [path, out, dpi, ext, quality] => {
+            let (Ok(dpi), Ok(quality)) = (dpi.parse(), quality.parse()) else {
+                eprintln!("dpi and quality must be numbers");
+                return ExitCode::from(2);
+            };
+            bind()
+                .map_err(RenderError::Failed)
+                .and_then(|pdfium| render(path, Path::new(out), dpi, ext, quality, &pdfium))
+        }
+        _ => {
+            eprintln!("usage: saqviro-pdf-render <pdf> <output dir> <dpi> <png|jpg> <quality>");
+            return ExitCode::from(2);
+        }
     };
-    let (Ok(dpi), Ok(quality)) = (dpi.parse(), quality.parse()) else {
-        eprintln!("dpi and quality must be numbers");
-        return ExitCode::from(2);
-    };
-    let run = bind()
-        .map_err(RenderError::Failed)
-        .and_then(|pdfium| render(path, Path::new(out), dpi, ext, quality, &pdfium));
     match run {
         Ok(()) => ExitCode::SUCCESS,
         Err(RenderError::NeedsPassword) => ExitCode::from(RENDER_NEEDS_PASSWORD as u8),

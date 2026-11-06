@@ -853,3 +853,295 @@ fn a_broken_image_stops_the_pdf() {
     assert_eq!(done.status, JobStatus::Failed);
     assert_eq!(entries(dir.path()), ["bad.png", "good.png"]);
 }
+
+/// What PDFium reads from a PDF.
+fn text_of(path: &Path) -> String {
+    let done = run("pdf.to-text", &[path.to_path_buf()], json!({}));
+    fs::read_to_string(one(&done).path).unwrap()
+}
+
+/// A picture of the first page.
+fn picture_of(path: &Path) -> image::RgbImage {
+    let done = run(
+        "pdf.to-images",
+        &[path.to_path_buf()],
+        json!({ "format": "png", "dpi": 72 }),
+    );
+    image::open(&results(&done)[0].path).unwrap().to_rgb8()
+}
+
+fn turned_page(dir: &Path, angle: i64) -> PathBuf {
+    let path = dir.join(format!("turned-{angle}.pdf"));
+    let mut doc = Document::with_version("1.7");
+    let pages = doc.new_object_id();
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page",
+        "Parent" => pages,
+        "MediaBox" => vec![0.into(), 0.into(), 300.into(), 400.into()],
+        "Rotate" => angle,
+    });
+    finish(doc, pages, vec![page.into()], &path);
+    path
+}
+
+#[test]
+fn numbers_pages() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 3);
+    let done = run(
+        "pdf.page-numbers",
+        &[source],
+        json!({ "style": "of-total", "start_at": 5 }),
+    );
+    let out = one(&done);
+    assert_eq!(name(&out), "a-numbered.pdf");
+    let text = text_of(&out.path);
+    for expected in ["5 / 7", "6 / 7", "7 / 7"] {
+        assert!(text.contains(expected), "{text}");
+    }
+}
+
+#[test]
+fn a_page_number_lands_where_it_was_asked_for() {
+    let dir = tempfile::tempdir().unwrap();
+    for (angle, position) in [
+        (0, "top-left"),
+        (90, "top-left"),
+        (180, "top-left"),
+        (270, "top-left"),
+        (90, "bottom-right"),
+    ] {
+        let source = turned_page(dir.path(), angle);
+        let done = run(
+            "pdf.page-numbers",
+            &[source],
+            json!({ "position": position, "size": 40 }),
+        );
+        let page = picture_of(&one(&done).path);
+        let (w, h) = page.dimensions();
+        let ink = page.enumerate_pixels().filter(|(_, _, p)| p.0[0] < 128);
+        let (sum_x, sum_y, count) = ink.fold((0u64, 0u64, 0u64), |(x, y, n), (px, py, _)| {
+            (x + u64::from(px), y + u64::from(py), n + 1)
+        });
+        assert!(count > 0, "nothing printed at {angle}");
+        let (x, y) = ((sum_x / count) as u32, (sum_y / count) as u32);
+        let left = x < w / 2;
+        let top = y < h / 2;
+        assert_eq!(
+            (left, top),
+            (position.ends_with("left"), position.starts_with("top")),
+            "{angle} {position}: {x},{y} of {w}x{h}"
+        );
+    }
+}
+
+#[test]
+fn stamps_keep_the_old_content_and_survive_a_changed_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("scaled.pdf");
+    let mut doc = Document::with_version("1.7");
+    let pages = doc.new_object_id();
+    // Leaves a scale behind that would throw a careless stamp off the page.
+    let page = add_page(
+        &mut doc,
+        pages,
+        300,
+        "1 0 0 rg 0 0 50 50 re f 0.01 0 0 0.01 0 0 cm",
+        Dictionary::new(),
+    );
+    finish(doc, pages, vec![page], &path);
+
+    let done = run("pdf.watermark", &[path], json!({ "text": "DRAFT", "opacity": 100 }));
+    let out = one(&done);
+    assert!(text_of(&out.path).contains("DRAFT"));
+    let picture = picture_of(&out.path);
+    let (_, h) = picture.dimensions();
+    assert_eq!(picture.get_pixel(5, h - 5).0, [255, 0, 0], "the old content is gone");
+    let gray = picture.pixels().filter(|p| p.0[0] == p.0[1] && p.0[0] < 200).count();
+    assert!(gray > 200, "the stamp is not on the page: {gray}");
+}
+
+#[test]
+fn a_watermark_can_be_faint() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 1);
+    let done = run(
+        "pdf.watermark",
+        &[source],
+        json!({ "text": "HHHH", "opacity": 10, "size": 80 }),
+    );
+    let picture = picture_of(&one(&done).path);
+    let darkest = picture
+        .pixels()
+        .filter(|p| p.0[1] == p.0[2] && p.0[0] == p.0[1])
+        .map(|p| p.0[0])
+        .min()
+        .unwrap();
+    assert!(darkest > 200, "{darkest}");
+}
+
+#[test]
+fn explains_text_the_base_font_cannot_print() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 1);
+    let done = run("pdf.watermark", &[source], json!({ "text": "Привет" }));
+    let error = done.error.unwrap();
+    assert_eq!(error.kind, ErrorKind::InvalidInput);
+    assert!(error.message.contains("Western European"), "{}", error.message);
+}
+
+#[test]
+fn escapes_brackets_in_a_watermark() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 1);
+    let done = run("pdf.watermark", &[source], json!({ "text": r"a(b)c\d" }));
+    assert!(text_of(&one(&done).path).contains(r"a(b)c\d"));
+}
+
+#[test]
+fn crops_the_visible_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = turned_page(dir.path(), 0);
+    let params = json!({ "top": 10.0, "right": 0.0, "bottom": 20.0, "left": 5.0 });
+    let done = run("pdf.crop", &[source], params);
+    let doc = Document::load(one(&done).path).unwrap();
+    let page = *doc.get_pages().get(&1).unwrap();
+    let view = saqviro_tools::pdf::stamp::PageView::of(&doc, page).unwrap();
+    let mm = 72.0 / 25.4;
+    assert!(
+        (view.left - 5.0 * mm).abs() < 0.1 && (view.bottom - 20.0 * mm).abs() < 0.1,
+        "{view:?}"
+    );
+    assert!(
+        (view.right - 300.0).abs() < 0.1 && (view.top - (400.0 - 10.0 * mm)).abs() < 0.1,
+        "{view:?}"
+    );
+}
+
+#[test]
+fn crop_margins_follow_the_page_as_shown() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = turned_page(dir.path(), 90);
+    let done = run(
+        "pdf.crop",
+        &[source],
+        json!({ "top": 10.0, "right": 0.0, "bottom": 0.0, "left": 0.0 }),
+    );
+    let doc = Document::load(one(&done).path).unwrap();
+    let page = *doc.get_pages().get(&1).unwrap();
+    let view = saqviro_tools::pdf::stamp::PageView::of(&doc, page).unwrap();
+    // The top of a page turned 90° clockwise is its left side.
+    assert!(view.left > 20.0 && view.bottom == 0.0, "{view:?}");
+}
+
+#[test]
+fn refuses_margins_that_leave_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 1);
+    let done = run("pdf.crop", &[source], json!({ "left": 500.0, "right": 500.0 }));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn sets_properties_in_any_language() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 2);
+    let done = run(
+        "pdf.metadata.edit",
+        std::slice::from_ref(&source),
+        json!({ "title": "Отчёт", "author": "Ann" }),
+    );
+    let out = one(&done);
+    let info = run("pdf.info", std::slice::from_ref(&out.path), json!({}));
+    let Some(JobOutput::Text(text)) = info.output else {
+        panic!("{:?}", info.error)
+    };
+    assert!(text.contains("Title: Отчёт"), "{text}");
+    assert!(text.contains("Author: Ann"), "{text}");
+    assert!(text.contains("Pages: 2"), "{text}");
+
+    let done = run("pdf.metadata.edit", &[source], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::InvalidInput);
+}
+
+#[test]
+fn describes_a_pdf() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = turned_page(dir.path(), 90);
+    let info = run("pdf.info", &[source], json!({}));
+    let Some(JobOutput::Text(text)) = info.output else {
+        panic!("{:?}", info.error)
+    };
+    assert!(text.starts_with("turned-90.pdf\nPages: 1\n"), "{text}");
+    assert!(text.contains("Page size: 141 × 106 mm"), "{text}");
+    assert!(text.contains("Author: AUTHORSECRET"), "{text}");
+}
+
+#[test]
+fn repairs_a_pdf_with_a_broken_index() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 2);
+    let mut bytes = fs::read(&source).unwrap();
+    let at = bytes.windows(9).rposition(|w| w == b"startxref").unwrap();
+    bytes[at + 10..at + 13].copy_from_slice(b"999");
+    fs::write(&source, &bytes).unwrap();
+
+    let done = run("pdf.repair", &[source], json!({}));
+    assert_eq!(done.error, None);
+    let out = one(&done);
+    assert_eq!(name(&out), "a-repaired.pdf");
+    let count = Command::new("qpdf")
+        .args(["--show-npages"])
+        .arg(&out.path)
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&count.stdout).trim(), "2");
+}
+
+#[test]
+fn does_not_call_a_hopeless_pdf_repaired() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 2);
+    let bytes = fs::read(&source).unwrap();
+    let at = bytes.windows(9).rposition(|w| w == b"startxref").unwrap();
+    fs::write(&source, &bytes[..at]).unwrap();
+
+    let done = run("pdf.repair", &[source], json!({}));
+    assert_eq!(done.error.unwrap().kind, ErrorKind::UnsupportedFormat);
+    assert_eq!(entries(dir.path()), ["a.pdf"]);
+}
+
+#[test]
+fn a_pdf_without_text_is_called_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 1);
+    let done = run("pdf.to-text", &[source], json!({}));
+    let out = one(&done);
+    assert_eq!(name(&out), "a.txt");
+    assert!(out.note.unwrap().contains("scanned"));
+}
+
+#[test]
+fn saves_the_pictures_inside_a_pdf() {
+    let dir = tempfile::tempdir().unwrap();
+    let picture = dir.path().join("p.png");
+    noise(40, 30).save(&picture).unwrap();
+    let done = run("pdf.from-images", &[picture], json!({}));
+    let source = one(&done).path;
+
+    let done = run("pdf.extract-images", &[source], json!({}));
+    assert_eq!(done.error, None);
+    let folder = one(&done).path;
+    let found = entries(&folder);
+    assert_eq!(found, ["page-1-1.png"]);
+    assert_eq!(image::image_dimensions(folder.join(&found[0])).unwrap(), (40, 30));
+}
+
+#[test]
+fn says_when_a_pdf_has_no_pictures() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = pdf(dir.path(), "a.pdf", 1);
+    let done = run("pdf.extract-images", &[source], json!({}));
+    assert!(done.error.unwrap().message.contains("no images"));
+    assert_eq!(entries(dir.path()), ["a.pdf"]);
+}

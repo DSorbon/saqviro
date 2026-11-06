@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.page-numbers
+name: Add Page Numbers
+category: pdf
+tool_version: 1
+description: Print a number on every page.
+keywords: [number, footer, pagination, bates]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-numbered.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: position, type: enum, values: [bottom-center, bottom-right, bottom-left, top-center, top-right, top-left], default: bottom-center }
+  - { id: style, type: enum, values: [number, page, of-total], default: number }
+  - { id: start_at, type: integer, min: 0, max: 100000, default: 1 }
+  - { id: size, type: integer, min: 6, max: 48, default: 11 }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [size]

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: pdf.crop
+name: Crop PDF
+category: pdf
+tool_version: 1
+description: Trim the margins of every page.
+keywords: [margins, trim, cut, page size]
+inputs:
+  - type: pdf
+    multiple: true
+    mime: [application/pdf]
+    extensions: [pdf]
+outputs:
+  - type: pdf
+    multiple: true
+    filename: "{stem}-cropped.pdf"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: top, type: number, min: 0, max: 1000, default: 10 }
+  - { id: right, type: number, min: 0, max: 1000, default: 10 }
+  - { id: bottom, type: number, min: 0, max: 1000, default: 10 }
+  - { id: left, type: number, min: 0, max: 1000, default: 10 }
+presets:
+  - { id: default, name: Default }
