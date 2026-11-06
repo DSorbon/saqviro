@@ -10,6 +10,14 @@ export const listTools = () => invoke<Tool[]>("list_tools");
 
 export const toolsForFiles = (paths: string[]) => invoke<string[]>("tools_for_files", { paths });
 
+export interface Advice {
+  tool: string;
+  reason: string;
+}
+
+/** Smart Drop: what stands out about these files. */
+export const adviseFiles = (paths: string[]) => invoke<Advice[]>("advise_files", { paths });
+
 /** Queues a job and returns its id. Rejects with a `JobError` if the request is invalid. */
 export const runTool = (toolId: string, input: JobInput, params: Record<string, ParamValue>, outputDir: string | null = null) =>
   invoke<number>("run_tool", { toolId, input, params, outputDir });

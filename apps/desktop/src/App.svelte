@@ -7,7 +7,7 @@
   import ToolView from "./components/ToolView.svelte";
   import WorkflowList from "./components/WorkflowList.svelte";
   import WorkflowView from "./components/WorkflowView.svelte";
-  import { listTools, onFileDrop, pickFiles, toolsForFiles } from "./lib/api";
+  import { adviseFiles, listTools, onFileDrop, pickFiles, toolsForFiles, type Advice } from "./lib/api";
   import { shortcut } from "./lib/platform";
   import {
     applyAppearance,
@@ -36,6 +36,8 @@
   let dropped = $state<string[]>([]);
   let files = $state<string[]>([]);
   let suggestionIds = $state<string[]>([]);
+  let advice = $state<Advice[]>([]);
+  let adviceAsked = 0;
   let error = $state("");
   let prefs = $state<Prefs>(loadPrefs());
   let selected = $state(0);
@@ -46,6 +48,12 @@
   const results = $derived(searchTools(tools, query, scores));
   const suggestions = $derived(
     splitSuggestions(tools.filter((t) => suggestionIds.includes(t.id)), scores),
+  );
+  const recommended = $derived(
+    advice.flatMap(({ tool: id, reason }) => {
+      const tool = tools.find((t) => t.id === id && suggestionIds.includes(id));
+      return tool ? [{ tool, reason }] : [];
+    }),
   );
   // While files wait for a tool, only the domains that can take them show.
   const groups = $derived(dropped.length > 0 ? relevantGroups(allGroups, suggestions.specific) : allGroups);
@@ -84,7 +92,13 @@
   function offer(paths: string[], accepting: string[]) {
     dropped = paths;
     suggestionIds = accepting;
+    advice = [];
     select("home");
+    const asked = ++adviceAsked;
+    adviseFiles(paths).then(
+      (found) => { if (asked === adviceAsked) advice = found; },
+      () => {},
+    );
   }
 
   /** The results of one tool become the input of the next. */
@@ -213,7 +227,7 @@
         onCopy={(w) => keepWorkflow(withDefaults({ ...copyOf(w, crypto.randomUUID()), name: w.name }, tools))}
       />
     {:else if section === "home"}
-      <Home {hovering} {dropped} specific={suggestions.specific} general={suggestions.general} tilesLabel={home.label} tiles={home.tools} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={() => { dropped = []; suggestionIds = []; }} />
+      <Home {hovering} {dropped} advice={recommended} specific={suggestions.specific} general={suggestions.general} tilesLabel={home.label} tiles={home.tools} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={() => { dropped = []; suggestionIds = []; }} />
     {:else if section === "favorites"}
       <ToolList tools={favorites} onOpen={open} />
     {:else if section === "recent"}

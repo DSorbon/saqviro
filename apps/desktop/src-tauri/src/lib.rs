@@ -123,6 +123,14 @@ async fn image_preview(path: PathBuf) -> Result<saqviro_tools::images::Preview, 
         .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
 }
 
+/// What stands out about dropped files. Reads a little of each, changes nothing.
+#[tauri::command]
+async fn advise_files(paths: Vec<PathBuf>) -> Vec<saqviro_tools::advice::Advice> {
+    tauri::async_runtime::spawn_blocking(move || saqviro_tools::advice::advise(&paths))
+        .await
+        .unwrap_or_default()
+}
+
 /// Small pictures of a PDF's pages, for choosing pages.
 #[tauri::command]
 async fn pdf_thumbnails(path: PathBuf) -> Result<saqviro_tools::pdf::Thumbnails, JobError> {
@@ -340,6 +348,7 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             run_tool,
             run_workflow,
             image_preview,
+            advise_files,
             pdf_thumbnails,
             pick_folder,
             cancel_job,

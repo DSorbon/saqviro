@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   drop: null as ((paths: string[]) => void) | null,
   jobListeners: [] as ((job: JobSnapshot) => void)[],
   toolsForFiles: vi.fn(),
+  adviseFiles: vi.fn(),
   runTool: vi.fn(),
   updatesEnabled: vi.fn(),
   checkUpdate: vi.fn(),
@@ -27,6 +28,7 @@ const api = vi.hoisted(() => ({
 vi.mock("../lib/api", () => ({
   listTools: async () => tools,
   toolsForFiles: api.toolsForFiles,
+  adviseFiles: api.adviseFiles,
   runTool: api.runTool,
   pickFiles: async () => [],
   cancelJob: async () => true,
@@ -55,6 +57,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute("data-theme");
   api.jobListeners.length = 0;
   api.toolsForFiles.mockReset().mockResolvedValue(["pdf.compress", "pdf.merge", "files.zip.create"]);
+  api.adviseFiles.mockReset().mockResolvedValue([]);
   api.runTool.mockReset().mockResolvedValue(7);
   api.updatesEnabled.mockReset().mockResolvedValue(true);
   api.checkUpdate.mockReset().mockResolvedValue(null);
@@ -244,5 +247,36 @@ describe("updates", () => {
     await openSettings();
     await fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
     expect((await screen.findByRole("alert")).textContent).toContain("offline");
+  });
+});
+
+describe("Smart Drop advice", () => {
+  it("recommends a tool and says why", async () => {
+    api.adviseFiles.mockResolvedValue([{ tool: "pdf.compress", reason: "This PDF is 80.0 MB" }]);
+    render(App);
+    await screen.findByText("Compress PDF");
+    api.drop!(["/big.pdf"]);
+    const list = await screen.findByRole("list", { name: "Recommended" });
+    expect(within(list).getByText("This PDF is 80.0 MB")).toBeTruthy();
+    await fireEvent.click(within(list).getByRole("button"));
+    expect(await screen.findByRole("heading", { name: "Compress PDF" })).toBeTruthy();
+  });
+
+  it("leaves out tools that cannot take these files", async () => {
+    api.adviseFiles.mockResolvedValue([{ tool: "image.compress", reason: "Large" }]);
+    render(App);
+    await screen.findByText("Compress PDF");
+    api.drop!(["/a.pdf"]);
+    await screen.findByText("a.pdf");
+    await Promise.resolve();
+    expect(screen.queryByRole("list", { name: "Recommended" })).toBeNull();
+  });
+
+  it("works without advice", async () => {
+    api.adviseFiles.mockRejectedValue(new Error("no"));
+    render(App);
+    await screen.findByText("Compress PDF");
+    api.drop!(["/a.pdf"]);
+    expect(await screen.findByText("a.pdf")).toBeTruthy();
   });
 });

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use saqviro_core::manifest::ToolManifest;
 use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, Params};
 
+pub mod advice;
 pub mod catalog {
     //! The manifests in `tools/`, built into the program.
 

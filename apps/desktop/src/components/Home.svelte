@@ -4,9 +4,10 @@
   import { shortcut } from "../lib/platform";
   import ToolList from "./ToolList.svelte";
 
-  let { hovering, dropped, specific, general, tilesLabel, tiles, onOpen, onChoose, onClear }: {
+  let { hovering, dropped, advice = [], specific, general, tilesLabel, tiles, onOpen, onChoose, onClear }: {
     hovering: boolean;
     dropped: string[];
+    advice?: { tool: Tool; reason: string }[];
     specific: Tool[];
     general: Tool[];
     tilesLabel: string;
@@ -24,6 +25,18 @@
       <h2>{dropped.length === 1 ? fileName(dropped[0]!) : `${dropped.length} files`}</h2>
       <button class="link" onclick={onClear}>Clear</button>
     </header>
+    {#if advice.length > 0}
+      <ul class="advice" aria-label="Recommended">
+        {#each advice as item (item.tool.id)}
+          <li>
+            <button onclick={() => onOpen(item.tool)}>
+              <span>{item.reason}</span>
+              <strong>{item.tool.name}</strong>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
     {#if specific.length > 0}
       <ToolList tools={specific} {onOpen} />
     {/if}
@@ -52,6 +65,9 @@
 {/if}
 
 <style>
+  .advice { display: flex; flex-direction: column; gap: var(--space-1); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+  .advice button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); text-align: left; cursor: default; }
+  .advice strong { flex: none; font-weight: 600; }
   .drop {
     display: grid;
     place-content: center;
