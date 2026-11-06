@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: qr.scan
-name: QR Scanner
+name: Read QR Code
 category: qr
 tool_version: 1
 description: Read QR codes from images.
-keywords: [qr, code, read, decode, scan, barcode]
+keywords: [qr, code, read, decode, scan, barcode, scanner]
 inputs:
   - type: image
     multiple: true

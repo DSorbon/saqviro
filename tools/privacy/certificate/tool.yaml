@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: privacy.certificate
-name: Certificate Viewer
+name: View Certificate
 category: privacy
 tool_version: 1
 description: "Read an X.509 certificate: who it is for, who signed it, when it ends."
-keywords: [ssl, tls, pem, x509, https, expiry]
+keywords: [ssl, tls, pem, x509, https, expiry, viewer]
 inputs:
   - type: text
 outputs:

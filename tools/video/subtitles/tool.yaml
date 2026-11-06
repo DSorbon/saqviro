@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: video.subtitles
-name: Subtitle Extractor
+name: Extract Subtitles
 category: video
 tool_version: 1
 description: Save the subtitles inside a video as a file.
-keywords: [srt, captions, vtt, text track]
+keywords: [srt, captions, vtt, text track, subtitle, extractor]
 inputs:
   - type: video
     multiple: true

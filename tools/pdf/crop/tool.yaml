@@ -5,7 +5,7 @@ name: Crop PDF
 category: pdf
 tool_version: 1
 description: Trim the margins of every page.
-keywords: [margins, trim, cut, page size]
+keywords: [margins, trim, page size]
 inputs:
   - type: pdf
     multiple: true

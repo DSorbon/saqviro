@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.frames-to-gif
-name: Frames to GIF
+name: Make GIF from Images
 category: image
 tool_version: 1
 description: Make an animated GIF from pictures.
-keywords: [animation, sequence, slideshow]
+keywords: [animation, sequence, slideshow, frames]
 inputs:
   - type: image
     multiple: true

@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.favicon
-name: Favicon Generator
+name: Make Favicons
 category: image
 tool_version: 1
 description: Make every icon size a website needs.
-keywords: [icon, website, apple touch, pwa, manifest]
+keywords: [icon, website, apple touch, pwa, manifest, favicon, generator]
 inputs:
   - type: image
     multiple: true

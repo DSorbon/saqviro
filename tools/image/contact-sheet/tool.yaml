@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.contact-sheet
-name: Contact Sheet
+name: Make Contact Sheet
 category: image
 tool_version: 1
 description: Lay out many images in a grid on one sheet.

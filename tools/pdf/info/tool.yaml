@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: pdf.info
-name: PDF Info
+name: View PDF Info
 category: pdf
 tool_version: 1
 description: See the pages, size and properties of a PDF.

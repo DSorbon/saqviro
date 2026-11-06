@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: privacy.ssh-fingerprint
-name: SSH Key Fingerprint
+name: Get SSH Key Fingerprint
 category: privacy
 tool_version: 1
 description: Get the fingerprint of an SSH public key.

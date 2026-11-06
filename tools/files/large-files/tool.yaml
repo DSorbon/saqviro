@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: files.large
-name: Large Files Finder
+name: Find Large Files
 category: files
 tool_version: 1
 description: List the largest files in a folder.
-keywords: [big, space, disk, cleanup]
+keywords: [big, space, disk, cleanup, finder]
 inputs:
   - type: any
     multiple: true

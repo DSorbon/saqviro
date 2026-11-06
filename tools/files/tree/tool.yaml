@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: files.tree
-name: Directory Tree
+name: Show Folder Tree
 category: files
 tool_version: 1
 description: Write out what a folder holds as a tree.
-keywords: [folder, listing, structure, ls]
+keywords: [folder, listing, structure, ls, directory]
 inputs:
   - type: any
     multiple: true

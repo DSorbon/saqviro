@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: video.thumbnail
-name: Thumbnail Generator
+name: Make Video Thumbnail
 category: video
 tool_version: 1
 description: Save one frame of a video as a picture.
-keywords: [frame, poster, cover, screenshot, preview]
+keywords: [frame, poster, cover, screenshot, preview, generator]
 inputs:
   - type: video
     multiple: true

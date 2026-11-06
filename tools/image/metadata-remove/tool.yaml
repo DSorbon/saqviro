@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.metadata.remove
-name: Remove EXIF / Metadata
+name: Remove Photo Metadata
 category: image
 tool_version: 1
 description: Remove location, camera and author data. HEIC photos are saved as JPG.

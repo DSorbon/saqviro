@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: text.slug
-name: Slug Generator
+name: Make URL Slug
 category: text
 tool_version: 1
 description: Make a URL-friendly slug from a title.
-keywords: [url, seo, permalink, transliterate, kebab]
+keywords: [url, seo, permalink, transliterate, kebab, generator]
 inputs:
   - type: text
 outputs:

@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: audio.tags
-name: Audio Tag Editor
+name: Edit Audio Tags
 category: audio
 tool_version: 1
 description: Set the title, artist and album of audio files.
-keywords: [id3, metadata, artist, album, music]
+keywords: [id3, metadata, artist, album, music, tag, editor]
 inputs:
   - type: audio
     multiple: true

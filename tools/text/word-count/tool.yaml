@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: text.word-count
-name: Word Counter
+name: Count Words
 category: text
 tool_version: 1
 description: Count words, characters, lines and reading time.
-keywords: [count, characters, length, words, letters, essay]
+keywords: [count, characters, length, words, letters, essay, word, counter]
 inputs:
   - type: text
 outputs:

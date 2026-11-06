@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.info
-name: Image Info
+name: View Image Info
 category: image
 tool_version: 1
 description: See the size, format and camera details of images.

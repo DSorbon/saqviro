@@ -5,7 +5,7 @@ name: Crop Images
 category: image
 tool_version: 1
 description: Cut out part of an image, or crop to a shape such as a square.
-keywords: [crop, cut, trim, square, aspect ratio, region]
+keywords: [crop, trim, square, aspect ratio, region]
 inputs:
   - type: image
     multiple: true

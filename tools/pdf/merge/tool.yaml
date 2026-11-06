@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: pdf.merge
-name: Merge PDF
+name: Merge PDFs
 category: pdf
 tool_version: 1
 description: Combine PDFs into one, in the order listed.
-keywords: [combine, join, append, together]
+keywords: [combine, join, append, together, pdf]
 inputs:
   - type: pdf
     multiple: true

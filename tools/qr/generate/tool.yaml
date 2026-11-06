@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: qr.generate
-name: QR Generator
+name: Make QR Code
 category: qr
 tool_version: 1
 description: Make a QR code from a link or text.
-keywords: [qr, code, barcode, link, url, wifi]
+keywords: [qr, code, barcode, link, url, wifi, generator]
 inputs:
   - type: text
 outputs:

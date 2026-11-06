@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: files.duplicates
-name: Duplicate Finder
+name: Find Duplicate Files
 category: files
 tool_version: 1
 description: Find files with exactly the same content.
-keywords: [same, copies, identical, cleanup, space]
+keywords: [same, copies, identical, cleanup, space, finder]
 inputs:
   - type: any
     multiple: true

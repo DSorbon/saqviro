@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: audio.waveform
-name: Audio Waveform
+name: Draw Audio Waveform
 category: audio
 tool_version: 1
 description: Draw a picture of the sound wave.

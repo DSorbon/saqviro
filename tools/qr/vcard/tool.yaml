@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: qr.vcard
-name: vCard QR
+name: Make Contact QR Code
 category: qr
 tool_version: 1
 description: A QR code that adds a contact when scanned.
-keywords: [contact, business card, phone, email]
+keywords: [contact, business card, phone, email, vcard]
 inputs:
   - type: none
 outputs:

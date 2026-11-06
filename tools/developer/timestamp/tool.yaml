@@ -4,7 +4,7 @@ id: developer.timestamp
 name: Timestamp Converter
 category: developer
 tool_version: 1
-description: Convert Unix time and dates. Leave empty for now.
+description: Convert Unix time and dates. Leave the box empty to see the time now.
 keywords: [unix, epoch, time, date, utc, iso, milliseconds]
 inputs:
   - type: text

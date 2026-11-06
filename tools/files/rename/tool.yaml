@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: files.rename
-name: Batch Rename
+name: Rename Files
 category: files
 tool_version: 1
 description: Rename many files at once. Preview first, nothing is overwritten.
-keywords: [rename, names, numbers, replace, prefix, suffix, organize]
+keywords: [rename, names, numbers, replace, prefix, suffix, organize, batch]
 inputs:
   - type: any
     multiple: true

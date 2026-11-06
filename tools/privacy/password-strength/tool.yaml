@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: privacy.password-strength
-name: Password Strength Checker
+name: Check Password Strength
 category: privacy
 tool_version: 1
 description: See how long a password would hold out, on this device only.
-keywords: [secure, crack, entropy, weak]
+keywords: [secure, crack, entropy, weak, checker]
 inputs:
   - type: text
 outputs:

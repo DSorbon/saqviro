@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: system.info
-name: System Information
+name: View System Information
 category: system
 tool_version: 1
 description: "See this computer: system, processor, memory and disks."

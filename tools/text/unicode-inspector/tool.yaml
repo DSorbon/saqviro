@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: text.unicode
-name: Unicode Inspector
+name: Inspect Unicode
 category: text
 tool_version: 1
 description: See the code point and UTF-8 bytes of every character.
-keywords: [code point, utf-8, hex, character, emoji, encoding]
+keywords: [code point, utf-8, hex, character, emoji, encoding, inspector]
 inputs:
   - type: text
 outputs:

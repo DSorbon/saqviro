@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: text.lorem
-name: Lorem Ipsum
+name: Make Placeholder Text
 category: text
 tool_version: 1
 description: Generate placeholder text.
-keywords: [placeholder, dummy, filler, latin]
+keywords: [placeholder, dummy, filler, latin, lorem, ipsum]
 inputs:
   - type: none
 outputs:

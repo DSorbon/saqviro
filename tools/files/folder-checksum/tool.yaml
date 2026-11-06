@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: files.folder-checksum
-name: Folder Checksum
+name: Get Folder Checksum
 category: files
 tool_version: 1
 description: One SHA-256 for everything in a folder, to compare two copies.

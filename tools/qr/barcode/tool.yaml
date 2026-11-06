@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: qr.barcode
-name: Barcode Generator
+name: Make Barcode
 category: qr
 tool_version: 1
 description: Make Code 128, EAN-13 and other barcodes.
-keywords: [ean, upc, code128, code39, product, label]
+keywords: [ean, upc, code128, code39, product, label, generator]
 inputs:
   - type: text
 outputs:

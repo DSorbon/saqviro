@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: files.empty
-name: Empty Folder Finder
+name: Find Empty Folders
 category: files
 tool_version: 1
 description: List empty folders and empty files.
-keywords: [blank, cleanup, zero, unused]
+keywords: [blank, cleanup, zero, unused, folder, finder]
 inputs:
   - type: any
     multiple: true

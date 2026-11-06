@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.grayscale
-name: Grayscale Images
+name: Make Images Black and White
 category: image
 tool_version: 1
 description: Turn images black and white.
-keywords: [black and white, monochrome, desaturate]
+keywords: [black and white, monochrome, desaturate, grayscale]
 inputs:
   - type: image
     multiple: true

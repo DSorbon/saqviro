@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.border
-name: Image Border
+name: Add Image Border
 category: image
 tool_version: 1
 description: Add a colored border around images.

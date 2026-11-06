@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: video.faststart
-name: Faststart Optimizer
+name: Prepare Video for the Web
 category: video
 tool_version: 1
 description: Make an MP4 start playing on the web before it has fully loaded.
-keywords: [web, streaming, moov, progressive]
+keywords: [web, streaming, moov, progressive, faststart, optimizer]
 inputs:
   - type: video
     multiple: true

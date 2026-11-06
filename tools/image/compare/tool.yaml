@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.compare
-name: Image Compare
+name: Compare Images
 category: image
 tool_version: 1
 description: See how much two images differ, and where.
-keywords: [difference, diff, visual, regression]
+keywords: [difference, diff, visual, regression, image]
 inputs:
   - type: image
     multiple: true

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: system.env
-name: Environment Variables
+name: View Environment Variables
 category: system
 tool_version: 1
 description: List the environment variables the app sees.

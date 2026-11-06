@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.remove-alpha
-name: Remove Alpha
+name: Remove Transparency
 category: image
 tool_version: 1
 description: Put transparent images on a solid background.
-keywords: [transparency, background, flatten]
+keywords: [transparency, flatten, alpha]
 inputs:
   - type: image
     multiple: true

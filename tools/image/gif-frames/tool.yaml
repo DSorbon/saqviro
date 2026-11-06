@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.gif-frames
-name: GIF to Frames
+name: Split GIF into Frames
 category: image
 tool_version: 1
 description: Save every frame of a GIF as a picture.

@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: text.diff
-name: Text Diff
+name: Compare Texts
 category: text
 tool_version: 1
 description: Compare two texts line by line.
-keywords: [compare, difference, changes, patch]
+keywords: [compare, difference, changes, patch, text, diff]
 inputs:
   - type: text
 outputs:

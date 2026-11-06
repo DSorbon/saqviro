@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: qr.wifi
-name: Wi-Fi QR
+name: Make Wi-Fi QR Code
 category: qr
 tool_version: 1
 description: A QR code that joins a Wi-Fi network when scanned.
-keywords: [wireless, network, guest, password]
+keywords: [wifi, wireless, network, guest, password, wi-fi]
 inputs:
   - type: none
 outputs:

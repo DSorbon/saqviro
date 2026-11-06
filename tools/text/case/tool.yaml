@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: text.case
-name: Case Converter
+name: Change Text Case
 category: text
 tool_version: 1
 description: Change text to UPPER, lower, Title, camelCase and more.
-keywords: [uppercase, lowercase, capitalize, snake, kebab, camel, title]
+keywords: [uppercase, lowercase, capitalize, snake, kebab, camel, title, converter]
 inputs:
   - type: text
 outputs:

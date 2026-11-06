@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: image.round-corners
-name: Rounded Corners
+name: Round Image Corners
 category: image
 tool_version: 1
 description: Round the corners of images, with a transparent background.
-keywords: [radius, circle, avatar, transparent]
+keywords: [radius, circle, avatar, transparent, rounded]
 inputs:
   - type: image
     multiple: true

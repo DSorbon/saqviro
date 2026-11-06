@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: audio.info
-name: Audio Info
+name: View Audio Info
 category: audio
 tool_version: 1
 description: See the format, length and codec of an audio file.

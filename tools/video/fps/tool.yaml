@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: video.fps
-name: Change FPS
+name: Change Frame Rate
 category: video
 tool_version: 1
 description: Change how many frames per second a video has.
-keywords: [frame rate, frames, smooth]
+keywords: [frame rate, frames, smooth, fps]
 inputs:
   - type: video
     multiple: true

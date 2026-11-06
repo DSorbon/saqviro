@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
 schema_version: 1
 id: audio.spectrogram
-name: Spectrogram
+name: Draw Sound Spectrum
 category: audio
 tool_version: 1
 description: Draw the frequencies of a sound over time.
-keywords: [frequency, visualize, analysis, image, png]
+keywords: [frequency, visualize, analysis, image, png, spectrogram]
 inputs:
   - type: audio
     multiple: true

@@ -8,17 +8,17 @@
 |---|---|
 | Convert Audio | Convert audio to MP3, M4A, WAV, FLAC or Ogg. |
 | Detect Silence | List where a recording goes quiet. |
-| Audio Info | See the format, length and codec of an audio file. |
+| View Audio Info | See the format, length and codec of an audio file. |
 | Merge Audio | Join audio files one after another. |
 | Normalize Audio | Bring audio to a standard loudness without squashing it. |
 | Remove Silence | Cut out the quiet parts of a recording. |
 | Change Sample Rate | Resample audio to another rate. |
-| Spectrogram | Draw the frequencies of a sound over time. |
-| Audio Tag Editor | Set the title, artist and album of audio files. |
+| Draw Sound Spectrum | Draw the frequencies of a sound over time. |
+| Edit Audio Tags | Set the title, artist and album of audio files. |
 | Stereo to Mono | Mix all channels down to one. |
 | Trim Audio | Keep part of an audio file. Times look like 1:30. |
 | Change Volume | Make audio louder or quieter. |
-| Audio Waveform | Draw a picture of the sound wave. |
+| Draw Audio Waveform | Draw a picture of the sound wave. |
 
 ## Developer
 
@@ -45,7 +45,7 @@
 | Regex Tester | Test a regular expression on text, or replace with it. |
 | Regex Escape | Escape text so a regular expression matches it literally. |
 | SQL Formatter | Indent SQL so it can be read. |
-| Timestamp Converter | Convert Unix time and dates. Leave empty for now. |
+| Timestamp Converter | Convert Unix time and dates. Leave the box empty to see the time now. |
 | ULID Generator | Generate sortable unique identifiers. |
 | URL Encode / Decode | Percent-encode text for a URL, or read it back. |
 | URL Parser | Split a URL into its parts and query parameters. |
@@ -60,16 +60,16 @@
 |---|---|
 | File to Base64 | Turn a file into Base64 text, for embedding. |
 | Verify File Checksum | Check a file against an MD5, SHA-1, SHA-256 or SHA-512 checksum. |
-| Duplicate Finder | Find files with exactly the same content. |
-| Empty Folder Finder | List empty folders and empty files. |
-| Folder Checksum | One SHA-256 for everything in a folder, to compare two copies. |
-| Folder Size Analyzer | See what takes up the space in a folder. |
-| Large Files Finder | List the largest files in a folder. |
-| Batch Rename | Rename many files at once. Preview first, nothing is overwritten. |
-| SHA-256 Calculator | Get the SHA-256 checksum of files. |
+| Find Duplicate Files | Find files with exactly the same content. |
+| Find Empty Folders | List empty folders and empty files. |
+| Get Folder Checksum | One SHA-256 for everything in a folder, to compare two copies. |
+| See Folder Sizes | See what takes up the space in a folder. |
+| Find Large Files | List the largest files in a folder. |
+| Rename Files | Rename many files at once. Preview first, nothing is overwritten. |
+| Get SHA-256 Checksum | Get the SHA-256 checksum of files. |
 | Create TAR | Pack files and folders into a tar.gz archive. |
 | Extract TAR | Unpack tar, tar.gz and tgz archives. |
-| Directory Tree | Write out what a folder holds as a tree. |
+| Show Folder Tree | Write out what a folder holds as a tree. |
 | Create ZIP | Pack files and folders into a ZIP archive. |
 | Extract ZIP | Unpack ZIP archives into a new folder. |
 
@@ -77,24 +77,24 @@
 
 | Tool | What it does |
 |---|---|
-| Image Border | Add a colored border around images. |
-| Image Compare | See how much two images differ, and where. |
+| Add Image Border | Add a colored border around images. |
+| Compare Images | See how much two images differ, and where. |
 | Compress Images | Make JPG, PNG and WebP files smaller. PNG stays lossless. |
-| Contact Sheet | Lay out many images in a grid on one sheet. |
+| Make Contact Sheet | Lay out many images in a grid on one sheet. |
 | Convert Images | Convert images to JPG, PNG, WebP or AVIF. |
 | Crop Images | Cut out part of an image, or crop to a shape such as a square. |
-| Favicon Generator | Make every icon size a website needs. |
+| Make Favicons | Make every icon size a website needs. |
 | Flip Images | Mirror images left to right or top to bottom. |
-| Frames to GIF | Make an animated GIF from pictures. |
-| GIF to Frames | Save every frame of a GIF as a picture. |
-| Grayscale Images | Turn images black and white. |
+| Make GIF from Images | Make an animated GIF from pictures. |
+| Split GIF into Frames | Save every frame of a GIF as a picture. |
+| Make Images Black and White | Turn images black and white. |
 | HEIC to JPG | Turn iPhone photos into JPG or PNG that open everywhere. |
-| Image Info | See the size, format and camera details of images. |
-| Remove EXIF / Metadata | Remove location, camera and author data. HEIC photos are saved as JPG. |
-| Remove Alpha | Put transparent images on a solid background. |
+| View Image Info | See the size, format and camera details of images. |
+| Remove Photo Metadata | Remove location, camera and author data. HEIC photos are saved as JPG. |
+| Remove Transparency | Put transparent images on a solid background. |
 | Resize Images | Resize one or many images. |
 | Rotate Images | Rotate images by 90, 180 or 270 degrees. |
-| Rounded Corners | Round the corners of images, with a transparent background. |
+| Round Image Corners | Round the corners of images, with a transparent background. |
 | SVG to PNG | Draw SVG files as PNG images at any size. |
 | Image to AVIF | Convert images to AVIF, the smallest widely supported format. |
 | Image to ICO | Make a Windows icon from an image. |
@@ -118,9 +118,9 @@
 | Extract Images from PDF | Save the pictures inside a PDF. |
 | Extract PDF Pages | Save some pages as a new PDF. Pages look like 1, 3-5. |
 | Images to PDF | Turn images into one PDF, one page each. |
-| PDF Info | See the pages, size and properties of a PDF. |
-| Merge PDF | Combine PDFs into one, in the order listed. |
-| PDF Metadata Editor | Set the title, author and other properties of a PDF. |
+| View PDF Info | See the pages, size and properties of a PDF. |
+| Merge PDFs | Combine PDFs into one, in the order listed. |
+| Edit PDF Metadata | Set the title, author and other properties of a PDF. |
 | Remove PDF Metadata | Remove the author, title, dates and other document properties. |
 | Add Page Numbers | Print a number on every page. |
 | Add PDF Password | Protect a PDF with a password, using AES-256. |
@@ -137,49 +137,49 @@
 
 | Tool | What it does |
 |---|---|
-| Certificate Viewer | Read an X.509 certificate: who it is for, who signed it, when it ends. |
+| View Certificate | Read an X.509 certificate: who it is for, who signed it, when it ends. |
 | Decrypt Files | Open files locked with a passphrase in the age format. |
 | Encrypt Files | Lock files with a passphrase, using the open age format. |
-| Password Strength Checker | See how long a password would hold out, on this device only. |
-| SSH Key Fingerprint | Get the fingerprint of an SSH public key. |
+| Check Password Strength | See how long a password would hold out, on this device only. |
+| Get SSH Key Fingerprint | Get the fingerprint of an SSH public key. |
 
 ## QR & barcodes
 
 | Tool | What it does |
 |---|---|
-| Barcode Generator | Make Code 128, EAN-13 and other barcodes. |
-| QR Generator | Make a QR code from a link or text. |
-| QR Scanner | Read QR codes from images. |
-| vCard QR | A QR code that adds a contact when scanned. |
-| Wi-Fi QR | A QR code that joins a Wi-Fi network when scanned. |
+| Make Barcode | Make Code 128, EAN-13 and other barcodes. |
+| Make QR Code | Make a QR code from a link or text. |
+| Read QR Code | Read QR codes from images. |
+| Make Contact QR Code | A QR code that adds a contact when scanned. |
+| Make Wi-Fi QR Code | A QR code that joins a Wi-Fi network when scanned. |
 
 ## System
 
 | Tool | What it does |
 |---|---|
-| Environment Variables | List the environment variables the app sees. |
-| System Information | See this computer: system, processor, memory and disks. |
+| View Environment Variables | List the environment variables the app sees. |
+| View System Information | See this computer: system, processor, memory and disks. |
 
 ## Text
 
 | Tool | What it does |
 |---|---|
-| Case Converter | Change text to UPPER, lower, Title, camelCase and more. |
-| Text Diff | Compare two texts line by line. |
+| Change Text Case | Change text to UPPER, lower, Title, camelCase and more. |
+| Compare Texts | Compare two texts line by line. |
 | Remove Invisible Characters | Remove zero-width and control characters that hide in copied text. |
 | Remove Duplicate Lines | Keep the first of every repeated line. |
 | Remove Empty Lines | Delete blank lines. |
 | Reverse Lines | Turn a list of lines upside down. |
 | Sort Lines | Sort lines alphabetically, by number or by length. |
 | Trim Lines | Remove spaces at the start and end of every line. |
-| Lorem Ipsum | Generate placeholder text. |
+| Make Placeholder Text | Generate placeholder text. |
 | Markdown to HTML | Turn Markdown into HTML. |
 | Find and Replace | Replace text everywhere, with plain words or a regular expression. |
-| Slug Generator | Make a URL-friendly slug from a title. |
-| Subtitle Converter | Convert subtitles between SRT and WebVTT, and shift their timing. |
-| Unicode Inspector | See the code point and UTF-8 bytes of every character. |
+| Make URL Slug | Make a URL-friendly slug from a title. |
+| Convert Subtitles | Convert subtitles between SRT and WebVTT, and shift their timing. |
+| Inspect Unicode | See the code point and UTF-8 bytes of every character. |
 | Normalize Whitespace | Turn tabs, odd spaces and repeated blanks into plain single spaces. |
-| Word Counter | Count words, characters, lines and reading time. |
+| Count Words | Count words, characters, lines and reading time. |
 
 ## Video
 
@@ -189,19 +189,19 @@
 | Convert Video | Convert videos to MP4, MOV, MKV or WebM. |
 | Crop Video | Cut the frame down to a shape or an area. |
 | Extract Audio | Save the sound of a video as an audio file. |
-| Faststart Optimizer | Make an MP4 start playing on the web before it has fully loaded. |
-| Change FPS | Change how many frames per second a video has. |
+| Prepare Video for the Web | Make an MP4 start playing on the web before it has fully loaded. |
+| Change Frame Rate | Change how many frames per second a video has. |
 | Extract Frames | Save frames of a video as pictures, one every few seconds. |
 | GIF to Video | Turn an animated GIF into a much smaller MP4. |
-| Video Info | See the format, size, length and codecs of a video. |
+| View Video Info | See the format, size, length and codecs of a video. |
 | Merge Videos | Join videos one after another into a single file. |
 | Mute Video | Remove the sound from a video without touching the picture. |
 | Replace Audio | Give a video a new soundtrack. |
 | Resize Video | Scale videos down to 1080p, 720p or 480p. |
 | Rotate Video | Rotate videos by 90, 180 or 270 degrees. |
 | Change Playback Speed | Speed a video up or slow it down. |
-| Subtitle Extractor | Save the subtitles inside a video as a file. |
-| Thumbnail Generator | Save one frame of a video as a picture. |
+| Extract Subtitles | Save the subtitles inside a video as a file. |
+| Make Video Thumbnail | Save one frame of a video as a picture. |
 | Video to GIF | Turn a video or part of it into a GIF. |
 | Trim Video | Keep part of a video. Times look like 1:30. |
 | Add Watermark to Video | Print text on a video, in any language. |
