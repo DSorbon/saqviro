@@ -24,4 +24,5 @@ parameters:
 presets:
   - { id: default, name: Default }
 ui:
+  one_of: [pages]
   preview: pages-select

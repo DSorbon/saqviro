@@ -23,3 +23,5 @@ parameters:
   - { id: password, type: string, optional: true, secret: true }
 presets:
   - { id: default, name: Default }
+ui:
+  one_of: [password]

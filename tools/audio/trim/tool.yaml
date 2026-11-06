@@ -24,3 +24,5 @@ parameters:
   - { id: end, type: string, optional: true }
 presets:
   - { id: default, name: Default }
+ui:
+  one_of: [start, end]

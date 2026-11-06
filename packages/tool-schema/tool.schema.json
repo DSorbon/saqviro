@@ -339,6 +339,13 @@
             "type": "string"
           }
         },
+        "one_of": {
+          "description": "Optional parameters of which the tool needs at least one.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "preview": {
           "description": "Custom preview widget, e.g. `image-compare`.",
           "type": [

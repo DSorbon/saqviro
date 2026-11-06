@@ -26,3 +26,5 @@ parameters:
 presets:
   - { id: fast, name: Fast, params: { exact: false } }
   - { id: exact, name: Frame accurate, params: { exact: true } }
+ui:
+  one_of: [start, end]

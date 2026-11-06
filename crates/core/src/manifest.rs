@@ -237,7 +237,11 @@ impl Parameter {
     fn check(&self, value: &Value) -> Result<(), String> {
         let in_range = |n: f64| {
             if self.min.is_some_and(|min| n < min) || self.max.is_some_and(|max| n > max) {
-                Err(format!("{n} is outside {:?}..={:?}", self.min, self.max))
+                Err(match (self.min, self.max) {
+                    (Some(min), Some(max)) => format!("must be from {min} to {max}"),
+                    (Some(min), None) => format!("must be {min} or more"),
+                    (_, max) => format!("must be {} or less", max.unwrap_or_default()),
+                })
             } else {
                 Ok(())
             }
@@ -270,6 +274,9 @@ pub struct UiHints {
     /// Parameters hidden under the "Advanced" disclosure.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub advanced: Vec<String>,
+    /// Optional parameters of which the tool needs at least one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub one_of: Vec<String>,
     /// Custom preview widget, e.g. `image-compare`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
@@ -410,6 +417,11 @@ impl ToolManifest {
         }
 
         if let Some(ui) = &self.ui {
+            for key in &ui.one_of {
+                if self.parameter(key).is_none_or(|p| !p.optional) {
+                    issue("ui.one_of".into(), format!("`{key}` is not an optional parameter"));
+                }
+            }
             for key in &ui.advanced {
                 if self.parameter(key).is_none() {
                     issue("ui.advanced".into(), format!("unknown parameter `{key}`"));
