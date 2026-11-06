@@ -10,6 +10,11 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
 
+# Actions passes a missing secret as an empty value, which Tauri would try to use.
+for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+  [ -n "${!name:-}" ] || unset "$name"
+done
+
 config=(--config src-tauri/tauri.bundle.conf.json)
 case "$(uname -s)" in
   Darwin)
