@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.json-to-yaml
+name: JSON to YAML
+category: developer
+tool_version: 1
+description: Turn JSON into YAML.
+keywords: [convert, yml, config]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

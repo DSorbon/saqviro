@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.http-status
+name: HTTP Status Lookup
+category: developer
+tool_version: 1
+description: Look up what an HTTP status code means.
+keywords: [code, 404, 500, response, error]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

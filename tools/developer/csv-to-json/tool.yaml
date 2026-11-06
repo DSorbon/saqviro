@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.csv-to-json
+name: CSV to JSON
+category: developer
+tool_version: 1
+description: Turn a CSV table into a JSON array.
+keywords: [convert, table, spreadsheet, tsv]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: delimiter, type: enum, values: [auto, comma, semicolon, tab], default: auto }
+  - { id: typed_values, type: boolean, default: true }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [typed_values]

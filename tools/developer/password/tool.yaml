@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.password
+name: Password Generator
+category: developer
+tool_version: 1
+description: Generate strong random passwords.
+keywords: [random, secret, passphrase, secure, key]
+inputs:
+  - type: none
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: length, type: integer, min: 4, max: 256, default: 20 }
+  - { id: count, type: integer, min: 1, max: 100, default: 1 }
+  - { id: uppercase, type: boolean, default: true }
+  - { id: digits, type: boolean, default: true }
+  - { id: symbols, type: boolean, default: true }
+  - { id: avoid_similar, type: boolean, default: false }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [uppercase, digits, symbols, avoid_similar]

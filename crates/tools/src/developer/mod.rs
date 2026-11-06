@@ -1,7 +1,12 @@
 pub mod base64;
+pub mod convert;
+pub mod cron;
+pub mod generate;
 pub mod hash;
 pub mod json_format;
 pub mod jwt;
 pub mod regex_test;
 pub mod timestamp;
 pub mod uuid;
+pub mod web;
+pub mod xml;

@@ -3,26 +3,27 @@
   "title": "ToolManifest",
   "type": "object",
   "properties": {
-    "capabilities": {
-      "$ref": "#/$defs/Capabilities"
-    },
-    "category": {
-      "$ref": "#/$defs/Category"
-    },
-    "description": {
-      "type": "string"
-    },
-    "engine": {
-      "type": "string"
+    "schema_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
     },
     "id": {
       "$ref": "#/$defs/ToolId"
     },
-    "inputs": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/InputPort"
-      }
+    "name": {
+      "type": "string"
+    },
+    "category": {
+      "$ref": "#/$defs/Category"
+    },
+    "tool_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "description": {
+      "type": "string"
     },
     "keywords": {
       "type": "array",
@@ -30,8 +31,11 @@
         "type": "string"
       }
     },
-    "name": {
-      "type": "string"
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InputPort"
+      }
     },
     "outputs": {
       "type": "array",
@@ -39,11 +43,11 @@
         "$ref": "#/$defs/OutputPort"
       }
     },
-    "parameters": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/Parameter"
-      }
+    "engine": {
+      "type": "string"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
     },
     "permissions": {
       "$ref": "#/$defs/Permissions"
@@ -54,21 +58,17 @@
         "$ref": "#/$defs/Platform"
       }
     },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Parameter"
+      }
+    },
     "presets": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/Preset"
       }
-    },
-    "schema_version": {
-      "type": "integer",
-      "format": "uint32",
-      "minimum": 0
-    },
-    "tool_version": {
-      "type": "integer",
-      "format": "uint32",
-      "minimum": 0
     },
     "ui": {
       "anyOf": [
@@ -99,29 +99,9 @@
     "presets"
   ],
   "$defs": {
-    "Capabilities": {
-      "type": "object",
-      "properties": {
-        "batch": {
-          "type": "boolean"
-        },
-        "destructive": {
-          "type": "boolean"
-        },
-        "offline": {
-          "type": "boolean"
-        },
-        "preview": {
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "batch",
-        "preview",
-        "offline",
-        "destructive"
-      ]
+    "ToolId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*){1,2}$"
     },
     "Category": {
       "type": "string",
@@ -139,6 +119,41 @@
         "system",
         "screen",
         "ocr"
+      ]
+    },
+    "InputPort": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/DataType"
+        },
+        "multiple": {
+          "type": "boolean",
+          "default": false
+        },
+        "optional": {
+          "description": "Text input may be left empty.",
+          "type": "boolean",
+          "default": false
+        },
+        "mime": {
+          "description": "Required for file inputs.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extensions": {
+          "description": "Lowercase, without the leading dot, or `*` for anything. Required for file inputs.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "type"
       ]
     },
     "DataType": {
@@ -167,57 +182,22 @@
         }
       ]
     },
-    "InputPort": {
+    "OutputPort": {
       "type": "object",
       "properties": {
-        "extensions": {
-          "description": "Lowercase, without the leading dot, or `*` for anything. Required for file inputs.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "mime": {
-          "description": "Required for file inputs.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "type": {
+          "$ref": "#/$defs/DataType"
         },
         "multiple": {
           "type": "boolean",
           "default": false
         },
-        "optional": {
-          "description": "Text input may be left empty.",
-          "type": "boolean",
-          "default": false
-        },
-        "type": {
-          "$ref": "#/$defs/DataType"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "type"
-      ]
-    },
-    "OutputPort": {
-      "type": "object",
-      "properties": {
         "filename": {
           "description": "Output file name template, e.g. `{stem}-small.{ext}`.",
           "type": [
             "string",
             "null"
           ]
-        },
-        "multiple": {
-          "type": "boolean",
-          "default": false
-        },
-        "type": {
-          "$ref": "#/$defs/DataType"
         }
       },
       "additionalProperties": false,
@@ -225,66 +205,28 @@
         "type"
       ]
     },
-    "ParamType": {
-      "type": "string",
-      "enum": [
-        "integer",
-        "number",
-        "boolean",
-        "string",
-        "enum"
-      ]
-    },
-    "Parameter": {
+    "Capabilities": {
       "type": "object",
       "properties": {
-        "default": true,
-        "id": {
-          "type": "string"
+        "batch": {
+          "type": "boolean"
         },
-        "max": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "format": "double"
+        "preview": {
+          "type": "boolean"
         },
-        "min": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "format": "double"
+        "offline": {
+          "type": "boolean"
         },
-        "multiline": {
-          "description": "The value spans lines: the UI gives it a text area. Only for `string`.",
-          "type": "boolean",
-          "default": false
-        },
-        "optional": {
-          "type": "boolean",
-          "default": false
-        },
-        "secret": {
-          "description": "The value is a password: the UI hides it. Only for `string`.",
-          "type": "boolean",
-          "default": false
-        },
-        "type": {
-          "$ref": "#/$defs/ParamType"
-        },
-        "values": {
-          "description": "Allowed values; required for `enum`, forbidden otherwise.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "destructive": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "required": [
-        "id",
-        "type"
+        "batch",
+        "preview",
+        "offline",
+        "destructive"
       ]
     },
     "Permissions": {
@@ -303,6 +245,68 @@
         "windows",
         "macos",
         "linux"
+      ]
+    },
+    "Parameter": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ParamType"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false
+        },
+        "secret": {
+          "description": "The value is a password: the UI hides it. Only for `string`.",
+          "type": "boolean",
+          "default": false
+        },
+        "multiline": {
+          "description": "The value spans lines: the UI gives it a text area. Only for `string`.",
+          "type": "boolean",
+          "default": false
+        },
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "values": {
+          "description": "Allowed values; required for `enum`, forbidden otherwise.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default": true
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ]
+    },
+    "ParamType": {
+      "type": "string",
+      "enum": [
+        "integer",
+        "number",
+        "boolean",
+        "string",
+        "enum"
       ]
     },
     "Preset": {
@@ -324,10 +328,6 @@
         "id",
         "name"
       ]
-    },
-    "ToolId": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*){1,2}$"
     },
     "UiHints": {
       "type": "object",

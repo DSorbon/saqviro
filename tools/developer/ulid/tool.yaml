@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.ulid
+name: ULID Generator
+category: developer
+tool_version: 1
+description: Generate sortable unique identifiers.
+keywords: [id, unique, sortable, identifier]
+inputs:
+  - type: none
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: count, type: integer, min: 1, max: 1000, default: 1 }
+presets:
+  - { id: default, name: Default }

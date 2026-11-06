@@ -28,7 +28,7 @@ saqviro-core = { path = "crates/core" }
 saqviro-jobs = { path = "crates/jobs" }
 saqviro-tools = { path = "crates/tools" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 serde-saphyr = "2"
 schemars = "1"
 thiserror = "2"
@@ -39,7 +39,15 @@ mozjpeg = "0.10"
 webp = { version = "0.3", default-features = false, features = ["img"] }
 oxipng = { version = "10", default-features = false, features = ["parallel"] }
 crc32fast = "1"
+csv = "1"
 deunicode = "1"
+hmac = "0.13"
+html-escape = "0.2"
+mime_guess = "2"
+percent-encoding = "2"
+quick-xml = "0.38"
+rand = "0.9"
+url = "2"
 similar = "2"
 # v1_17: the oldest libheif we support (Ubuntu 24.04).
 libheif-rs = { version = "3", default-features = false, features = ["v1_17"] }

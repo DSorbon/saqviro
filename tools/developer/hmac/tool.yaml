@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.hmac
+name: HMAC Generator
+category: developer
+tool_version: 1
+description: Sign text with a secret key.
+keywords: [signature, sha256, webhook, mac]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: key, type: string, secret: true }
+  - { id: algorithm, type: enum, values: [sha256, sha512, sha1], default: sha256 }
+  - { id: output, type: enum, values: [hex, base64], default: hex }
+presets:
+  - { id: default, name: Default }

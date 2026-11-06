@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.json-diff
+name: JSON Diff
+category: developer
+tool_version: 1
+description: Compare two JSON documents, ignoring key order and formatting.
+keywords: [compare, difference, changes]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: changed_json, type: string, multiline: true }
+presets:
+  - { id: default, name: Default }

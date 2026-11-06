@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.cron
+name: Cron Parser
+category: developer
+tool_version: 1
+description: Read a cron expression and see when it runs next.
+keywords: [schedule, crontab, job, timer]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: runs, type: integer, min: 1, max: 50, default: 5 }
+presets:
+  - { id: default, name: Default }

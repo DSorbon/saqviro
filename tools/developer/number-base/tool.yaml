@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: developer.number-base
+name: Number Base Converter
+category: developer
+tool_version: 1
+description: See a number in binary, octal, decimal and hex.
+keywords: [binary, hex, octal, decimal, radix, convert]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: base, type: enum, values: [auto, "2", "8", "10", "16"], default: auto }
+presets:
+  - { id: default, name: Default }
