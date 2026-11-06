@@ -1,16 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { cancelJob, onJobEvent, pickFiles, pickFolder, runTool, saveImage } from "../lib/api";
+  import { cancelJob, onJobEvent, pickFiles, pickFolder, runTool } from "../lib/api";
   import {
     canRun,
-    errorText,
-    fileName,
-    imageSource,
     inputKind,
     isActive,
-    moved,
     queued,
-    shortName,
     statusLine,
     takesFolders,
     type JobError,
@@ -21,9 +16,10 @@
   import { shortcut } from "../lib/platform";
   import type { ParamValue, Tool } from "../lib/types";
   import CropBox from "./CropBox.svelte";
+  import FileList from "./FileList.svelte";
+  import Outcome from "./Outcome.svelte";
   import PagePicker from "./PagePicker.svelte";
   import ParamFields from "./ParamFields.svelte";
-  import Results from "./Results.svelte";
 
   let { tool, files: dropped, active = true, outputDir = null, favorite = false, onToggleFavorite, onRan, onSend, onJob }: {
     tool: Tool;
@@ -56,7 +52,9 @@
   const running = $derived(job !== null && isActive(job));
   const isCrop = $derived(tool.ui?.preview === "crop");
   const issue = $derived(isCrop && needsArea(values) ? "Choose an area on the picture" : paramsIssue(tool, values));
-  const ready = $derived(canRun(tool, text, files) && issue === null && !running);
+  const hasInput = $derived(canRun(tool, text, files));
+  const hint = $derived(hasInput ? issue : kind === "text" ? "Paste some text to start" : "Add a file to start");
+  const ready = $derived(hasInput && issue === null && !running);
   const output = $derived(job?.status === "completed" ? job.output : null);
   const failure = $derived(requestError ?? (job?.status === "failed" ? job.error : null));
 
@@ -88,12 +86,26 @@
     if (output || failure) resultBox?.scrollIntoView?.({ block: "nearest" });
   });
 
+  // The last free selection, for coming back to it from a shape.
+  let drawn: Area | null = null;
+
   function choosePreset(id: string) {
     const next = initialParams(tool, id);
-    // Back to a free selection keeps the area; a shape starts from the middle of the picture.
-    const keep = isCrop && next.aspect === "selection" ? ["x", "y", "width", "height"] : [];
-    values = { ...next, ...Object.fromEntries(Object.entries(values).filter(([id]) => keep.includes(id))) };
+    if (values.aspect === "selection" && values.width) drawn = values as unknown as Area;
+    values = isCrop && next.aspect === "selection" && drawn ? { ...next, x: drawn.x, y: drawn.y, width: drawn.width, height: drawn.height } : next;
   }
+
+  // An area belongs to its picture.
+  let cropped = "";
+  $effect(() => {
+    if (!isCrop || files[0] === cropped) return;
+    const fresh = cropped !== "";
+    cropped = files[0] ?? "";
+    if (fresh) {
+      drawn = null;
+      values = initialParams(tool, presetId);
+    }
+  });
 
   const add = (picked: string[]) => {
     files = [...files, ...picked.filter((p) => !files.includes(p))];
@@ -146,13 +158,6 @@
 
   // One PDF from many files: their order is the order of the result.
   const ordered = $derived(tool.capabilities?.batch === false && files.length > 1);
-  let copied = $state(false);
-
-  async function copy(value: string) {
-    await navigator.clipboard.writeText(value);
-    copied = true;
-    setTimeout(() => (copied = false), 1500);
-  }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -171,29 +176,17 @@
   {#if kind === "text"}
     <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
   {:else if kind === "files"}
-    <section class="input-files">
-      {#if files.length > 0}
-        <ul class="files">
-          {#each files as f, i (f)}
-            <li>
-              <span title={f}>{shortName(fileName(f))}</span>
-              {#if ordered}
-                <button class="icon" aria-label="Move {fileName(f)} up" disabled={running || i === 0} onclick={() => (files = moved(files, i, -1))}>↑</button>
-                <button class="icon" aria-label="Move {fileName(f)} down" disabled={running || i === files.length - 1} onclick={() => (files = moved(files, i, 1))}>↓</button>
-              {/if}
-              <button class="icon" aria-label="Remove {fileName(f)}" disabled={running} onclick={() => (files = files.filter((p) => p !== f))}>×</button>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="muted drop">Drop files on this window</p>
-      {/if}
-      <div class="actions">
-        {#if files.length > 0}<button onclick={() => (files = [])} disabled={running}>Clear</button>{/if}
-        {#if takesFolders(tool)}<button onclick={chooseFolder} disabled={running}>Choose folder…</button>{/if}
-        <button onclick={choose} disabled={running}>Choose files…</button>
+    <FileList bind:files {ordered} folders={takesFolders(tool)} disabled={running} onChoose={choose} onChooseFolder={chooseFolder} />
+  {/if}
+
+  {#if tool.presets.length > 1}
+    <fieldset class="plain" disabled={running}>
+      <div class="segmented" role="radiogroup" aria-label="Preset">
+        {#each tool.presets as preset (preset.id)}
+          <button role="radio" aria-checked={presetId === preset.id} onclick={() => choosePreset(preset.id)}>{preset.name}</button>
+        {/each}
       </div>
-    </section>
+    </fieldset>
   {/if}
 
   {#if tool.ui?.preview === "crop" && files[0]}
@@ -217,51 +210,21 @@
     <p class="muted hint">Page pictures show when only one file is chosen.</p>
   {/if}
 
-  {#if tool.presets.length > 1}
-    <div class="segmented" role="radiogroup" aria-label="Preset">
-      {#each tool.presets as preset (preset.id)}
-        <button role="radio" aria-checked={presetId === preset.id} onclick={() => choosePreset(preset.id)}>{preset.name}</button>
-      {/each}
-    </div>
-  {/if}
-
-  <ParamFields {tool} bind:values />
+  <fieldset class="plain" disabled={running}>
+    <ParamFields {tool} bind:values />
+  </fieldset>
 
   <div class="outcome" bind:this={resultBox}>
-    {#if output?.kind === "text"}
-      <section class="result">
-        <textarea class="code" aria-label="Result" readonly value={output.value}></textarea>
-        <div class="actions">
-          <button onclick={() => copy(output.value)}>{copied ? "Copied" : "Copy"}</button>
-        </div>
-      </section>
-    {/if}
-
-    {#if output?.kind === "image"}
-      <section class="result">
-        <img class="picture" alt="Result" src={imageSource(output.value)} />
-        <div class="actions">
-          <button onclick={() => jobId !== null && saveImage(jobId)}>Save…</button>
-        </div>
-      </section>
-    {/if}
-
-    {#if output?.kind === "files"}
-      <Results files={output.value} {onSend} />
-    {/if}
-
-    {#if failure}
-      <p class="error" role="alert">{errorText(failure)}</p>
-    {/if}
+    <Outcome {output} {failure} {jobId} {onSend} />
   </div>
 
   <footer>
-    <span class="status muted" aria-live="polite">{job && job.status !== "failed" ? statusLine(job) : (issue ?? "")}</span>
+    <span class="status muted" aria-live="polite">{job && job.status !== "failed" ? statusLine(job) : (hint ?? "")}</span>
     {#if running}
       <progress max="1" value={job?.progress || undefined}></progress>
       <button onclick={() => jobId !== null && cancelJob(jobId)}>Cancel</button>
     {:else}
-      <button class="primary" disabled={!ready} onclick={run}>Run <kbd>{shortcut("↵")}</kbd></button>
+      <button class:primary={!output} class="run" disabled={!ready} onclick={run}>{output ? "Run again" : "Run"} <kbd>{shortcut("↵")}</kbd></button>
     {/if}
   </footer>
 </article>
@@ -286,29 +249,18 @@
     resize: vertical;
     user-select: text;
   }
-  .input-files { display: flex; flex-direction: column; gap: var(--space-2); }
-  .files { margin: 0; padding: var(--space-2) var(--space-3); list-style: none; border: 1px solid var(--border); border-radius: var(--radius); max-height: 180px; overflow-y: auto; }
-  .files li { display: flex; align-items: center; gap: var(--space-1); padding: 2px 0; }
-  .files li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .files li button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
-  .files li button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
-  .files li button:disabled { opacity: 0.35; }
+  .plain { display: contents; }
   .title { display: flex; align-items: center; gap: var(--space-2); }
   .star { border: 0; background: none; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: default; padding: 2px; border-radius: 4px; }
   .star.on { color: var(--accent); }
-  .drop { padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); }
   .segmented { display: inline-flex; align-self: flex-start; padding: 2px; border-radius: var(--radius); background: var(--hover); }
   .segmented button { padding: 4px var(--space-3); border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: default; }
   .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
-  .picture { align-self: center; width: 240px; height: 240px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); background: white; }
-  .result { display: flex; flex-direction: column; gap: var(--space-2); }
-  .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
-  .error { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); user-select: text; }
   footer { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); background: var(--bg); }
   .status { flex: 1; }
   progress { width: 160px; accent-color: var(--accent); }
   button:not(.segmented button, .icon) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   .primary { padding: 8px var(--space-4) !important; border: 0 !important; background: var(--accent) !important; color: var(--accent-text); font-weight: 500; }
   .primary:disabled { opacity: 0.45; }
-  .primary kbd { font-family: var(--mono); font-size: var(--text-caption); opacity: 0.8; margin-left: var(--space-1); }
+  .run kbd { font-family: var(--mono); font-size: var(--text-caption); opacity: 0.8; margin-left: var(--space-1); }
 </style>

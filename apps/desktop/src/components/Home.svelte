@@ -4,7 +4,7 @@
   import { shortcut } from "../lib/platform";
   import ToolList from "./ToolList.svelte";
 
-  let { hovering, dropped, advice = [], specific, general, tilesLabel, tiles, onOpen, onChoose, onClear }: {
+  let { hovering, dropped, advice = [], specific, general, tilesLabel, tiles, workflows = [], onOpen, onOpenWorkflow, onChoose, onClear }: {
     hovering: boolean;
     dropped: string[];
     advice?: { tool: Tool; reason: string }[];
@@ -12,7 +12,9 @@
     general: Tool[];
     tilesLabel: string;
     tiles: Tool[];
+    workflows?: { id: string; name: string; steps: string }[];
     onOpen: (tool: Tool) => void;
+    onOpenWorkflow?: (id: string) => void;
     onChoose: () => void;
     onClear: () => void;
   } = $props();
@@ -54,6 +56,14 @@
       <ToolList tools={general} {onOpen} />
     {:else if hidden > 0}
       <button class="link more" onclick={() => (everything = true)}>Show {hidden} more</button>
+    {/if}
+    {#if workflows.length > 0}
+      <h3 class="muted">Workflows</h3>
+      <ul class="flows" aria-label="Workflows for this file">
+        {#each workflows as flow (flow.id)}
+          <li><button onclick={() => onOpenWorkflow?.(flow.id)}><span>{flow.name}</span><span class="muted">{flow.steps}</span></button></li>
+        {/each}
+      </ul>
     {/if}
     {#if specific.length === 0 && general.length === 0}
       <p class="muted">No tool accepts {dropped.length === 1 ? "this file" : "all of these files"} yet.</p>
@@ -99,6 +109,10 @@
   h2 { margin: 0 0 var(--space-2); font-size: var(--text-title); }
   section h3:not(:first-child) { margin-top: var(--space-4); }
   h3 { margin: 0 0 var(--space-2); font-size: var(--text-caption); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .flows { margin: 0; padding: 0; list-style: none; }
+  .flows button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: default; }
+  .flows button:hover { background: var(--hover); }
+  .flows .muted { font-size: var(--text-caption); }
   .more { margin-top: var(--space-2); padding: var(--space-1) var(--space-3); }
   .link { border: 0; background: none; color: var(--accent); cursor: default; }
 </style>

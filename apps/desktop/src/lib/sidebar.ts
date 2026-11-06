@@ -7,10 +7,8 @@ const GROUPS: { id: string; label: string; categories: Category[] }[] = [
   { id: "audio", label: "Audio", categories: ["audio"] },
   { id: "files", label: "Files", categories: ["files"] },
   { id: "text", label: "Text & QR", categories: ["text", "qr"] },
-  { id: "developer", label: "Developer", categories: ["developer"] },
   { id: "privacy", label: "Privacy", categories: ["privacy"] },
-  { id: "network", label: "Network", categories: ["network"] },
-  { id: "system", label: "System", categories: ["system", "screen"] },
+  { id: "developer", label: "Developer & System", categories: ["developer", "network", "system", "screen"] },
   { id: "ocr", label: "OCR", categories: ["ocr"] },
 ];
 

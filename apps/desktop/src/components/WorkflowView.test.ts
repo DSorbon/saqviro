@@ -17,6 +17,7 @@ vi.mock("../lib/api", () => ({
   runWorkflow: api.runWorkflow,
   cancelJob: api.cancelJob,
   pickFiles: api.pickFiles,
+  saveImage: vi.fn(),
   pickFolder: vi.fn(),
   openFile: vi.fn(),
   revealFile: vi.fn(),
@@ -132,6 +133,27 @@ describe("WorkflowView", () => {
     });
     expect(screen.getByText("Step 1: Fill in Pages")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("shows a picture a workflow ends with, and can save it", async () => {
+    api.runWorkflow.mockResolvedValue(7);
+    show(workflow([{ tool: "text.case" }]));
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "x" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeTruthy());
+    api.listeners.forEach((l) =>
+      l({ id: 7, tool_id: "workflow", status: "completed", progress: 1, error: null, started_at: 0, finished_at: 1, output: { kind: "image", value: { ext: "png", data: "AA" } } }),
+    );
+    expect(await screen.findByRole("img", { name: "Result" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save…" })).toBeTruthy();
+  });
+
+  it("cannot be deleted while it runs", async () => {
+    api.runWorkflow.mockResolvedValue(7);
+    show(workflow([{ tool: "text.case" }]));
+    await fireEvent.input(screen.getByLabelText("Input"), { target: { value: "x" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Delete" }).hasAttribute("disabled")).toBe(true));
   });
 
   it("keeps the keyboard on a step after moving it", async () => {

@@ -4,9 +4,9 @@ const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
 
 /** Words that say nothing about the tool. */
 const FILLER = new Set([
-  "a", "an", "and", "as", "at", "by", "can", "do", "file", "files", "for", "from", "get", "how", "i", "in", "into",
-  "is", "it", "make", "me", "my", "need", "of", "on", "one", "or", "out", "please", "some", "that", "the", "these",
-  "this", "those", "to", "two", "want", "with", "without",
+  "a", "an", "and", "as", "at", "by", "can", "do", "file", "files", "first", "for", "from", "get", "how", "i", "in",
+  "into", "is", "it", "last", "make", "me", "minutes", "my", "need", "of", "on", "one", "or", "out", "please",
+  "seconds", "some", "that", "the", "these", "this", "those", "to", "turn", "two", "want", "with", "without",
 ]);
 
 /** How people say what a tool's name, keywords or category say differently. */
@@ -14,7 +14,7 @@ const SAME_AS: Record<string, string[]> = {
   bigger: ["resize", "upscale"],
   change: ["convert", "edit"],
   combine: ["merge", "join"],
-  cut: ["trim", "crop"],
+  cut: ["trim"],
   delete: ["remove"],
   erase: ["remove"],
   exif: ["metadata"],
@@ -46,11 +46,21 @@ const SAME_AS: Record<string, string[]> = {
   split: ["extract"],
   stick: ["merge"],
   strip: ["remove"],
-  turn: ["rotate", "convert"],
   unlock: ["password"],
   voice: ["audio"],
   zip: ["archive"],
 };
+
+const CONVERTS_BONUS = 300;
+/** A word found only in the description says little about the tool. */
+const WEAK = 10;
+
+/** The words of a query that say something, numbers aside. */
+function meaningfulWords(query: string): string[] {
+  const all = words(query);
+  const meaningful = all.filter((w) => !FILLER.has(w) && !/^\d+$/.test(w));
+  return meaningful.length > 0 ? meaningful : all;
+}
 
 function tokenScore(tool: Tool, token: string): number {
   if (words(tool.name).some((w) => w.startsWith(token))) return 100;
@@ -59,6 +69,24 @@ function tokenScore(tool: Tool, token: string): number {
   if (tool.category.startsWith(token)) return 30;
   if (tool.description.toLowerCase().includes(token)) return 10;
   return 0;
+}
+
+/** "png to jpg", "video into mp3": what a file is, and what it should become. */
+function conversion(query: string): { from: string; to: string } | null {
+  const match = /([a-z0-9]+)\s+(?:to|into|as)\s+(?:an?\s+)?([a-z0-9]+)\s*$/i.exec(query);
+  return match ? { from: match[1]!.toLowerCase(), to: match[2]!.toLowerCase() } : null;
+}
+
+/** True if the tool takes `from` and makes `to`. Format choices count. */
+function converts(tool: Tool, { from, to }: { from: string; to: string }): boolean {
+  const same = (word: string) => [word, ...(SAME_AS[word] ?? [])];
+  const takes = same(from).some(
+    (w) => tool.category === w || tool.inputs.some((i) => i.extensions?.includes(w)),
+  );
+  const makes = same(to).some(
+    (w) => words(tool.name).includes(w) || tool.parameters?.some((p) => p.values?.includes(w)),
+  );
+  return takes && makes;
 }
 
 /** The word itself counts most; a word that means the same counts a little less. */
@@ -74,14 +102,14 @@ function wordScore(tool: Tool, token: string): number {
  * usage, then name.
  */
 export function searchTools(tools: Tool[], query: string, usage: Record<string, number> = {}): Tool[] {
-  const all = words(query);
-  const meaningful = all.filter((w) => !FILLER.has(w));
-  const tokens = meaningful.length > 0 ? meaningful : all;
+  const tokens = meaningfulWords(query);
   if (tokens.length === 0) return [];
 
+  const wanted = conversion(query);
   const scored = tools.map((tool) => {
     const scores = tokens.map((t) => wordScore(tool, t));
-    return { tool, matched: scores.filter((s) => s > 0).length, score: scores.reduce((a, b) => a + b, 0) };
+    const score = scores.reduce((a, b) => a + b, 0) + (wanted && converts(tool, wanted) ? CONVERTS_BONUS : 0);
+    return { tool, matched: scores.filter((s) => s > 0).length, score };
   });
   const best = Math.max(...scored.map((r) => r.matched));
   return scored
@@ -93,4 +121,10 @@ export function searchTools(tools: Tool[], query: string, usage: Record<string, 
         a.tool.name.localeCompare(b.tool.name),
     )
     .map((r) => r.tool);
+}
+
+/** True if the best tool really answers the query, not only some of its words. */
+export function isExactMatch(best: Tool | undefined, query: string): boolean {
+  if (!best) return false;
+  return meaningfulWords(query).every((t) => wordScore(best, t) > WEAK);
 }

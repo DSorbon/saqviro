@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { searchTools } from "./search";
+import { isExactMatch, searchTools } from "./search";
 import type { Tool } from "./types";
 
 const tools = [
@@ -63,6 +63,16 @@ describe("searchTools", () => {
   });
 });
 
+describe("isExactMatch", () => {
+  it("is true when the best tool answers every word", () => {
+    expect(isExactMatch(tools[1], "compress pdf")).toBe(true);
+  });
+  it("is false for a word the tool knows nothing of", () => {
+    expect(isExactMatch(tools[1], "sign pdf")).toBe(false);
+    expect(isExactMatch(undefined, "x")).toBe(false);
+  });
+});
+
 // The real catalog, read straight from the manifests.
 const manifests = import.meta.glob("../../../../tools/**/tool.yaml", { query: "?raw", import: "default", eager: true });
 const catalog = Object.values(manifests).map((source) => {
@@ -74,6 +84,27 @@ const catalog = Object.values(manifests).map((source) => {
     description: field("description"),
     keywords: list(field("keywords")),
     inputs: [{ type: "any", extensions: list(/extensions: (\[.*\])/.exec(text)?.[1] ?? "") }],
+    parameters: [...text.matchAll(/values: (\[.*?\])/g)].map((m, i) => ({ id: `p${i}`, type: "enum" as const, values: list(m[1]!).map((v) => v.replace(/"/g, "")) })),
+  });
+});
+
+describe("conversions", () => {
+  const best = (q: string) => searchTools(catalog, q)[0]?.id;
+
+  it("puts the tool that takes the one and makes the other first", () => {
+    expect(best("png to jpg")).toBe("image.convert");
+    expect(best("turn video into mp3")).toBe("video.extract-audio");
+    expect(best("webp to jpg")).toBe("image.webp-to-jpg");
+  });
+
+  it("finds cutting a clip before cropping a picture", () => {
+    expect(best("cut the first 10 seconds")).toMatch(/\.trim$/);
+  });
+
+  it("admits what no tool does", () => {
+    for (const goal of ["excel to pdf", "sign pdf", "remove background"]) {
+      expect(isExactMatch(searchTools(catalog, goal)[0], goal), goal).toBe(false);
+    }
   });
 });
 
@@ -88,6 +119,7 @@ describe("goals in plain words", () => {
     ["make a video smaller", ["video.compress"]],
     ["cut a video", ["video.trim"]],
     ["lock a pdf", ["pdf.password.add"]],
+    ["make a qr code for wifi", ["qr.wifi"]],
   ])("%s", (goal, wanted) => {
     const top = searchTools(catalog, goal).slice(0, 5).map((t) => t.id);
     for (const id of wanted) expect(top).toContain(id);

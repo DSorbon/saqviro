@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
 import { canRun, errorText, formatBytes, inputKind, isActive, moved, sizeChange, statusLine, type JobSnapshot } from "./job";
-import { resultSummary, shortName } from "./job";
+import { resultSummary, shortName, successText } from "./job";
 
 const snap = (over: Partial<JobSnapshot>): JobSnapshot => ({
   id: 1,
@@ -112,5 +112,17 @@ describe("resultSummary", () => {
   });
   it("leaves out what is not one thing", () => {
     expect(resultSummary([file("/a/1.jpg", 1024, null), file("/b/2.jpg", 1024, 1)])).toBe("2 files, 2 KB");
+  });
+});
+
+describe("successText", () => {
+  const files = (value: { path: string; size: number; source_size: number | null }[]) => ({ kind: "files" as const, value });
+  it("leads with what was saved", () => {
+    expect(successText(files([{ path: "/a", size: 1024, source_size: 4096 }]))).toBe("Saved 3 KB (75%)");
+  });
+  it("says done otherwise", () => {
+    expect(successText(files([{ path: "/a", size: 5, source_size: 1 }]))).toBe("Done");
+    expect(successText(files([{ path: "/a", size: 5, source_size: null }, { path: "/b", size: 5, source_size: null }]))).toBe("2 files ready");
+    expect(successText({ kind: "text", value: "x" })).toBe("Done");
   });
 });

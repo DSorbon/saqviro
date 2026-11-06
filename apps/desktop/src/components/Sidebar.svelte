@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { SidebarGroup } from "../lib/sidebar";
 
-  let { groups, active, onSelect, hasFavorites = false, hasRecent = false }: {
+  let { groups, active, onSelect, hasFavorites = false, hasRecent = false, hasActivity = false }: {
     groups: SidebarGroup[];
     active: string;
     onSelect: (id: string) => void;
     hasFavorites?: boolean;
     hasRecent?: boolean;
+    hasActivity?: boolean;
   } = $props();
 </script>
 
@@ -21,6 +22,7 @@
   {#if hasFavorites}{@render item("favorites", "Favorites")}{/if}
   {#if hasRecent}{@render item("recent", "Recent")}{/if}
   {@render item("workflows", "Workflows")}
+  {#if hasActivity}{@render item("activity", "Activity")}{/if}
   <div class="gap"></div>
   {#each groups as group (group.id)}
     {@render item(group.id, group.label)}

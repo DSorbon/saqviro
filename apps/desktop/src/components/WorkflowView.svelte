@@ -1,16 +1,18 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { cancelJob, onJobEvent, pickFiles, pickFolder, runWorkflow } from "../lib/api";
-  import { errorText, fileName, isActive, moved, queued, shortName, statusLine, takesFolders, type JobError, type JobSnapshot } from "../lib/job";
+  import { isActive, moved, queued, statusLine, takesFolders, type JobError, type JobSnapshot } from "../lib/job";
   import { initialParams, matchingPreset, paramsIssue } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { Tool } from "../lib/types";
   import { brokenStep, exported, nextTools, stepOf, workflowInput, type Workflow } from "../lib/workflow";
+  import { needsArea } from "../lib/crop";
+  import FileList from "./FileList.svelte";
+  import Outcome from "./Outcome.svelte";
   import ParamFields from "./ParamFields.svelte";
-  import Results from "./Results.svelte";
   import StepPicker from "./StepPicker.svelte";
 
-  let { tools, workflow, files: dropped, active = true, outputDir = null, onChange, onDelete, onCopy, onBack, onJob }: {
+  let { tools, workflow, files: dropped, active = true, outputDir = null, onChange, onDelete, onCopy, onBack, onJob, onSend }: {
     tools: Tool[];
     workflow: Workflow;
     files: string[];
@@ -22,6 +24,7 @@
     onCopy: () => void;
     onBack: () => void;
     onJob?: (job: JobSnapshot) => void;
+    onSend?: (paths: string[]) => void;
   } = $props();
 
   let text = $state("");
@@ -69,13 +72,18 @@
   function stepIssue(): string | null {
     for (const [i, step] of workflow.steps.entries()) {
       const tool = tools.find((t) => t.id === step.tool);
-      const problem = tool ? paramsIssue(tool, step.params ?? {}) : null;
+      const params = step.params ?? {};
+      const noArea = tool?.ui?.preview === "crop" && needsArea(params) ? "Set a width and height, or a shape" : null;
+      const problem = tool ? (noArea ?? paramsIssue(tool, params)) : null;
       if (problem) return `Step ${i + 1}: ${problem}`;
     }
     return null;
   }
 
   const toolOf = (id: string) => tools.find((t) => t.id === id);
+  const firstTool = $derived(toolOf(workflow.steps[0]?.tool ?? ""));
+  // One file from many: their order is the order of the result.
+  const ordered = $derived(firstTool?.capabilities?.batch === false && files.length > 1);
   const steps = (next: Workflow["steps"]) => onChange({ ...workflow, steps: next });
 
   /** Moves a step, and keeps the keyboard on it: moving takes the focus away. */
@@ -151,10 +159,21 @@
     <div class="actions">
       <button onclick={share}>{shared ? "Copied" : "Copy as text"}</button>
       <button onclick={onCopy}>Duplicate</button>
-      <button onclick={onDelete}>Delete</button>
+      <button onclick={onDelete} disabled={running}>Delete</button>
     </div>
   </header>
 
+  {#if kind === "text"}
+    <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
+  {:else if kind === "files"}
+    <FileList bind:files {ordered} folders={takesFolders(firstTool)} disabled={running} onChoose={choose} onChooseFolder={chooseFolder} />
+  {/if}
+
+  {#if workflow.steps.length === 0}
+    <p class="muted hint">Add the first step below. Each step works on what the one before it made, and only the last result is saved.</p>
+  {/if}
+
+  <fieldset class="plain" disabled={running}>
   <ol aria-label="Steps">
     {#each workflow.steps as step, i (i + step.tool)}
       {@const tool = toolOf(step.tool)}
@@ -185,8 +204,11 @@
       </li>
     {/each}
   </ol>
+  </fieldset>
 
-  <StepPicker tools={offered} onPick={(tool) => steps([...workflow.steps, stepOf(tool)])} />
+  {#if !running}
+    <StepPicker tools={offered} onPick={(tool) => steps([...workflow.steps, stepOf(tool)])} />
+  {/if}
 
   {#if kind === "files" && workflow.steps.length > 0}
     <label class="check">
@@ -195,48 +217,17 @@
     </label>
   {/if}
 
-  {#if kind === "text"}
-    <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
-  {:else if kind === "files"}
-    <section class="input-files">
-      {#if files.length > 0}
-        <ul class="files">
-          {#each files as f (f)}
-            <li>
-              <span title={f}>{shortName(fileName(f))}</span>
-              <button class="icon" aria-label="Remove {fileName(f)}" disabled={running} onclick={() => (files = files.filter((p) => p !== f))}>×</button>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="muted drop">Drop files on this window</p>
-      {/if}
-      <div class="actions">
-        {#if takesFolders(toolOf(workflow.steps[0]?.tool ?? ""))}<button onclick={chooseFolder} disabled={running}>Choose folder…</button>{/if}
-        <button onclick={choose} disabled={running}>Choose files…</button>
-      </div>
-    </section>
-  {/if}
-
   <div class="outcome" bind:this={resultBox}>
-    {#if output?.kind === "text"}
-      <textarea class="code" aria-label="Result" readonly value={output.value}></textarea>
-    {/if}
-    {#if output?.kind === "files"}
-      <Results files={output.value} />
-    {/if}
-    {#if failure}
-      <p class="error" role="alert">{errorText(failure)}</p>
-    {/if}
+    <Outcome {output} {failure} {jobId} {onSend} />
   </div>
 
   <footer>
-    <span class="status muted" aria-live="polite">{job && job.status !== "failed" ? statusLine(job) : (issue ?? "")}</span>
+    <span class="status muted" aria-live="polite">{job && job.status !== "failed" ? statusLine(job) : (issue ?? (hasInput ? "" : kind === "text" ? "Paste some text to start" : "Add a file to start"))}</span>
     {#if running}
       <progress max="1" value={job?.progress || undefined}></progress>
       <button onclick={() => jobId !== null && cancelJob(jobId)}>Cancel</button>
     {:else}
-      <button class="primary" disabled={!ready} onclick={run}>Run <kbd>{shortcut("↵")}</kbd></button>
+      <button class:primary={!output} class="run" disabled={!ready} onclick={run}>{output ? "Run again" : "Run"} <kbd>{shortcut("↵")}</kbd></button>
     {/if}
   </footer>
 </article>
@@ -261,18 +252,15 @@
   .outcome:empty { display: none; }
   select { padding: 6px var(--space-2); border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font-size: var(--text-body); }
   .code { width: 100%; min-height: 120px; padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: var(--text-caption) / 1.5 var(--mono); resize: vertical; user-select: text; }
-  .input-files { display: flex; flex-direction: column; gap: var(--space-2); }
-  .files { margin: 0; padding: var(--space-2) var(--space-3); list-style: none; border: 1px solid var(--border); border-radius: var(--radius); max-height: 160px; overflow-y: auto; }
-  .files li { display: flex; align-items: center; gap: var(--space-1); }
-  .files li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .drop { margin: 0; padding: var(--space-6); text-align: center; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); }
+  .plain { display: contents; }
+  .hint { margin: 0; }
   .actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
-  .error { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); user-select: text; }
+  li .error { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius); color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); user-select: text; }
   footer { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); background: var(--bg); }
   .status { flex: 1; }
   progress { width: 160px; accent-color: var(--accent); }
   button:not(.icon) { padding: 6px var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: default; }
   button:disabled { opacity: 0.5; }
   .primary { padding: 8px var(--space-4) !important; border: 0 !important; background: var(--accent) !important; color: var(--accent-text); font-weight: 600; }
-  .primary kbd { font-family: var(--mono); font-size: var(--text-caption); opacity: 0.8; margin-left: var(--space-1); }
+  .run kbd { font-family: var(--mono); font-size: var(--text-caption); opacity: 0.8; margin-left: var(--space-1); }
 </style>

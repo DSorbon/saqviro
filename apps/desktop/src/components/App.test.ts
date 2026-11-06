@@ -410,3 +410,100 @@ describe("ready-made workflows", () => {
     expect(await screen.findByRole("list", { name: "Your workflows" })).toBeTruthy();
   });
 });
+
+describe("dropping on what is open", () => {
+  const emit = (over: Partial<JobSnapshot>) =>
+    api.jobListeners.forEach((l) =>
+      l({ id: 7, tool_id: "pdf.compress", status: "running", progress: 0, output: null, error: null, started_at: 0, finished_at: null, ...over }),
+    );
+
+  async function openCompress() {
+    render(App);
+    await screen.findByText("Popular");
+    await api.drop!(["/docs/a.pdf"]);
+    await fireEvent.click(await screen.findByRole("button", { name: /Compress PDF/ }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /Run/ }).hasAttribute("disabled")).toBe(false));
+  }
+
+  it("does not change the files of a job that is running", async () => {
+    await openCompress();
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await screen.findByRole("button", { name: "Cancel" });
+    await api.drop!(["/docs/b.pdf"]);
+    await screen.findByRole("button", { name: "b.pdf waiting for a tool" });
+    expect(screen.getByText("a.pdf")).toBeTruthy();
+    expect(screen.queryByText("b.pdf")).toBeNull();
+  });
+
+  it("keeps a tool open when the file does not fit it", async () => {
+    await openCompress();
+    api.toolsForFiles.mockResolvedValue(["files.zip.create"]);
+    await api.drop!(["/music/song.mp3"]);
+    await screen.findByRole("button", { name: "song.mp3 waiting for a tool" });
+    expect(screen.getByRole("heading", { name: "Compress PDF" })).toBeTruthy();
+    expect(screen.getByText("a.pdf")).toBeTruthy();
+  });
+
+  it("shows the tool again when a drop comes during a search", async () => {
+    await openCompress();
+    const search = screen.getByRole("searchbox", { name: "Search tools" }) as HTMLInputElement;
+    await fireEvent.input(search, { target: { value: "merge" } });
+    await api.drop!(["/docs/c.pdf"]);
+    await vi.waitFor(() => expect(search.value).toBe(""));
+    expect(await screen.findByText("c.pdf")).toBeTruthy();
+  });
+
+  it("keeps the files when an open tool is found again", async () => {
+    await openCompress();
+    await fireEvent.input(screen.getByRole("searchbox", { name: "Search tools" }), { target: { value: "compress" } });
+    await fireEvent.click((await screen.findAllByRole("button", { name: /Compress PDF/ }))[0]!);
+    expect(screen.getByText("a.pdf")).toBeTruthy();
+  });
+
+  it("forgets the reminder once the result has been seen after a search", async () => {
+    await openCompress();
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await screen.findByRole("button", { name: "Cancel" });
+    const search = screen.getByRole("searchbox", { name: "Search tools" });
+    await fireEvent.input(search, { target: { value: "merge" } });
+    emit({ status: "completed", finished_at: 1000, output: { kind: "text", value: "ok" } });
+    await screen.findByRole("button", { name: "Compress PDF: done" });
+    await fireEvent.input(search, { target: { value: "" } });
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Compress PDF: done" })).toBeNull());
+    await fireEvent.click(nav().getByRole("button", { name: "Home" }));
+    expect(screen.queryByRole("button", { name: "Compress PDF: done" })).toBeNull();
+  });
+
+  it("keeps finished work in Activity", async () => {
+    await openCompress();
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await screen.findByRole("button", { name: "Cancel" });
+    emit({
+      status: "completed",
+      finished_at: 1000,
+      output: { kind: "files", value: [{ path: "/docs/a-small.pdf", size: 1, source_size: 2 }] },
+    });
+    await fireEvent.click(await nav().findByRole("button", { name: "Activity" }));
+    expect(await screen.findByText("a-small.pdf")).toBeTruthy();
+  });
+});
+
+describe("leaving a workflow", () => {
+  it("goes to the workflows, wherever it was opened from", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await fireEvent.click(nav().getByRole("button", { name: "Workflows" }));
+    await fireEvent.click(screen.getByRole("button", { name: "New workflow" }));
+    await fireEvent.click(await screen.findByRole("button", { name: /‹ Workflows/ }));
+    expect(await screen.findByRole("heading", { name: "Workflows" })).toBeTruthy();
+  });
+});
+
+describe("workflows in search", () => {
+  it("finds them by name", async () => {
+    render(App);
+    await screen.findByText("Popular");
+    await fireEvent.input(screen.getByRole("searchbox", { name: "Search tools" }), { target: { value: "workflow" } });
+    expect(await screen.findByRole("list", { name: "Workflows found" })).toBeTruthy();
+  });
+});

@@ -169,6 +169,16 @@ export function shortName(name: string, max = 56): string {
   return `${name.slice(0, max - 1 - tail)}…${name.slice(-tail)}`;
 }
 
+/** The headline of a finished job. */
+export function successText(output: JobOutput): string {
+  if (output.kind !== "files") return "Done";
+  const files = output.value;
+  const after = files.reduce((sum, f) => sum + f.size, 0);
+  const before = files.every((f) => f.source_size !== null) ? files.reduce((sum, f) => sum + (f.source_size ?? 0), 0) : 0;
+  if (before > after) return `Saved ${formatBytes(before - after)} (${Math.round(((before - after) / before) * 100)}%)`;
+  return files.length === 1 ? "Done" : `${files.length} files ready`;
+}
+
 /** "42 files in Holiday, 12 MB → 3 MB". */
 export function resultSummary(files: OutputFile[]): string {
   const folders = new Set(files.map((f) => f.path.slice(0, -fileName(f.path).length)));

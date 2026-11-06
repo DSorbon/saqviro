@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
 import { blankWorkflow, brokenStep, canFollow, copyOf, exported, imported, isWorkflow, nextTools, saved, starters, stepOf, withDefaults, workflowInput } from "./workflow";
+import { matchingWorkflows, workflowsFor, type Workflow } from "./workflow";
 
 const image = (id: string) => tool(id, id, { inputs: [{ type: "image" }], outputs: [{ type: "image" }] });
 const resize = image("image.resize");
@@ -88,5 +89,28 @@ describe("workflows", () => {
   it("ships valid starters", () => {
     expect(starters.length).toBeGreaterThan(2);
     expect(starters.every(isWorkflow)).toBe(true);
+  });
+});
+
+describe("finding workflows", () => {
+  const flow = (id: string, name: string, tool: string): Workflow => ({ schema_version: 1, id, name, steps: [{ tool }] });
+  const list = [flow("a", "Email PDF", "pdf.compress"), flow("b", "Web images", "image.resize")];
+  const known = [tool("pdf.compress", "Compress PDF"), tool("image.resize", "Resize Images")];
+
+  it("finds by name and by step", () => {
+    expect(matchingWorkflows(list, known, "email").map((w) => w.id)).toEqual(["a"]);
+    expect(matchingWorkflows(list, known, "resize").map((w) => w.id)).toEqual(["b"]);
+  });
+
+  it("shows them all for the word workflow", () => {
+    expect(matchingWorkflows(list, known, "workflows")).toHaveLength(2);
+  });
+
+  it("finds nothing for an empty query", () => {
+    expect(matchingWorkflows(list, known, "  ")).toEqual([]);
+  });
+
+  it("knows which can start with these files", () => {
+    expect(workflowsFor(list, ["image.resize"]).map((w) => w.id)).toEqual(["b"]);
   });
 });

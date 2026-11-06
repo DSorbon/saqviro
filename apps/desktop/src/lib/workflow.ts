@@ -87,6 +87,26 @@ export function workflowInput(tools: Tool[], workflow: Workflow): "text" | "file
   return first ? inputKind(first) : "none";
 }
 
+/** The workflows that can start with these files. */
+export function workflowsFor(list: Workflow[], accepting: string[]): Workflow[] {
+  return list.filter((w) => w.steps[0] && accepting.includes(w.steps[0].tool));
+}
+
+/** The workflows a search finds: every word in the name or the steps. */
+export function matchingWorkflows(list: Workflow[], tools: Tool[], query: string): Workflow[] {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w && w !== "workflow" && w !== "workflows");
+  const wantsAll = /workflow/i.test(query);
+  if (words.length === 0) return wantsAll ? list : [];
+  return list.filter((w) => {
+    const text = [w.name, ...w.steps.map((s) => tools.find((t) => t.id === s.tool)?.name ?? "")].join(" ").toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+}
+
+/** Step names in order, for a list. */
+export const stepSummary = (workflow: Workflow, tools: Tool[]) =>
+  workflow.steps.map((s) => tools.find((t) => t.id === s.tool)?.name ?? s.tool).join(" → ") || "No steps yet";
+
 /** A workflow to share as text. */
 export function exported(workflow: Workflow): string {
   return JSON.stringify(workflow, null, 2);

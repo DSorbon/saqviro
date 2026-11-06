@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import Activity from "./components/Activity.svelte";
   import Home from "./components/Home.svelte";
   import Settings from "./components/Settings.svelte";
   import Sidebar from "./components/Sidebar.svelte";
@@ -24,10 +25,21 @@
     usageScores,
     type Prefs,
   } from "./lib/prefs";
-  import { searchTools } from "./lib/search";
+  import { isExactMatch, searchTools } from "./lib/search";
   import { relevantGroups, sidebarGroups } from "./lib/sidebar";
   import type { Tool } from "./lib/types";
-  import { blankWorkflow, copyOf, imported, saved, withDefaults, type Workflow } from "./lib/workflow";
+  import {
+    blankWorkflow,
+    copyOf,
+    imported,
+    matchingWorkflows,
+    saved,
+    starters,
+    stepSummary,
+    withDefaults,
+    workflowsFor,
+    type Workflow,
+  } from "./lib/workflow";
 
   interface Activity {
     id: string;
@@ -48,6 +60,8 @@
   let given = $state<Record<string, string[]>>({});
   // Tools and workflows with a job the user has not seen the end of. They stay alive out of sight.
   let activities = $state<Activity[]>([]);
+  // Finished jobs of this session, newest first.
+  let finished = $state<{ name: string; job: JobSnapshot }[]>([]);
   // A workflow that can still be brought back.
   let deleted = $state<Workflow | null>(null);
   let suggestionIds = $state<string[]>([]);
@@ -61,6 +75,7 @@
   const scores = $derived(usageScores(prefs, Date.now()));
   const allGroups = $derived(sidebarGroups(tools));
   const results = $derived(searchTools(tools, query, scores));
+  const exact = $derived(isExactMatch(results[0], query));
   const suggestions = $derived(
     splitSuggestions(tools.filter((t) => suggestionIds.includes(t.id) && suitsFiles(t, dropped)), scores),
   );
@@ -71,7 +86,12 @@
     }),
   );
   // While files wait for a tool, only the domains that can take them show.
-  const groups = $derived(dropped.length > 0 ? relevantGroups(allGroups, suggestions.specific) : allGroups);
+  const onHome = $derived(section === "home" && !openTool && !openWorkflow);
+  const groups = $derived(dropped.length > 0 && onHome ? relevantGroups(allGroups, suggestions.specific) : allGroups);
+  const allFlows = $derived([...prefs.workflows, ...starters]);
+  const flowRow = (w: Workflow) => ({ id: w.id, name: w.name, steps: stepSummary(w, tools) });
+  const fitting = $derived(workflowsFor(allFlows, suggestionIds).map(flowRow));
+  const foundFlows = $derived(matchingWorkflows(allFlows, tools, query));
   const favorites = $derived(favoriteTools(tools, prefs));
   const recent = $derived(recentTools(tools, prefs));
   const home = $derived(homeTools(tools, prefs));
@@ -90,13 +110,25 @@
   /** Keeps a job in view for as long as it runs and until its end is seen. */
   function track(entry: Omit<Activity, "job">, job: JobSnapshot) {
     const inView = shownTool?.id === entry.id || shownWorkflow?.id === entry.id;
-    const others = activities.filter((a) => a.id !== entry.id);
-    activities = !isActive(job) && inView ? others : [...others, { ...entry, job }];
+    const next = { ...entry, job };
+    const known = activities.some((a) => a.id === entry.id);
+    if (!isActive(job) && inView) activities = activities.filter((a) => a.id !== entry.id);
+    else activities = known ? activities.map((a) => (a.id === entry.id ? next : a)) : [...activities, next];
+    const keep = job.status === "completed" || job.status === "failed";
+    if (keep && !finished.some((f) => f.job.id === job.id)) finished = [{ name: entry.name, job }, ...finished].slice(0, 50);
   }
 
-  const seen = (id: string) => {
-    activities = activities.filter((a) => a.id !== id || isActive(a.job));
-  };
+  const busy = (id: string) => activities.some((a) => a.id === id && isActive(a.job));
+
+  function seen(id: string) {
+    if (activities.some((a) => a.id === id && !isActive(a.job))) activities = activities.filter((a) => a.id !== id || isActive(a.job));
+  }
+
+  // However a finished job comes into view, its reminder has done its work.
+  $effect(() => {
+    const id = shownTool?.id ?? shownWorkflow?.id;
+    if (id) untrack(() => seen(id));
+  });
 
   function update(next: Prefs) {
     prefs = next;
@@ -112,24 +144,29 @@
 
   async function receive(paths: string[]) {
     if (paths.length === 0) return;
-    if (openWorkflow) {
-      given[openWorkflow.id] = paths;
-      return;
-    }
+    query = "";
     const accepting = await toolsForFiles(paths);
-    // Files dropped on an open tool that accepts them go to that tool.
-    if (openTool && accepting.includes(openTool.id)) {
-      given[openTool.id] = paths;
+    const open = openWorkflow ?? openTool;
+    if (!open) {
+      offer(paths, accepting);
       return;
     }
-    offer(paths, accepting);
+    const first = openWorkflow ? openWorkflow.steps[0]?.tool : openTool?.id;
+    // Files go to what is open if it can take them. Otherwise it stays as it
+    // is, and the files wait, so that nothing the user set up is lost.
+    if ((!first || accepting.includes(first)) && !busy(open.id)) given[open.id] = paths;
+    else hold(paths, accepting);
   }
 
   function offer(paths: string[], accepting: string[]) {
+    hold(paths, accepting);
+    select("home");
+  }
+
+  function hold(paths: string[], accepting: string[]) {
     dropped = paths;
     suggestionIds = accepting;
     advice = [];
-    select("home");
     const asked = ++adviceAsked;
     adviseFiles(paths).then(
       (found) => { if (asked === adviceAsked) advice = found; },
@@ -143,6 +180,7 @@
   }
 
   function select(id: string) {
+    if (id !== "workflows") deleted = null;
     section = id;
     openTool = null;
     openWorkflow = null;
@@ -150,6 +188,10 @@
   }
 
   function open(tool: Tool) {
+    if (openTool?.id === tool.id) {
+      query = "";
+      return;
+    }
     const alive = activities.some((a) => a.id === tool.id);
     openTool = tool;
     openWorkflow = null;
@@ -188,7 +230,7 @@
   function dropWorkflow(id: string) {
     deleted = prefs.workflows.find((w) => w.id === id) ?? null;
     update({ ...prefs, workflows: prefs.workflows.filter((w) => w.id !== id) });
-    openWorkflow = null;
+    select("workflows");
   }
 
   function undoDelete() {
@@ -202,6 +244,18 @@
     if (!alive) given[workflow.id] = [];
     seen(workflow.id);
     deleted = null;
+  }
+
+  /** Opens a workflow from a search or a list of files, with those files. */
+  function openFlow(id: string) {
+    const workflow = allFlows.find((w) => w.id === id);
+    if (!workflow) return;
+    const files = [...dropped];
+    openTool = null;
+    query = "";
+    if (starters.some((s) => s.id === id)) tryStarter(workflow);
+    else showWorkflow(workflow);
+    if (openWorkflow) given[openWorkflow.id] = files;
   }
 
   /** A ready-made workflow becomes the user's own when they change it. */
@@ -250,9 +304,9 @@
       placeholder="Search tools or press {shortcut("K")}"
       aria-label="Search tools"
     />
-    {#if dropped.length > 0 && (section !== "home" || openTool || openWorkflow)}
+    {#if dropped.length > 0 && !onHome}
       <span class="waiting">
-        <span>{dropped.length === 1 ? fileName(dropped[0]!) : `${dropped.length} files`} waiting for a tool</span>
+        <button class="see" onclick={() => select("home")}>{dropped.length === 1 ? fileName(dropped[0]!) : `${dropped.length} files`} waiting for a tool</button>
         <button aria-label="Forget the dropped files" onclick={forgetDropped}>×</button>
       </span>
     {/if}
@@ -271,6 +325,7 @@
     onSelect={select}
     hasFavorites={favorites.length > 0}
     hasRecent={recent.length > 0}
+    hasActivity={finished.length > 0}
   />
 
   <main>
@@ -300,18 +355,28 @@
           onChange={keepWorkflow}
           onDelete={() => dropWorkflow(workflow.id)}
           onCopy={() => keepWorkflow(copyOf(workflow, crypto.randomUUID()))}
-          onBack={() => (openWorkflow = null)}
+          onBack={() => select("workflows")}
           onJob={(job) => track({ id: workflow.id, name: workflow.name, workflow }, job)}
+          onSend={send}
         />
       </div>
     {/each}
     {#if error}
       <p role="alert">Could not load tools: {error}</p>
     {:else if query.trim()}
+      {#if !exact && (results.length > 0 || foundFlows.length === 0)}
+        <p class="muted">Saqviro has no tool for “{query}” yet.{results.length > 0 ? " These are the closest:" : " Try one word, like compress, merge or convert."}</p>
+      {/if}
       {#if results.length > 0}
         <ToolList tools={results} onOpen={open} {selected} />
-      {:else}
-        <p class="muted">No tools match “{query}”. Try one word, like compress, merge or convert.</p>
+      {/if}
+      {#if foundFlows.length > 0}
+        <h3 class="muted flows-title">Workflows</h3>
+        <ul class="flows" aria-label="Workflows found">
+          {#each foundFlows as flow (flow.id)}
+            <li><button onclick={() => openFlow(flow.id)}><strong>{flow.name}</strong><span class="muted">{stepSummary(flow, tools)}</span></button></li>
+          {/each}
+        </ul>
       {/if}
     {:else if paneShown}
       <!-- The tool or workflow is in its pane above. -->
@@ -331,7 +396,9 @@
         onUndo={undoDelete}
       />
     {:else if section === "home"}
-      <Home {hovering} {dropped} advice={recommended} specific={suggestions.specific} general={suggestions.general} tilesLabel={home.label} tiles={home.tools} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={forgetDropped} />
+      <Home {hovering} {dropped} workflows={fitting} onOpenWorkflow={openFlow} advice={recommended} specific={suggestions.specific} general={suggestions.general} tilesLabel={home.label} tiles={home.tools} onOpen={open} onChoose={async () => receive(await pickFiles())} onClear={forgetDropped} />
+    {:else if section === "activity"}
+      <Activity {finished} onSend={send} />
     {:else if section === "favorites"}
       <ToolList tools={favorites} onOpen={open} />
     {:else if section === "recent"}
@@ -370,10 +437,16 @@
   .drop-hint { position: fixed; inset: var(--space-2); z-index: 10; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
   .drop-hint span { padding: var(--space-2) var(--space-4); border-radius: var(--radius); background: var(--surface); font-weight: 600; }
   .waiting { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--text-caption); color: var(--text-muted); }
-  .waiting span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .waiting button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
+  .waiting button { height: 22px; padding: 0 var(--space-1); border: 0; border-radius: 4px; background: none; color: var(--text-muted); cursor: default; }
+  .waiting .see { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .waiting button:hover { background: var(--hover); color: var(--text); }
-  .activities { display: flex; gap: var(--space-2); min-width: 0; margin-left: auto; overflow: hidden; }
+  .flows-title { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-caption); font-weight: 600; }
+  .flows { margin: 0; padding: 0; list-style: none; }
+  .flows button { display: flex; flex-direction: column; width: 100%; padding: var(--space-2) var(--space-3); border: 0; border-radius: 6px; background: none; text-align: left; cursor: default; }
+  .flows button:hover { background: var(--hover); }
+  .flows strong { font-weight: 600; }
+  .flows .muted { font-size: var(--text-caption); }
+  .activities { display: flex; gap: var(--space-2); min-width: 0; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
   .activities button { flex: none; padding: 3px var(--space-2); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: var(--text-caption); cursor: default; }
   main { padding: var(--space-6) var(--space-6) 0; overflow-y: auto; }
   main > :global(:not(.pane)) { margin-bottom: var(--space-6); }

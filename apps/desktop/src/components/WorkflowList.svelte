@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tool } from "../lib/types";
-  import { starters, type Workflow } from "../lib/workflow";
+  import { starters, stepSummary, type Workflow } from "../lib/workflow";
 
   let { tools, workflows, onOpen, onNew, onTry, onImport, deleted = null, onUndo }: {
     tools: Tool[];
@@ -20,15 +20,13 @@
     if (!onImport(await navigator.clipboard.readText())) problem = "The clipboard does not hold a workflow.";
   }
 
-  const nameOf = (id: string) => tools.find((t) => t.id === id)?.name ?? id;
-  const summary = (w: Workflow) => w.steps.map((s) => nameOf(s.tool)).join(" → ") || "No steps yet";
 </script>
 
 {#snippet row(workflow: Workflow, open: () => void)}
   <li>
     <button onclick={open}>
       <span class="name">{workflow.name}</span>
-      <span class="muted">{summary(workflow)}</span>
+      <span class="muted">{stepSummary(workflow, tools)}</span>
     </button>
   </li>
 {/snippet}
