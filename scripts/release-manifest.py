@@ -20,6 +20,14 @@ PLATFORMS = {
 }
 
 
+def name_by_platform(version: str, artifacts: Path) -> None:
+    """Both macOS builds make Saqviro.app.tar.gz, and a release has one of each name."""
+    for folder, arch in (("macos-arm64", "aarch64"), ("macos-x64", "x64")):
+        for update in list((artifacts / folder).rglob("*.app.tar.gz*")):
+            suffix = update.name[update.name.index(".app.tar.gz") :]
+            update.rename(update.with_name(f"Saqviro_{version}_{arch}{suffix}"))
+
+
 def manifest(version: str, artifacts: Path) -> dict:
     platforms = {}
     for folder, (platform, suffix) in PLATFORMS.items():
@@ -40,4 +48,5 @@ def manifest(version: str, artifacts: Path) -> dict:
 
 if __name__ == "__main__":
     version, artifacts, output = sys.argv[1:]
+    name_by_platform(version, Path(artifacts))
     Path(output).write_text(json.dumps(manifest(version, Path(artifacts)), indent=2) + "\n")

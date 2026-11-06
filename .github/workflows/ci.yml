@@ -45,6 +45,7 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: pnpm check
+      - run: python3 scripts/test_release_manifest.py
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   test:
