@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.duplicates
+name: Duplicate Finder
+category: files
+tool_version: 1
+description: Find files with exactly the same content.
+keywords: [same, copies, identical, cleanup, space]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

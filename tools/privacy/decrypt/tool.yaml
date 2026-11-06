@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: privacy.decrypt
+name: Decrypt Files
+category: privacy
+tool_version: 1
+description: Open files locked with a passphrase in the age format.
+keywords: [password, unlock, age, secret]
+inputs:
+  - type: any
+    multiple: true
+    mime: [application/octet-stream]
+    extensions: [age]
+outputs:
+  - type: any
+    multiple: true
+    filename: "{stem}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: passphrase, type: string, secret: true }
+presets:
+  - { id: default, name: Default }

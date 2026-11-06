@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.base64
+name: File to Base64
+category: files
+tool_version: 1
+description: Turn a file into Base64 text, for embedding.
+keywords: [encode, data uri, embed, inline]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: data_uri, type: boolean, default: false }
+presets:
+  - { id: default, name: Default }

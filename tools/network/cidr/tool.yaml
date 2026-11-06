@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: network.cidr
+name: Subnet / CIDR Calculator
+category: network
+tool_version: 1
+description: Work out the addresses of a network.
+keywords: [ip, subnet, mask, ipv4, ipv6, range]
+inputs:
+  - type: text
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

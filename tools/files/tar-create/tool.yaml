@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.tar.create
+name: Create TAR
+category: files
+tool_version: 1
+description: Pack files and folders into a tar.gz archive.
+keywords: [archive, gzip, tgz, compress, bundle]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: archive
+    filename: "{stem}.tar.gz"
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

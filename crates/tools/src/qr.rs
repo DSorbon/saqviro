@@ -65,6 +65,116 @@ pub fn generate(_: &JobContext, input: JobInput, params: &Params) -> Result<JobO
     }))
 }
 
+/// Backslash-escapes what the Wi-Fi code format gives a meaning.
+fn wifi_escaped(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '\\' | ';' | ',' | ':' | '"') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// The text a phone reads as "join this network".
+pub fn wifi_text(params: &Params) -> Result<String, JobError> {
+    let network = params::text(params, "network");
+    if network.is_empty() {
+        return Err(invalid("enter the name of the network"));
+    }
+    let security = params::text(params, "security");
+    let password = params::text(params, "password");
+    if security != "none" && password.is_empty() {
+        return Err(invalid("enter the password of the network"));
+    }
+    let mut text = format!("WIFI:S:{};", wifi_escaped(network));
+    if security == "none" {
+        text.push_str("T:nopass;");
+    } else {
+        text.push_str(&format!("T:{security};P:{};", wifi_escaped(password)));
+    }
+    if params::flag(params, "hidden") {
+        text.push_str("H:true;");
+    }
+    text.push(';');
+    Ok(text)
+}
+
+fn vcard_escaped(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace(',', "\\,")
+        .replace(';', "\\;")
+        .replace('\n', "\\n")
+}
+
+/// A contact in vCard 3.0.
+pub fn vcard_text(params: &Params) -> Result<String, JobError> {
+    let name = params::text(params, "name");
+    if name.trim().is_empty() {
+        return Err(invalid("enter a name"));
+    }
+    let name = vcard_escaped(name);
+    let mut lines = vec![
+        "BEGIN:VCARD".to_owned(),
+        "VERSION:3.0".to_owned(),
+        format!("FN:{name}"),
+        format!("N:{name};;;;"),
+    ];
+    for (id, key) in [
+        ("phone", "TEL"),
+        ("email", "EMAIL"),
+        ("company", "ORG"),
+        ("website", "URL"),
+    ] {
+        let value = params::text(params, id);
+        if !value.is_empty() {
+            lines.push(format!("{key}:{}", vcard_escaped(value)));
+        }
+    }
+    lines.push("END:VCARD".to_owned());
+    Ok(lines.join("\r\n"))
+}
+
+/// A QR code of what `text` makes from the parameters.
+pub fn generate_from(
+    text: fn(&Params) -> Result<String, JobError>,
+) -> impl Fn(&JobContext, JobInput, &Params) -> Result<JobOutput, JobError> + Send + Sync {
+    move |ctx, _, params| generate(ctx, JobInput::Text(text(params)?), params)
+}
+
+/// Code 128, Code 39 and EAN barcodes as a PNG.
+pub fn barcode(_: &JobContext, input: JobInput, params: &Params) -> Result<JobOutput, JobError> {
+    use barcoders::{
+        generators::image::{Color, Image, Rotation},
+        sym::{code39::Code39, code128::Code128, ean8::EAN8, ean13::EAN13},
+    };
+    let JobInput::Text(text) = input else {
+        return Err(invalid("this tool takes text, not files"));
+    };
+    let text = text.trim();
+    let wrong = |e: barcoders::error::Error| invalid(format!("this text does not fit the format: {e}"));
+    let bars = match params::text(params, "format") {
+        "code39" => Code39::new(text).map_err(wrong)?.encode(),
+        "ean13" => EAN13::new(text).map_err(wrong)?.encode(),
+        "ean8" => EAN8::new(text).map_err(wrong)?.encode(),
+        // Character set B: letters, digits and punctuation.
+        _ => Code128::new(format!("\u{0181}{text}")).map_err(wrong)?.encode(),
+    };
+    let generator = Image::PNG {
+        height: params::number(params, "height", 120).clamp(20, 1000),
+        xdim: 3,
+        rotation: Rotation::Zero,
+        foreground: Color::black(),
+        background: Color::white(),
+    };
+    let bytes = generator.generate(&bars[..]).map_err(wrong)?;
+    Ok(JobOutput::Image(OutputImage {
+        ext: "png".to_owned(),
+        data: STANDARD.encode(bytes),
+    }))
+}
+
 /// Every QR code in a picture. The text is only ever shown, never opened.
 pub fn read_codes(image: &DynamicImage) -> Vec<String> {
     let luma = image.to_luma8();

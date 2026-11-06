@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.folder-size
+name: Folder Size Analyzer
+category: files
+tool_version: 1
+description: See what takes up the space in a folder.
+keywords: [disk, space, usage, storage]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: top, type: integer, min: 1, max: 500, default: 30 }
+presets:
+  - { id: default, name: Default }

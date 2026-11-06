@@ -11,11 +11,14 @@ pub mod developer;
 pub mod files;
 pub mod images;
 pub mod media;
+pub mod network;
 pub mod output;
 pub(crate) mod params;
 pub mod pdf;
+pub mod privacy;
 pub mod process;
 pub mod qr;
+pub mod system;
 pub mod text;
 
 /// Ids of every tool implemented in this crate.
@@ -66,6 +69,26 @@ pub const IMPLEMENTED: &[&str] = &[
     "developer.regex",
     "developer.timestamp",
     "developer.uuid",
+    "files.base64",
+    "files.duplicates",
+    "files.empty",
+    "files.folder-checksum",
+    "files.folder-size",
+    "files.large",
+    "files.tar.create",
+    "files.tar.extract",
+    "files.tree",
+    "network.cidr",
+    "privacy.certificate",
+    "privacy.decrypt",
+    "privacy.encrypt",
+    "privacy.password-strength",
+    "privacy.ssh-fingerprint",
+    "qr.barcode",
+    "qr.vcard",
+    "qr.wifi",
+    "system.env",
+    "system.info",
     "files.checksum.verify",
     "files.rename",
     "files.sha256",
@@ -199,6 +222,26 @@ pub fn executor(tool: &ToolManifest) -> Option<Arc<dyn Executor>> {
         "developer.regex" => text_tool(developer::regex_test::run),
         "developer.timestamp" => text_tool(developer::timestamp::run),
         "developer.uuid" => text_tool(developer::uuid::run),
+        "files.base64" => files::encode::to_base64(),
+        "files.duplicates" => files::scan::duplicates(),
+        "files.empty" => files::scan::empty(),
+        "files.folder-checksum" => files::scan::folder_checksum(),
+        "files.folder-size" => files::scan::folder_size(),
+        "files.large" => files::scan::large(),
+        "files.tar.create" => files::tarball::create(name),
+        "files.tar.extract" => files::tarball::extract(name),
+        "files.tree" => files::scan::tree(),
+        "network.cidr" => text_tool(network::cidr),
+        "privacy.certificate" => text_tool(privacy::inspect::certificate),
+        "privacy.decrypt" => privacy::encrypt::decrypt(name),
+        "privacy.encrypt" => privacy::encrypt::encrypt(name),
+        "privacy.password-strength" => text_tool(privacy::inspect::password_strength),
+        "privacy.ssh-fingerprint" => text_tool(privacy::inspect::ssh_fingerprint),
+        "qr.barcode" => Arc::new(qr::barcode),
+        "qr.vcard" => Arc::new(qr::generate_from(qr::vcard_text)),
+        "qr.wifi" => Arc::new(qr::generate_from(qr::wifi_text)),
+        "system.env" => text_tool(system::environment),
+        "system.info" => text_tool(system::info),
         "files.checksum.verify" => files::checksum::verify(),
         "files.rename" => files::rename::run(),
         "files.sha256" => files::checksum::sha256(),

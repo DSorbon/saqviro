@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: qr.barcode
+name: Barcode Generator
+category: qr
+tool_version: 1
+description: Make Code 128, EAN-13 and other barcodes.
+keywords: [ean, upc, code128, code39, product, label]
+inputs:
+  - type: text
+outputs:
+  - type: image
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: format, type: enum, values: [code128, code39, ean13, ean8], default: code128 }
+  - { id: height, type: integer, min: 20, max: 1000, default: 120 }
+presets:
+  - { id: default, name: Default }

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.tree
+name: Directory Tree
+category: files
+tool_version: 1
+description: Write out what a folder holds as a tree.
+keywords: [folder, listing, structure, ls]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: max_depth, type: integer, min: 1, max: 100, default: 5 }
+  - { id: show_hidden, type: boolean, default: false }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [show_hidden]

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: privacy.encrypt
+name: Encrypt Files
+category: privacy
+tool_version: 1
+description: Lock files with a passphrase, using the open age format.
+keywords: [password, protect, secure, age, secret]
+inputs:
+  - type: any
+    multiple: true
+    mime: ["*/*"]
+    extensions: ["*"]
+outputs:
+  - type: any
+    multiple: true
+    filename: "{name}.age"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: passphrase, type: string, secret: true }
+presets:
+  - { id: default, name: Default }

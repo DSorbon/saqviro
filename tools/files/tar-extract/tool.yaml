@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: files.tar.extract
+name: Extract TAR
+category: files
+tool_version: 1
+description: Unpack tar, tar.gz and tgz archives.
+keywords: [unpack, archive, gzip, tgz, decompress]
+inputs:
+  - type: archive
+    multiple: true
+    mime: [application/x-tar, application/gzip]
+    extensions: [tar, gz, tgz]
+outputs:
+  - type: any
+    multiple: true
+    filename: "{stem}"
+engine: builtin
+capabilities: { batch: true, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+presets:
+  - { id: default, name: Default }

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: system.env
+name: Environment Variables
+category: system
+tool_version: 1
+description: List the environment variables the app sees.
+keywords: [path, variables, shell]
+inputs:
+  - type: none
+outputs:
+  - type: text
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: only_path, type: boolean, default: false }
+presets:
+  - { id: all, name: All, params: { only_path: false } }
+  - { id: path, name: PATH, params: { only_path: true } }

@@ -55,7 +55,7 @@ fn zip_error(e: ZipError) -> JobError {
 }
 
 /// Copies in pieces so a job can be cancelled in the middle of a large file.
-fn copy(
+pub(super) fn copy(
     ctx: &JobContext,
     from: &mut impl Read,
     to: &mut impl Write,
@@ -213,14 +213,26 @@ pub fn create(template: String) -> Arc<dyn Executor> {
 }
 
 /// Stops extraction once it has written too much.
-struct Budget {
+pub(super) struct Budget {
     limits: Limits,
     archive_size: u64,
     written: u64,
 }
 
 impl Budget {
-    fn spend(&mut self, bytes: u64) -> Result<(), JobError> {
+    pub(super) fn new(limits: Limits, archive_size: u64) -> Self {
+        Self {
+            limits,
+            archive_size,
+            written: 0,
+        }
+    }
+
+    pub(super) fn written(&self) -> u64 {
+        self.written
+    }
+
+    pub(super) fn spend(&mut self, bytes: u64) -> Result<(), JobError> {
         self.written += bytes;
         let ratio_limit = self
             .archive_size
@@ -248,11 +260,7 @@ pub fn unpack(
     if zip.len() > limits.entries {
         return Err(invalid("this archive has too many entries"));
     }
-    let mut budget = Budget {
-        limits,
-        archive_size,
-        written: 0,
-    };
+    let mut budget = Budget::new(limits, archive_size);
     let mut skipped = 0;
     let count = zip.len();
     for i in 0..count {

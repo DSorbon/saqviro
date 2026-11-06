@@ -42,13 +42,20 @@ oxipng = { version = "10", default-features = false, features = ["parallel"] }
 crc32fast = "1"
 kamadak-exif = "0.6"
 resvg = "0.45"
+age = { version = "0.11", default-features = false }
+barcoders = { version = "2", features = ["image"] }
 csv = "1"
+flate2 = "1"
+sysinfo = { version = "0.37", default-features = false, features = ["system", "disk"] }
+tar = { version = "0.4", default-features = false }
+x509-parser = "0.18"
+zxcvbn = "3"
 deunicode = "1"
 hmac = "0.13"
 html-escape = "0.2"
 mime_guess = "2"
 percent-encoding = "2"
-quick-xml = "0.38"
+quick-xml = "0.42"
 rand = "0.9"
 url = "2"
 similar = "2"

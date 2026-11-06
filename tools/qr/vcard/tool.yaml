@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../packages/tool-schema/tool.schema.json
+schema_version: 1
+id: qr.vcard
+name: vCard QR
+category: qr
+tool_version: 1
+description: A QR code that adds a contact when scanned.
+keywords: [contact, business card, phone, email]
+inputs:
+  - type: none
+outputs:
+  - type: image
+engine: builtin
+capabilities: { batch: false, preview: false, offline: true, destructive: false }
+permissions: { network: false }
+platforms: [windows, macos, linux]
+parameters:
+  - { id: name, type: string }
+  - { id: phone, type: string, optional: true }
+  - { id: email, type: string, optional: true }
+  - { id: company, type: string, optional: true }
+  - { id: website, type: string, optional: true }
+  - { id: size, type: integer, min: 64, max: 4096, default: 512 }
+presets:
+  - { id: default, name: Default }
+ui:
+  advanced: [size]
