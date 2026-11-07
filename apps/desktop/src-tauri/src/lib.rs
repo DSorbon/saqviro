@@ -1,5 +1,8 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
-use saqviro_core::{manifest::ToolManifest, registry::Registry};
+use saqviro_core::{
+    manifest::{DataType, ToolManifest},
+    registry::Registry,
+};
 use saqviro_jobs::{Config, ErrorKind, JobError, JobId, JobInput, JobManager, JobOutput, JobSnapshot, Params};
 use std::path::PathBuf;
 
@@ -150,9 +153,13 @@ struct ToolPreview {
     source_size: Option<u64>,
     /// The size comes from a few seconds of the film, not from all of it.
     estimated: bool,
+    /// The shape of the sound before and after, on one scale.
+    peaks_before: Option<Vec<f32>>,
+    peaks_after: Option<Vec<f32>>,
 }
 
 const VIDEO_TYPES: [&str; 6] = ["mp4", "mov", "m4v", "mkv", "webm", "avi"];
+const AUDIO_TYPES: [&str; 9] = ["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus", "aiff", "aif"];
 
 fn extension(path: &std::path::Path) -> String {
     path.extension()
@@ -184,11 +191,11 @@ fn tool_result(
     registry: &Registry,
     jobs: &JobManager,
     tool_id: &str,
-    source: PathBuf,
+    sources: Vec<PathBuf>,
     params: &Params,
     dir: &std::path::Path,
 ) -> Result<saqviro_jobs::OutputFile, JobError> {
-    let input = JobInput::Files(vec![source]);
+    let input = JobInput::Files(sources);
     let id = start_job(registry, jobs, tool_id, input, params, Some(dir.to_path_buf()))?;
     let done = jobs
         .wait(id)
@@ -204,6 +211,33 @@ fn tool_result(
         .ok_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show"))
 }
 
+/// Cuts a few seconds out of `path` and runs the tool on them.
+fn sample_result(
+    registry: &Registry,
+    jobs: &JobManager,
+    tool_id: &str,
+    path: &std::path::Path,
+    params: &Params,
+    dir: &std::path::Path,
+) -> Result<(PathBuf, saqviro_jobs::OutputFile), JobError> {
+    let sample = dir.join(format!("sample.{}", extension(path)));
+    let to = sample.to_string_lossy().into_owned();
+    let mut clip_params = Params::new();
+    clip_params.insert("to".into(), serde_json::Value::String(to));
+    helper_text(jobs, saqviro_tools::media::timeline::clip(), path, clip_params)?;
+    let out = dir.join("out");
+    std::fs::create_dir_all(&out)?;
+    let result = tool_result(registry, jobs, tool_id, vec![sample.clone()], params, &out)?;
+    Ok((sample, result))
+}
+
+/// What the whole file would weigh, going by a sample of it.
+fn scaled_size(path: &std::path::Path, sample: &std::path::Path, made: u64) -> Result<(u64, u64), JobError> {
+    let whole = std::fs::metadata(path)?.len();
+    let part = std::fs::metadata(sample)?.len().max(1);
+    Ok(((whole as f64 * made as f64 / part as f64) as u64, whole))
+}
+
 /// A film is judged on a few seconds of it.
 fn preview_video(
     registry: &Registry,
@@ -213,48 +247,93 @@ fn preview_video(
     params: &Params,
     dir: &std::path::Path,
 ) -> Result<ToolPreview, JobError> {
-    use saqviro_tools::media::timeline::{clip, still};
+    use saqviro_tools::media::timeline::still;
 
-    let sample = dir.join(format!("sample.{}", extension(path)));
-    let to = sample.to_string_lossy().into_owned();
-    let mut clip_params = Params::new();
-    clip_params.insert("to".into(), serde_json::Value::String(to));
-    helper_text(jobs, clip(), path, clip_params)?;
-    let out = dir.join("out");
-    std::fs::create_dir_all(&out)?;
-    let result = tool_result(registry, jobs, tool_id, sample.clone(), params, &out)?;
-    let sample_size = std::fs::metadata(&sample)?.len().max(1);
-    let source_size = std::fs::metadata(path)?.len();
-    let size = (source_size as f64 * result.size as f64 / sample_size as f64) as u64;
+    let (sample, result) = sample_result(registry, jobs, tool_id, path, params, dir)?;
+    let (size, source_size) = scaled_size(path, &sample, result.size)?;
     Ok(ToolPreview {
         data: helper_text(jobs, still(), &result.path, Params::new()).ok(),
         before: helper_text(jobs, still(), &sample, Params::new()).ok(),
         size,
         source_size: Some(source_size),
         estimated: true,
+        peaks_before: None,
+        peaks_after: None,
     })
 }
 
-/// Runs the tool into a temp folder that goes away with this call.
+/// The shape of the sound of a file, on the same scale for every file.
+fn sound_shape(jobs: &JobManager, path: &std::path::Path) -> Option<Vec<f32>> {
+    let json = helper_text(jobs, saqviro_tools::media::timeline::timeline(), path, Params::new()).ok()?;
+    let found: serde_json::Value = serde_json::from_str(&json).ok()?;
+    let loudest = found["loudest"].as_f64()? as f32;
+    let peaks = found["peaks"].as_array()?;
+    Some(
+        peaks
+            .iter()
+            .filter_map(|p| p.as_f64())
+            .map(|p| p as f32 * loudest)
+            .collect(),
+    )
+}
+
+/// A recording is judged the same way, by the shape of its sound.
+fn preview_audio(
+    registry: &Registry,
+    jobs: &JobManager,
+    tool_id: &str,
+    path: &std::path::Path,
+    params: &Params,
+    dir: &std::path::Path,
+) -> Result<ToolPreview, JobError> {
+    let (sample, result) = sample_result(registry, jobs, tool_id, path, params, dir)?;
+    let (size, source_size) = scaled_size(path, &sample, result.size)?;
+    Ok(ToolPreview {
+        data: None,
+        before: None,
+        size,
+        source_size: Some(source_size),
+        estimated: true,
+        peaks_before: sound_shape(jobs, &sample),
+        peaks_after: sound_shape(jobs, &result.path),
+    })
+}
+
+/// Runs the tool into a temp folder that goes away with this call. Several
+/// files are for tools that make one result from all of them.
 fn preview_tool_now(
     registry: &Registry,
     jobs: &JobManager,
     tool_id: &str,
-    path: PathBuf,
+    paths: Vec<PathBuf>,
     params: &Params,
 ) -> Result<ToolPreview, JobError> {
     let dir = tempfile::tempdir()?;
-    let kind = extension(&path);
-    if VIDEO_TYPES.contains(&kind.as_str()) {
-        return preview_video(registry, jobs, tool_id, &path, params, dir.path());
+    let first_path = paths
+        .first()
+        .cloned()
+        .ok_or_else(|| JobError::new(ErrorKind::InvalidInput, "add a file"))?;
+    let kind = extension(&first_path);
+    // A picture of a recording needs all of it; so does one result from many files.
+    let makes_picture = registry
+        .get(tool_id)
+        .and_then(|t| t.outputs.first())
+        .is_some_and(|o| o.data_type == DataType::Image);
+    if paths.len() == 1 && !makes_picture {
+        if VIDEO_TYPES.contains(&kind.as_str()) {
+            return preview_video(registry, jobs, tool_id, &first_path, params, dir.path());
+        }
+        if AUDIO_TYPES.contains(&kind.as_str()) {
+            return preview_audio(registry, jobs, tool_id, &first_path, params, dir.path());
+        }
     }
-    let first = tool_result(registry, jobs, tool_id, path.clone(), params, dir.path())?;
+    let first = tool_result(registry, jobs, tool_id, paths, params, dir.path())?;
     let (data, before) = if kind == "pdf" {
         let page = |file: &std::path::Path| {
             let pictures = tempfile::tempdir().ok()?;
             saqviro_tools::pdf::first_page(file, pictures.path()).ok()
         };
-        (page(&first.path), page(&path))
+        (page(&first.path), page(&first_path))
     } else {
         (
             saqviro_tools::images::preview(&first.path, PREVIEW_SIZE)
@@ -269,7 +348,40 @@ fn preview_tool_now(
         size: first.size,
         source_size: first.source_size,
         estimated: false,
+        peaks_before: None,
+        peaks_after: None,
     })
+}
+
+/// What a reporting tool says about a file, without keeping anything.
+#[tauri::command]
+async fn file_facts<R: Runtime>(app: AppHandle<R>, tool_id: String, path: PathBuf) -> Result<String, JobError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let registry = app.state::<Registry>();
+        let jobs = app.state::<JobManager>();
+        let input = JobInput::Files(vec![path]);
+        let id = start_job(&registry, &jobs, &tool_id, input, &Params::new(), None)?;
+        let done = jobs
+            .wait(id)
+            .ok_or_else(|| JobError::new(ErrorKind::Unknown, "the file could not be read"))?;
+        match done.output {
+            Some(JobOutput::Text(text)) => Ok(text),
+            _ => Err(done
+                .error
+                .unwrap_or_else(|| JobError::new(ErrorKind::Unknown, "nothing to show"))),
+        }
+    })
+    .await
+    .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
+}
+
+/// The size of each file; folders have none.
+#[tauri::command]
+fn file_sizes(paths: Vec<PathBuf>) -> Vec<Option<u64>> {
+    paths
+        .iter()
+        .map(|p| std::fs::metadata(p).ok().filter(|m| m.is_file()).map(|m| m.len()))
+        .collect()
 }
 
 /// The new name of each file, or why the renaming cannot be done.
@@ -282,7 +394,7 @@ fn plan_rename(paths: Vec<PathBuf>, params: Params) -> Result<Vec<(String, Strin
 async fn preview_tool<R: Runtime>(
     app: AppHandle<R>,
     tool_id: String,
-    path: PathBuf,
+    paths: Vec<PathBuf>,
     params: Params,
 ) -> Result<ToolPreview, JobError> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -290,7 +402,7 @@ async fn preview_tool<R: Runtime>(
             &app.state::<Registry>(),
             &app.state::<JobManager>(),
             &tool_id,
-            path,
+            paths,
             &params,
         )
     })
@@ -319,12 +431,22 @@ async fn media_timeline<R: Runtime>(app: AppHandle<R>, path: PathBuf) -> Result<
     .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
 }
 
-/// A small picture of an image, for choosing an area of it.
+/// A small picture of an image or a film, for choosing an area of it.
 #[tauri::command]
-async fn image_preview(path: PathBuf) -> Result<saqviro_tools::images::Preview, JobError> {
-    tauri::async_runtime::spawn_blocking(move || saqviro_tools::images::preview(&path, PREVIEW_SIZE))
-        .await
-        .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
+async fn image_preview<R: Runtime>(
+    app: AppHandle<R>,
+    path: PathBuf,
+) -> Result<saqviro_tools::images::Preview, JobError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if !VIDEO_TYPES.contains(&extension(&path).as_str()) {
+            return saqviro_tools::images::preview(&path, PREVIEW_SIZE);
+        }
+        let jobs = app.state::<JobManager>();
+        let json = helper_text(&jobs, saqviro_tools::media::timeline::poster(), &path, Params::new())?;
+        serde_json::from_str(&json).map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))
+    })
+    .await
+    .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
 }
 
 /// What stands out about dropped files. Reads a little of each, changes nothing.
@@ -552,6 +674,8 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             run_tool,
             preview_tool,
             plan_rename,
+            file_facts,
+            file_sizes,
             media_timeline,
             run_workflow,
             image_preview,
@@ -719,7 +843,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("a.png");
         std::fs::write(&source, PNG).unwrap();
-        let found = preview_tool_now(&bundled_registry(), &jobs, "image.grayscale", source, &Params::new()).unwrap();
+        let found = preview_tool_now(
+            &bundled_registry(),
+            &jobs,
+            "image.grayscale",
+            vec![source],
+            &Params::new(),
+        )
+        .unwrap();
         assert!(found.data.is_some());
         assert!(found.size > 0);
         assert_eq!(found.source_size, Some(PNG.len() as u64));
@@ -752,7 +883,7 @@ mod tests {
             &bundled_registry(),
             &jobs,
             "video.compress",
-            source.clone(),
+            vec![source.clone()],
             &Params::new(),
         )
         .unwrap();
@@ -761,6 +892,55 @@ mod tests {
         assert!(found.size > 0);
         assert_eq!(found.source_size, std::fs::metadata(&source).ok().map(|m| m.len()));
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1, "only the original");
+    }
+
+    #[test]
+    fn a_recording_is_previewed_by_the_shape_of_its_sound() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("talk.wav");
+        let made = std::process::Command::new("ffmpeg")
+            .args([
+                "-nostdin",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=6",
+            ])
+            .arg(&source)
+            .status();
+        if !made.is_ok_and(|s| s.success()) {
+            return;
+        }
+        let (jobs, _root) = jobs();
+        let louder = params(json!({ "gain": 6 }));
+        let found = preview_tool_now(&bundled_registry(), &jobs, "audio.volume", vec![source], &louder).unwrap();
+        let (before, after) = (found.peaks_before.unwrap(), found.peaks_after.unwrap());
+        let top = |p: &[f32]| p.iter().copied().fold(0.0, f32::max);
+        assert!(top(&after) > top(&before), "{} {}", top(&after), top(&before));
+        assert!(found.estimated);
+    }
+
+    #[test]
+    fn one_picture_can_be_made_from_many() {
+        let (jobs, _root) = jobs();
+        let dir = tempfile::tempdir().unwrap();
+        let files: Vec<PathBuf> = ["a.png", "b.png"].iter().map(|n| dir.path().join(n)).collect();
+        for file in &files {
+            std::fs::write(file, PNG).unwrap();
+        }
+        let found = preview_tool_now(&bundled_registry(), &jobs, "image.contact-sheet", files, &Params::new()).unwrap();
+        assert!(found.data.is_some());
+    }
+
+    #[test]
+    fn sizes_are_known_for_files_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.txt");
+        std::fs::write(&file, "abc").unwrap();
+        assert_eq!(file_sizes(vec![file, dir.path().to_path_buf()]), [Some(3), None]);
     }
 
     #[test]

@@ -24,3 +24,5 @@ parameters:
   - { id: format, type: enum, values: [jpg, png], default: jpg }
 presets:
   - { id: default, name: Default }
+ui:
+  facts: video.info

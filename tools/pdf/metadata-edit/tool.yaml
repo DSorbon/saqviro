@@ -26,3 +26,5 @@ parameters:
   - { id: keywords, type: string, optional: true }
 presets:
   - { id: default, name: Default }
+ui:
+  facts: pdf.info

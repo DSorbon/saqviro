@@ -31,4 +31,5 @@ presets:
   - { id: wide, name: Wide, params: { aspect: "16:9" } }
   - { id: area, name: Area, params: { aspect: area } }
 ui:
+  preview: crop
   advanced: [x, y, width, height]

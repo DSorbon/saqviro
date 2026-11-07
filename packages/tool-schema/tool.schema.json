@@ -353,6 +353,13 @@
             "type": "string"
           }
         },
+        "facts": {
+          "description": "A tool that shows what is in the file before this one changes it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "one_of": {
           "description": "Optional parameters of which the tool needs at least one.",
           "type": "array",

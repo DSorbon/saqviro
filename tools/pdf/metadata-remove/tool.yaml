@@ -21,3 +21,5 @@ permissions: { network: false }
 platforms: [windows, macos, linux]
 presets:
   - { id: default, name: Default }
+ui:
+  facts: pdf.info

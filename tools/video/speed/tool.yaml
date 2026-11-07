@@ -24,3 +24,5 @@ parameters:
 presets:
   - { id: slow, name: Half speed, params: { speed: "0.5" } }
   - { id: fast, name: Double speed, params: { speed: "2" } }
+ui:
+  preview: compare

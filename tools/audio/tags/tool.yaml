@@ -27,3 +27,5 @@ parameters:
   - { id: genre, type: string, optional: true }
 presets:
   - { id: default, name: Default }
+ui:
+  facts: audio.info

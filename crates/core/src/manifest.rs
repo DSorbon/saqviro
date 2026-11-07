@@ -280,6 +280,9 @@ pub struct UiHints {
     /// Parameters hidden under the "Advanced" disclosure.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub advanced: Vec<String>,
+    /// A tool that shows what is in the file before this one changes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facts: Option<String>,
     /// Optional parameters of which the tool needs at least one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub one_of: Vec<String>,

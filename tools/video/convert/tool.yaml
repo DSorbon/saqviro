@@ -26,3 +26,5 @@ presets:
   - { id: mov, name: MOV, params: { format: mov } }
   - { id: mkv, name: MKV, params: { format: mkv } }
   - { id: webm, name: WebM, params: { format: webm } }
+ui:
+  preview: compare

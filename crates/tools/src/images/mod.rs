@@ -357,7 +357,7 @@ pub fn resize(img: &DynamicImage, width: Option<u32>, height: Option<u32>, fit: 
 }
 
 /// A small JPEG of an image, and the size of the image itself.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Preview {
     /// The JPEG, in Base64.
     pub data: String,

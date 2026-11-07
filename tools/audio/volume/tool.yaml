@@ -24,3 +24,5 @@ parameters:
 presets:
   - { id: louder, name: Louder, params: { gain: 6 } }
   - { id: quieter, name: Quieter, params: { gain: -6 } }
+ui:
+  preview: compare

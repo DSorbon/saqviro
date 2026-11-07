@@ -24,3 +24,5 @@ parameters:
   - { id: height, type: integer, min: 100, max: 2000, default: 512 }
 presets:
   - { id: default, name: Default }
+ui:
+  preview: compare

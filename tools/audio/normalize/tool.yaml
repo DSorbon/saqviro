@@ -25,3 +25,5 @@ presets:
   - { id: podcast, name: Podcast, params: { target: "-16" } }
   - { id: streaming, name: Streaming, params: { target: "-14" } }
   - { id: broadcast, name: Broadcast, params: { target: "-23" } }
+ui:
+  preview: compare

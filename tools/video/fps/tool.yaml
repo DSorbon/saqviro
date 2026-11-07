@@ -23,3 +23,5 @@ parameters:
   - { id: fps, type: enum, values: ["15", "24", "25", "30", "50", "60"], default: "30" }
 presets:
   - { id: default, name: Default }
+ui:
+  preview: compare

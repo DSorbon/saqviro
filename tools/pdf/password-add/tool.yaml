@@ -24,4 +24,5 @@ parameters:
 presets:
   - { id: default, name: Default }
 ui:
+  facts: pdf.info
   one_of: [password]

@@ -21,3 +21,5 @@ permissions: { network: false }
 platforms: [windows, macos, linux]
 presets:
   - { id: default, name: Remove all }
+ui:
+  preview: compare

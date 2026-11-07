@@ -1082,3 +1082,12 @@ fn a_clip_and_a_still_stand_in_for_the_film() {
     };
     assert!(data.len() > 100);
 }
+
+#[test]
+fn a_shape_chosen_on_the_frame_stays_where_it_was_put() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = video(dir.path(), "a.mp4", "320x180", 1);
+    let params = json!({ "aspect": "1:1", "x": 100, "y": 20, "width": 60, "height": 60 });
+    let (done, _) = run("video.crop", &[source], params);
+    assert_eq!(size_of(&one(&done).path), (60, 60));
+}

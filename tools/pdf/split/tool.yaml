@@ -25,3 +25,5 @@ presets:
   - { id: single, name: Every page, params: { pages: 1 } }
   - { id: pairs, name: Every 2 pages, params: { pages: 2 } }
   - { id: tens, name: Every 10 pages, params: { pages: 10 } }
+ui:
+  preview: pages-parts

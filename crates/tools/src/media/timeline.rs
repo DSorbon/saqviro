@@ -25,6 +25,8 @@ struct Timeline {
     frames: Vec<String>,
     /// Loudest moment of each slice, from 0 to 1.
     peaks: Vec<f32>,
+    /// The loudest moment of all, from 0 to 1, to compare two files.
+    loudest: f32,
 }
 
 /// The loudest sample of each of `count` slices, relative to the loudest of all.
@@ -78,6 +80,7 @@ pub fn timeline() -> Arc<dyn Executor> {
             }
         }
         let mut peaks_found = Vec::new();
+        let mut loudest = 0.0;
         if !probe.audio.is_empty() {
             let file = dir.join("sound.raw");
             let mut args = Engine::input(path);
@@ -92,11 +95,14 @@ pub fn timeline() -> Arc<dyn Executor> {
                 .map(|b| i16::from_le_bytes(*b))
                 .collect();
             peaks_found = peaks(&samples, PEAKS);
+            let top = samples.iter().map(|s| s.unsigned_abs()).max().unwrap_or(0);
+            loudest = f32::from(top) / 32768.0;
         }
         let timeline = Timeline {
             duration,
             frames,
             peaks: peaks_found,
+            loudest,
         };
         let json = serde_json::to_string(&timeline).map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?;
         Ok(JobOutput::Text(json))
@@ -130,7 +136,7 @@ pub fn clip() -> Arc<dyn Executor> {
             "-t",
             CLIP_SECONDS,
             "-map",
-            "0:v:0",
+            "0:v:0?",
             "-map",
             "0:a?",
             "-c",
@@ -154,5 +160,41 @@ pub fn still() -> Arc<dyn Executor> {
         args.push(file.clone().into_os_string());
         engine.run(ctx, "error", args, |_| {})?;
         Ok(JobOutput::Text(STANDARD.encode(fs::read(&file)?)))
+    })
+}
+
+#[derive(Debug, Serialize)]
+struct Poster {
+    data: String,
+    /// The size of the film as a player shows it, not of this picture.
+    width: u32,
+    height: u32,
+}
+
+/// A frame from a third of the way in, as JSON, for choosing an area of the film.
+pub fn poster() -> Arc<dyn Executor> {
+    Arc::new(|ctx: &JobContext, input: JobInput, _: &Params| {
+        let path = one_file(input)?;
+        let engine = Engine::get()?;
+        let probe = engine.probe(ctx, &path)?;
+        let video = probe
+            .video
+            .as_ref()
+            .ok_or_else(|| JobError::new(ErrorKind::UnsupportedFormat, "this file has no picture"))?;
+        let (width, height) = video.shown_size();
+        let file = ctx.temp_dir()?.join("poster.jpg");
+        let at = probe.duration.unwrap_or(0.0) / 3.0;
+        let mut args = to_os(&["-ss", &format!("{at:.3}")]);
+        args.extend(Engine::input(&path));
+        args.extend(to_os(&["-frames:v", "1", "-vf", "scale=-2:720", "-y"]));
+        args.push(file.clone().into_os_string());
+        engine.run(ctx, "error", args, |_| {})?;
+        let poster = Poster {
+            data: STANDARD.encode(fs::read(&file)?),
+            width,
+            height,
+        };
+        let json = serde_json::to_string(&poster).map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?;
+        Ok(JobOutput::Text(json))
     })
 }

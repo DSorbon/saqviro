@@ -820,7 +820,9 @@ pub fn crop(template: String) -> Arc<dyn Executor> {
         let ratio = param_str(step.params, "aspect")
             .and_then(|a| a.split_once(':'))
             .and_then(|(w, h)| Some((w.parse::<f64>().ok()?, h.parse::<f64>().ok()?)));
-        let filter = if let Some((w, h)) = ratio {
+        // An area of the shape, chosen on the picture, wins over the middle of the frame.
+        let area_given = param_u32(step.params, "width").is_some() && param_u32(step.params, "height").is_some();
+        let filter = if let Some((w, h)) = ratio.filter(|_| !area_given) {
             let r = w / h;
             format!(
                 "crop={}:{}",

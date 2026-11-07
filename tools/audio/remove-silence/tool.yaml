@@ -24,3 +24,5 @@ parameters:
   - { id: min_seconds, type: number, min: 0.1, max: 60, default: 0.5 }
 presets:
   - { id: default, name: Default }
+ui:
+  preview: compare
