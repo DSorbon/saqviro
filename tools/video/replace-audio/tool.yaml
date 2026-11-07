@@ -23,3 +23,5 @@ parameters:
   - { id: stop_at_shortest, type: boolean, default: true }
 presets:
   - { id: default, name: Default }
+ui:
+  preview: media-stack

@@ -675,3 +675,24 @@ fn several_images_are_labelled() {
     }
     assert_eq!(text(&run("qr.scan", &files, json!({}))), "one.png\none\n\ntwo.png\ntwo");
 }
+
+#[test]
+fn an_archive_says_what_is_inside_without_unpacking() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = dir.path().join("a.txt");
+    std::fs::write(&a, "hello").unwrap();
+
+    let zip = one(&run("files.zip.create", std::slice::from_ref(&a), json!({})));
+    let found = saqviro_tools::files::archive::contents(&zip.path).unwrap();
+    assert_eq!((found.count, found.total), (1, 5));
+    assert_eq!(found.entries[0].1, 5);
+
+    let tar = one(&run("files.tar.create", &[a], json!({})));
+    let found = saqviro_tools::files::tarball::contents(&tar.path).unwrap();
+    assert_eq!((found.count, found.total), (1, 5));
+    assert!(!found.more);
+
+    let broken = dir.path().join("broken.zip");
+    std::fs::write(&broken, "not an archive").unwrap();
+    assert!(saqviro_tools::files::archive::contents(&broken).is_err());
+}

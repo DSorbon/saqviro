@@ -346,3 +346,47 @@ pub fn extract(template: String) -> Arc<dyn Executor> {
         Ok(JobOutput::Files(results))
     })
 }
+
+/// What is inside an archive, without unpacking it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Contents {
+    pub count: usize,
+    pub total: u64,
+    /// Names and sizes of the first entries.
+    pub entries: Vec<(String, u64)>,
+    /// There is more than was counted.
+    pub more: bool,
+}
+
+/// How many names are worth showing, and how many entries worth counting.
+pub const SHOWN_ENTRIES: usize = 200;
+pub const COUNTED_ENTRIES: usize = 100_000;
+
+impl Contents {
+    pub fn add(&mut self, name: String, size: u64) {
+        self.count += 1;
+        self.total = self.total.saturating_add(size);
+        if self.entries.len() < SHOWN_ENTRIES {
+            self.entries.push((name, size));
+        }
+    }
+}
+
+/// The files in a ZIP, from its index. Nothing is unpacked or decompressed.
+pub fn contents(path: &Path) -> Result<Contents, JobError> {
+    let mut zip = ZipArchive::new(File::open(path)?).map_err(zip_error)?;
+    let mut found = Contents {
+        count: 0,
+        total: 0,
+        entries: Vec::new(),
+        more: zip.len() > COUNTED_ENTRIES,
+    };
+    for i in 0..zip.len().min(COUNTED_ENTRIES) {
+        let entry = zip.by_index_raw(i).map_err(zip_error)?;
+        if !entry.is_dir() {
+            let name = entry.name().map_err(zip_error)?.into_owned();
+            found.add(name, entry.size());
+        }
+    }
+    Ok(found)
+}

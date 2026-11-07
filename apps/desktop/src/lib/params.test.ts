@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tool } from "./fixtures";
-import { initialParams, isAdvanced, matchingPreset, paramLabel, paramProblem, paramsIssue, valueLabel } from "./params";
+import { initialParams, isAdvanced, matchingPreset, paramLabel, paramProblem, paramsIssue, passwordStrength, valueLabel } from "./params";
 
 const resize = tool("image.resize", "Resize", {
   parameters: [
@@ -111,5 +111,14 @@ describe("matchingPreset", () => {
     });
     expect(matchingPreset(t, { angle: "90" })).toBe("right");
     expect(matchingPreset(t, { angle: "180" })).toBe("plain");
+  });
+});
+
+describe("passwordStrength", () => {
+  it("rates what a person chooses", () => {
+    expect(passwordStrength("")).toBeNull();
+    expect(passwordStrength("cat")?.label).toBe("Easy to guess");
+    expect(passwordStrength("correct-horse-battery-staple")?.label).toBe("Strong");
+    expect(passwordStrength("Summer2026")?.level).toBeGreaterThan(0);
   });
 });

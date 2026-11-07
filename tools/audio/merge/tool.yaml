@@ -25,4 +25,5 @@ parameters:
 presets:
   - { id: default, name: Default }
 ui:
+  preview: media-stack
   advanced: [bitrate]

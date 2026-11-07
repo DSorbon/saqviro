@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   mediaTimeline: vi.fn(),
   planRename: vi.fn(),
   fileFacts: vi.fn(),
+  archiveContents: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -36,6 +37,7 @@ vi.mock("../lib/api", () => ({
   mediaTimeline: api.mediaTimeline,
   planRename: api.planRename,
   fileFacts: api.fileFacts,
+  archiveContents: api.archiveContents,
   fileSizes: async (paths: string[]) => paths.map(() => 2048),
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
@@ -608,6 +610,96 @@ describe("ToolView splitting", () => {
     expect(await screen.findByText(/4 pages into 2 files/)).toBeTruthy();
     await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
     await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(split.id, expect.anything(), { pages: 2 }, null));
+  });
+});
+
+describe("ToolView with the rest of the tools", () => {
+  const preview = (over: object) => ({ data: null, before: null, size: 1, source_size: null, estimated: false, peaks_before: null, peaks_after: null, text: null, items: null, count: null, ...over });
+
+  it("shows how long films will be together", async () => {
+    const merge = tool("video.merge", "Merge Videos", { inputs: [{ type: "video", extensions: ["mp4"] }], capabilities: { batch: false }, ui: { preview: "media-stack" } });
+    api.mediaTimeline.mockResolvedValue({ duration: 90, frames: ["AA"], peaks: [] });
+    render(ToolView, { tool: merge, files: ["/a.mp4", "/b.mp4"] });
+    expect(await screen.findByText("3:00")).toBeTruthy();
+  });
+
+  it("shows what is in an archive before unpacking it", async () => {
+    const unzip = tool("files.zip.extract", "Extract ZIP", { inputs: [{ type: "archive", extensions: ["zip"] }], ui: { preview: "archive" } });
+    api.archiveContents.mockResolvedValue({ count: 2, total: 3072, entries: [["a.txt", 1024], ["b/c.txt", 2048]], more: false });
+    render(ToolView, { tool: unzip, files: ["/x.zip"] });
+    expect(await screen.findByText("b/c.txt")).toBeTruthy();
+    expect(screen.getByText("3 KB once unpacked")).toBeTruthy();
+  });
+
+  it("says when an archive cannot be read", async () => {
+    const unzip = tool("files.zip.extract", "Extract ZIP", { inputs: [{ type: "archive", extensions: ["zip"] }], ui: { preview: "archive" } });
+    api.archiveContents.mockRejectedValue({ kind: "unsupported_format", message: "this archive is damaged" });
+    render(ToolView, { tool: unzip, files: ["/x.zip"] });
+    expect(await screen.findByText("This archive is damaged")).toBeTruthy();
+  });
+
+  it("reads the start of a text result", async () => {
+    const toText = tool("pdf.to-text", "PDF to Text", { inputs: [{ type: "pdf", extensions: ["pdf"] }], outputs: [{ type: "text", filename: "{stem}.txt" }], ui: { preview: "compare" } });
+    api.previewTool.mockReset().mockResolvedValue(preview({ text: "Dear reader" }));
+    render(ToolView, { tool: toText, files: ["/a.pdf"] });
+    expect(await screen.findByText("Dear reader")).toBeTruthy();
+  });
+
+  it("shows a folder of results as pictures", async () => {
+    const frames = tool("image.gif-frames", "Split GIF", { inputs: [{ type: "image", extensions: ["gif"] }], ui: { preview: "compare" } });
+    api.imagePreview.mockResolvedValue({ data: "AA", width: 1, height: 1 });
+    api.previewTool.mockReset().mockResolvedValue(preview({ items: ["AA", "BB"], count: 24 }));
+    render(ToolView, { tool: frames, files: ["/a.gif"] });
+    expect(await screen.findByText("24 files")).toBeTruthy();
+  });
+
+  it("starts metadata fields from what the file says", async () => {
+    const edit = tool("pdf.metadata.edit", "Edit PDF Metadata", {
+      inputs: [{ type: "pdf", extensions: ["pdf"] }],
+      parameters: [{ id: "author", type: "string", optional: true }],
+      ui: { facts: "pdf.info" },
+    });
+    api.fileFacts.mockResolvedValue("a.pdf\nAuthor: K. Lindqvist\nPages: 4");
+    render(ToolView, { tool: edit, files: ["/a.pdf"] });
+    await vi.waitFor(() => expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("K. Lindqvist"));
+  });
+
+  it("does not carry one file's author to the next", async () => {
+    const edit = tool("pdf.metadata.edit", "Edit PDF Metadata", {
+      inputs: [{ type: "pdf", extensions: ["pdf"] }],
+      parameters: [{ id: "author", type: "string", optional: true }],
+      ui: { facts: "pdf.info" },
+    });
+    api.fileFacts.mockResolvedValue("a.pdf\nAuthor: K. Lindqvist\nPages: 4");
+    const { rerender } = render(ToolView, { tool: edit, files: ["/a.pdf"] });
+    const author = () => (screen.getByRole("textbox") as HTMLInputElement).value;
+    await vi.waitFor(() => expect(author()).toBe("K. Lindqvist"));
+    await rerender({ tool: edit, files: ["/a.pdf", "/b.pdf"] });
+    await vi.waitFor(() => expect(author()).toBe(""));
+  });
+
+  it("rates a password being chosen and can show it", async () => {
+    const lock = tool("privacy.encrypt", "Encrypt Files", {
+      inputs: [{ type: "any", extensions: ["*"] }],
+      parameters: [{ id: "passphrase", type: "string", secret: true }],
+    });
+    const { container } = render(ToolView, { tool: lock, files: ["/a"] });
+    const field = container.querySelector("input[type=password]")!;
+    await fireEvent.input(field, { target: { value: "cat" } });
+    expect(await screen.findByText("Easy to guess")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(container.querySelector("input[type=password]")).toBeNull();
+  });
+
+  it("cuts many files on the first one", async () => {
+    const trim = tool("video.trim", "Trim Video", {
+      inputs: [{ type: "video", extensions: ["mp4"] }],
+      parameters: [{ id: "start", type: "string", optional: true }, { id: "end", type: "string", optional: true }],
+      ui: { preview: "timeline", one_of: ["start", "end"] },
+    });
+    api.mediaTimeline.mockResolvedValue({ duration: 100, frames: ["AA"], peaks: [] });
+    render(ToolView, { tool: trim, files: ["/a.mp4", "/b.mp4"] });
+    expect(await screen.findByText("Shown on the first file. The same times apply to 1 more.")).toBeTruthy();
   });
 });
 

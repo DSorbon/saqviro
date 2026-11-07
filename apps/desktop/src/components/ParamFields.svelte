@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isAdvanced, isNeeded, paramLabel, paramProblem, placeholder, valueLabel } from "../lib/params";
+  import { isAdvanced, isNeeded, paramLabel, paramProblem, passwordStrength, placeholder, valueLabel } from "../lib/params";
   import type { Parameter, ParamValue, Tool } from "../lib/types";
 
   let { tool, values = $bindable(), hidden = [] }: {
@@ -8,6 +8,11 @@
     /** Settings the tool shows on the file itself. */
     hidden?: string[];
   } = $props();
+
+  // Where a new password is chosen, not one being typed in again.
+  const choosing = $derived(/encrypt$|password\.add$/.test(tool.id));
+  let revealed = $state<Record<string, boolean>>({});
+  const strengthOf = (value: unknown) => (choosing ? passwordStrength(String(value ?? "")) : null);
 
   const PLACES = ["top-left", "top-center", "top-right", "left", "center", "right", "bottom-left", "bottom-center", "bottom-right"];
 
@@ -45,7 +50,15 @@
     {:else if p.multiline}
       <textarea spellcheck="false" bind:value={values[p.id]}></textarea>
     {:else if p.secret}
-      <input type="password" autocomplete="off" bind:value={values[p.id]} />
+      <span class="secret">
+        <input type={revealed[p.id] ? "text" : "password"} autocomplete="off" bind:value={values[p.id]} />
+        <button type="button" onclick={() => (revealed[p.id] = !revealed[p.id])}>{revealed[p.id] ? "Hide" : "Show"}</button>
+      </span>
+      {#if strengthOf(values[p.id])}
+        {@const strength = strengthOf(values[p.id])!}
+        <span class="strength" data-level={strength.level}><i style:width="{(strength.level + 1) * 25}%"></i></span>
+        <span>{strength.label}</span>
+      {/if}
     {:else}
       <input type="text" bind:value={values[p.id]} placeholder={placeholder(p, isNeeded(tool, p))} />
     {/if}
@@ -80,5 +93,11 @@
   .pad { display: grid; grid-template-columns: repeat(3, 28px); grid-auto-rows: 20px; gap: 3px; padding: 4px; width: max-content; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); }
   .pad button { padding: 0; border: 0; border-radius: 3px; background: var(--hover); cursor: default; }
   .pad button[aria-checked="true"] { background: var(--accent); }
+  .secret { display: flex; gap: var(--space-1); }
+  .secret input { flex: 1; min-width: 0; }
+  .secret button { flex: none; padding: 0 var(--space-2); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); cursor: default; }
+  .strength { display: block; height: 4px; border-radius: 2px; background: var(--hover); overflow: hidden; }
+  .strength i { display: block; height: 100%; background: var(--danger); }
+  .strength[data-level="2"] i, .strength[data-level="3"] i { background: var(--success); }
   summary { color: var(--text-muted); cursor: default; margin-bottom: var(--space-3); }
 </style>

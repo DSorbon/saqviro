@@ -13,7 +13,7 @@ use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use saqviro_jobs::{ErrorKind, Executor, JobContext, JobError, JobInput, JobOutput, OutputFile, Params};
 use tar::{Archive, Builder, EntryType};
 
-use super::archive::{Budget, LIMITS, Limits, unique};
+use super::archive::{Budget, COUNTED_ENTRIES, Contents, LIMITS, Limits, unique};
 use crate::output::{Outputs, file_stem, input_files, name_error, render_name, target_dir};
 
 fn invalid(message: impl Into<String>) -> JobError {
@@ -167,6 +167,52 @@ fn is_gzip(path: &Path) -> Result<bool, JobError> {
     let mut magic = [0; 2];
     let mut file = File::open(path)?;
     Ok(file.read_exact(&mut magic).is_ok() && magic == [0x1F, 0x8B])
+}
+
+/// Stops a listing that would have to read too much of the archive.
+const LISTING_CAP: u64 = 2 * 1024 * 1024 * 1024;
+
+fn list(reader: impl Read) -> Result<Contents, JobError> {
+    let mut archive = Archive::new(Capped {
+        inner: reader,
+        left: LISTING_CAP,
+    });
+    let mut found = Contents {
+        count: 0,
+        total: 0,
+        entries: Vec::new(),
+        more: false,
+    };
+    let damaged = |_| JobError::new(ErrorKind::UnsupportedFormat, "this archive is damaged");
+    for entry in archive.entries().map_err(damaged)? {
+        let Ok(entry) = entry else {
+            // Ran into the cap: what was counted so far still stands.
+            found.more = found.count > 0;
+            if found.more {
+                break;
+            }
+            return Err(JobError::new(ErrorKind::UnsupportedFormat, "this archive is damaged"));
+        };
+        if found.count >= COUNTED_ENTRIES {
+            found.more = true;
+            break;
+        }
+        if entry.header().entry_type().is_file() {
+            let name = entry.path().map_err(damaged)?.display().to_string();
+            found.add(name, entry.size());
+        }
+    }
+    Ok(found)
+}
+
+/// The files in a tar or tar.gz, without writing anything.
+pub fn contents(path: &Path) -> Result<Contents, JobError> {
+    let file = BufReader::new(File::open(path)?);
+    if is_gzip(path)? {
+        list(GzDecoder::new(file))
+    } else {
+        list(file)
+    }
 }
 
 /// `backup.tar.gz` → `backup`.

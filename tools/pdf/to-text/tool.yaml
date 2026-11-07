@@ -22,4 +22,5 @@ platforms: [windows, macos, linux]
 presets:
   - { id: default, name: Default }
 ui:
+  preview: compare
   facts: pdf.info

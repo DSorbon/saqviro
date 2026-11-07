@@ -4,12 +4,14 @@
   import { formatTime, parseTime } from "../lib/timecode";
   import type { ParamValue } from "../lib/types";
 
-  let { path, values, single = false, disabled = false, onChange }: {
+  let { path, values, single = false, disabled = false, others = 0, onChange }: {
     path: string;
     values: Record<string, ParamValue>;
     /** One moment (`time`) instead of a part (`start`, `end`). */
     single?: boolean;
     disabled?: boolean;
+    /** How many more files get the same cut. */
+    others?: number;
     onChange: (changes: Record<string, string>) => void;
   } = $props();
 
@@ -116,6 +118,7 @@
       {:else}
         <strong>{formatTime(end - start)}</strong> <span class="muted">kept, from {formatTime(start)} to {formatTime(end)} of {formatTime(duration)}. Drag the edges.</span>
       {/if}
+      {#if others > 0}<span class="muted">Shown on the first file. The same times apply to {others} more.</span>{/if}
     </p>
   </section>
 {:else if problem}

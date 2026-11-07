@@ -19,10 +19,12 @@
   import type { ParamValue, Tool } from "../lib/types";
   import Compare from "./Compare.svelte";
   import CropBox from "./CropBox.svelte";
+  import ArchiveList from "./ArchiveList.svelte";
   import FileFacts from "./FileFacts.svelte";
   import FileList from "./FileList.svelte";
   import Outcome from "./Outcome.svelte";
   import ToolIcon from "./ToolIcon.svelte";
+  import MediaStack from "./MediaStack.svelte";
   import PagePicker from "./PagePicker.svelte";
   import PdfStack from "./PdfStack.svelte";
   import RenamePlan from "./RenamePlan.svelte";
@@ -76,7 +78,7 @@
         ? "Click a page to turn it"
         : renaming && files.length > 0 && !renames.count
           ? renames.why || "Choose what to change"
-          : usesTimeline && files.length === 1 && !values.start && !values.end && tool.ui?.one_of
+          : usesTimeline && files.length > 0 && !values.start && !values.end && tool.ui?.one_of
           ? "Drag the edges to choose a part"
           : paramsIssue(tool, values),
   );
@@ -221,6 +223,30 @@
   const together = $derived(tool.capabilities?.batch === false);
   const enoughFiles = $derived(files.length >= (tool.inputs[0]?.min_files ?? 1));
   const previewFiles = $derived(together ? files : files.slice(0, 1));
+  /** Text fields start from what the file already says. */
+  let prefilled: Record<string, string> = {};
+  function fillFromFile(facts: Record<string, string>) {
+    if (files.length !== 1) return;
+    const known = (tool.parameters ?? []).filter((p) => p.type === "string" && !values[p.id]);
+    const filled = known.flatMap((p) => Object.entries(facts).filter(([k]) => k.toLowerCase() === p.id).map(([, v]) => [p.id, v] as const));
+    if (filled.length === 0) return;
+    prefilled = Object.fromEntries(filled);
+    values = { ...values, ...prefilled };
+  }
+
+  // One file's author must not end up on the next file. What was typed stays.
+  $effect(() => {
+    void files;
+    const stale = Object.entries(prefilled);
+    if (stale.length === 0) return;
+    prefilled = {};
+    untrack(() => {
+      const kept = { ...values };
+      for (const [id, value] of stale) if (kept[id] === value) kept[id] = "";
+      values = kept;
+    });
+  });
+
   /** Fields hold what their type says: a number stays a number. */
   const pageValue = (v: string) => (pickerMode === "parts" ? Number(v) : v);
 
@@ -276,11 +302,19 @@
   {/if}
 
   {#if tool.ui?.facts && files.length === 1}
-    {#key files[0]}<FileFacts toolId={tool.ui.facts} path={files[0]!} />{/key}
+    {#key files[0]}<FileFacts toolId={tool.ui.facts} path={files[0]!} onFacts={fillFromFile} />{/key}
   {/if}
 
   {#if tool.ui?.preview === "pages-stack" && files.length > 0}
     <PdfStack {files} />
+  {/if}
+
+  {#if tool.ui?.preview === "media-stack" && files.length > 0}
+    <MediaStack {files} />
+  {/if}
+
+  {#if tool.ui?.preview === "archive" && files.length === 1}
+    {#key files[0]}<ArchiveList path={files[0]!} />{/key}
   {/if}
 
   {#if tool.ui?.preview === "compare" && files[0] && enoughFiles}
@@ -296,10 +330,11 @@
     {/key}
   {/if}
 
-  {#if usesTimeline && files.length === 1}
+  {#if usesTimeline && files[0]}
     {#key files[0]}
       <Timeline
-        path={files[0]!}
+        path={files[0]}
+        others={files.length - 1}
         {values}
         single={tool.parameters?.some((p) => p.id === "time")}
         disabled={running}

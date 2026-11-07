@@ -25,5 +25,6 @@ parameters:
 presets:
   - { id: default, name: Default }
 ui:
+  preview: compare
   facts: video.info
   advanced: [track]

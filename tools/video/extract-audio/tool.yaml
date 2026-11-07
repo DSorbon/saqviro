@@ -28,5 +28,6 @@ presets:
   - { id: wav, name: WAV, params: { format: wav } }
   - { id: flac, name: FLAC, params: { format: flac } }
 ui:
+  preview: compare
   facts: video.info
   advanced: [bitrate]

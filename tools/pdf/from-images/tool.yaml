@@ -25,3 +25,5 @@ presets:
   - { id: fit, name: Fit image, params: { page_size: fit } }
   - { id: a4, name: A4, params: { page_size: a4 } }
   - { id: letter, name: Letter, params: { page_size: letter } }
+ui:
+  preview: compare

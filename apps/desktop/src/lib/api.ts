@@ -55,7 +55,24 @@ export interface ToolPreview {
   /** The shape of the sound before and after, on one scale. */
   peaks_before: number[] | null;
   peaks_after: number[] | null;
+  /** The start of a result that is text. */
+  text: string | null;
+  /** Small pictures of a result that is a folder, and how many files it has. */
+  items: string[] | null;
+  count: number | null;
 }
+
+export interface ArchiveContents {
+  count: number;
+  total: number;
+  /** Names and sizes of the first entries. */
+  entries: [string, number][];
+  /** There is more than was counted. */
+  more: boolean;
+}
+
+/** What is inside an archive, without unpacking it. */
+export const archiveContents = (path: string) => invoke<ArchiveContents>("archive_contents", { path });
 
 /** What a tool would make of one file, before anything is saved. */
 export const previewTool = (toolId: string, paths: string[], params: Record<string, ParamValue>) =>

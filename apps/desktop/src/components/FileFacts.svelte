@@ -3,7 +3,12 @@
   import { parseReport, type Report as Parsed } from "../lib/report";
   import Report from "./Report.svelte";
 
-  let { toolId, path }: { toolId: string; path: string } = $props();
+  let { toolId, path, onFacts }: {
+    toolId: string;
+    path: string;
+    /** Facts by name, for fields that edit what the file already says. */
+    onFacts?: (facts: Record<string, string>) => void;
+  } = $props();
 
   let report = $state<Parsed | null>(null);
 
@@ -11,7 +16,14 @@
   $effect(() => {
     const wanted = path;
     report = null;
-    fileFacts(toolId, wanted).then((text) => { if (wanted === path) report = parseReport(text); }, () => {});
+    fileFacts(toolId, wanted).then(
+      (text) => {
+        if (wanted !== path) return;
+        report = parseReport(text);
+        if (report?.kind === "facts") onFacts?.(Object.fromEntries(report.facts));
+      },
+      () => {},
+    );
   });
 </script>
 

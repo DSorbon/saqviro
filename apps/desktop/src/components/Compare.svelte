@@ -130,7 +130,7 @@
 <svelte:window onpointerup={() => (dragging = false)} onpointermove={move} />
 
 <figure>
-  {#if before && !after?.peaks_after}
+  {#if before && !after?.peaks_after && after?.text == null && !after?.items}
     <div class="stage" class:placing={onPlace} role="presentation" bind:this={stage} onpointerdown={(e) => { dragging = true; move(e); }}>
       <img alt="Original" draggable="false" src="data:image/jpeg;base64,{before}" />
       {#if after?.data}
@@ -144,12 +144,19 @@
       <span class="tag left">Original {after?.source_size ? formatBytes(after.source_size) : ""}</span>
       {#if after}<span class="tag right">Result {after.estimated ? "about " : ""}{formatBytes(after.size)}{change()}</span>{/if}
     </div>
+  {:else if after?.text != null}
+    <pre class="sample">{after.text}</pre>
+  {:else if after?.items}
+    <p class="sizes"><strong>{after.count} files</strong></p>
+    <div class="items">{#each after.items as data, i (i)}<img alt="" src="data:image/jpeg;base64,{data}" />{/each}</div>
   {:else if after?.data}
     <img class="alone" alt="Result" src="data:image/jpeg;base64,{after.data}" />
   {:else if after?.peaks_after}
     <div class="sound">
-      <span class="muted">Original</span>
-      <div class="wave" aria-label="Sound before">{#each after.peaks_before ?? [] as peak, i (i)}<i style:height="{Math.max(peak * 100, 2)}%"></i>{/each}</div>
+      {#if after.peaks_before}
+        <span class="muted">Original</span>
+        <div class="wave" aria-label="Sound before">{#each after.peaks_before as peak, i (i)}<i style:height="{Math.max(peak * 100, 2)}%"></i>{/each}</div>
+      {/if}
       <span class="muted">Result</span>
       <div class="wave result" aria-label="Sound after">{#each after.peaks_after as peak, i (i)}<i style:height="{Math.max(peak * 100, 2)}%"></i>{/each}</div>
     </div>
@@ -177,6 +184,9 @@
   .tag { position: absolute; top: var(--space-2); padding: 3px var(--space-2); border-radius: var(--radius); background: rgb(0 0 0 / 0.65); color: white; font-size: var(--text-caption); font-weight: 600; line-height: 1.4; }
   .left { left: var(--space-2); }
   .right { right: var(--space-2); }
+  .sample { max-height: 280px; margin: 0; padding: var(--space-3); overflow: auto; white-space: pre-wrap; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--surface); font: var(--text-caption) / 1.5 var(--mono); user-select: text; }
+  .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: var(--space-1); }
+  .items img { width: 100%; height: 64px; object-fit: cover; border-radius: var(--radius); }
   .alone { height: 320px; border-radius: var(--radius-large); background: var(--hover); }
   .sound { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--space-2); }
   .sound .muted { font-size: var(--text-caption); }

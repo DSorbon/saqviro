@@ -98,6 +98,17 @@ export function placeholder(p: Parameter, needed: boolean): string {
   return EXAMPLES[p.id] ?? (p.optional && !needed ? "optional" : "");
 }
 
+/** How hard a password would be to guess, for someone choosing one. */
+export function passwordStrength(text: string): { label: string; level: 0 | 1 | 2 | 3 } | null {
+  if (!text) return null;
+  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z\d]/].filter((k) => k.test(text)).length;
+  const score = text.length + kinds * 2;
+  if (text.length < 8 || score < 12) return { label: "Easy to guess", level: 0 };
+  if (score < 18) return { label: "Fair", level: 1 };
+  if (score < 24) return { label: "Good", level: 2 };
+  return { label: "Strong", level: 3 };
+}
+
 /** What is wrong with a number field, or null. */
 export function paramProblem(p: Parameter, value: ParamValue | null | undefined): string | null {
   if (typeof value !== "number" || (p.type !== "integer" && p.type !== "number")) return null;

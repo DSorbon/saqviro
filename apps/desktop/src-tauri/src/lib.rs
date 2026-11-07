@@ -156,7 +156,35 @@ struct ToolPreview {
     /// The shape of the sound before and after, on one scale.
     peaks_before: Option<Vec<f32>>,
     peaks_after: Option<Vec<f32>>,
+    /// The start of a result that is text.
+    text: Option<String>,
+    /// Small pictures of a result that is a folder, and how many files it has.
+    items: Option<Vec<String>>,
+    count: Option<usize>,
 }
+
+impl ToolPreview {
+    fn sized(size: u64, source_size: Option<u64>) -> Self {
+        Self {
+            data: None,
+            before: None,
+            size,
+            source_size,
+            estimated: false,
+            peaks_before: None,
+            peaks_after: None,
+            text: None,
+            items: None,
+            count: None,
+        }
+    }
+}
+
+/// How much of a text result is worth reading before it is made.
+const TEXT_SAMPLE: usize = 2000;
+/// Small pictures shown of a folder of results.
+const FOLDER_SAMPLE: usize = 12;
+const SMALL_PICTURE: u32 = 200;
 
 const VIDEO_TYPES: [&str; 6] = ["mp4", "mov", "m4v", "mkv", "webm", "avi"];
 const AUDIO_TYPES: [&str; 9] = ["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus", "aiff", "aif"];
@@ -251,14 +279,17 @@ fn preview_video(
 
     let (sample, result) = sample_result(registry, jobs, tool_id, path, params, dir)?;
     let (size, source_size) = scaled_size(path, &sample, result.size)?;
+    let sound = AUDIO_TYPES.contains(&extension(&result.path).as_str());
     Ok(ToolPreview {
-        data: helper_text(jobs, still(), &result.path, Params::new()).ok(),
+        data: if sound {
+            None
+        } else {
+            helper_text(jobs, still(), &result.path, Params::new()).ok()
+        },
         before: helper_text(jobs, still(), &sample, Params::new()).ok(),
-        size,
-        source_size: Some(source_size),
         estimated: true,
-        peaks_before: None,
-        peaks_after: None,
+        peaks_after: if sound { sound_shape(jobs, &result.path) } else { None },
+        ..ToolPreview::sized(size, Some(source_size))
     })
 }
 
@@ -289,14 +320,26 @@ fn preview_audio(
     let (sample, result) = sample_result(registry, jobs, tool_id, path, params, dir)?;
     let (size, source_size) = scaled_size(path, &sample, result.size)?;
     Ok(ToolPreview {
-        data: None,
-        before: None,
-        size,
-        source_size: Some(source_size),
         estimated: true,
         peaks_before: sound_shape(jobs, &sample),
         peaks_after: sound_shape(jobs, &result.path),
+        ..ToolPreview::sized(size, Some(source_size))
     })
+}
+
+/// Pictures and a count for a result that is a folder of files.
+fn folder_preview(folder: &std::path::Path) -> Result<(Vec<String>, usize), JobError> {
+    let mut names: Vec<PathBuf> = std::fs::read_dir(folder)?
+        .filter_map(|e| Some(e.ok()?.path()))
+        .collect();
+    names.sort();
+    let pictures = names
+        .iter()
+        .filter_map(|f| saqviro_tools::images::preview(f, SMALL_PICTURE).ok())
+        .take(FOLDER_SAMPLE)
+        .map(|p| p.data)
+        .collect();
+    Ok((pictures, names.len()))
 }
 
 /// Runs the tool into a temp folder that goes away with this call. Several
@@ -314,12 +357,12 @@ fn preview_tool_now(
         .cloned()
         .ok_or_else(|| JobError::new(ErrorKind::InvalidInput, "add a file"))?;
     let kind = extension(&first_path);
-    // A picture of a recording needs all of it; so does one result from many files.
-    let makes_picture = registry
+    // A picture or the words of a recording need all of it.
+    let needs_all = registry
         .get(tool_id)
         .and_then(|t| t.outputs.first())
-        .is_some_and(|o| o.data_type == DataType::Image);
-    if paths.len() == 1 && !makes_picture {
+        .is_some_and(|o| matches!(o.data_type, DataType::Image | DataType::Text));
+    if paths.len() == 1 && !needs_all {
         if VIDEO_TYPES.contains(&kind.as_str()) {
             return preview_video(registry, jobs, tool_id, &first_path, params, dir.path());
         }
@@ -328,29 +371,44 @@ fn preview_tool_now(
         }
     }
     let first = tool_result(registry, jobs, tool_id, paths, params, dir.path())?;
-    let (data, before) = if kind == "pdf" {
-        let page = |file: &std::path::Path| {
-            let pictures = tempfile::tempdir().ok()?;
-            saqviro_tools::pdf::first_page(file, pictures.path()).ok()
-        };
-        (page(&first.path), page(&first_path))
-    } else {
-        (
-            saqviro_tools::images::preview(&first.path, PREVIEW_SIZE)
-                .ok()
-                .map(|p| p.data),
-            None,
-        )
+    let mut preview = ToolPreview::sized(first.size, first.source_size);
+    let page = |file: &std::path::Path| {
+        let pictures = tempfile::tempdir().ok()?;
+        saqviro_tools::pdf::first_page(file, pictures.path()).ok()
     };
-    Ok(ToolPreview {
-        data,
-        before,
-        size: first.size,
-        source_size: first.source_size,
-        estimated: false,
-        peaks_before: None,
-        peaks_after: None,
+    if kind == "pdf" {
+        preview.before = page(&first_path);
+    }
+    let made = extension(&first.path);
+    if first.path.is_dir() {
+        let (items, count) = folder_preview(&first.path)?;
+        preview.items = Some(items);
+        preview.count = Some(count);
+    } else if made == "pdf" {
+        preview.data = page(&first.path);
+    } else if matches!(made.as_str(), "txt" | "srt" | "vtt") {
+        let text = std::fs::read_to_string(&first.path).unwrap_or_default();
+        preview.text = Some(text.chars().take(TEXT_SAMPLE).collect());
+    } else {
+        preview.data = saqviro_tools::images::preview(&first.path, PREVIEW_SIZE)
+            .ok()
+            .map(|p| p.data);
+    }
+    Ok(preview)
+}
+
+/// What is inside an archive, without unpacking it.
+#[tauri::command]
+async fn archive_contents(path: PathBuf) -> Result<saqviro_tools::files::archive::Contents, JobError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if extension(&path) == "zip" {
+            saqviro_tools::files::archive::contents(&path)
+        } else {
+            saqviro_tools::files::tarball::contents(&path)
+        }
     })
+    .await
+    .map_err(|e| JobError::new(ErrorKind::Unknown, e.to_string()))?
 }
 
 /// What a reporting tool says about a file, without keeping anything.
@@ -676,6 +734,7 @@ fn app<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             plan_rename,
             file_facts,
             file_sizes,
+            archive_contents,
             media_timeline,
             run_workflow,
             image_preview,
@@ -933,6 +992,17 @@ mod tests {
         }
         let found = preview_tool_now(&bundled_registry(), &jobs, "image.contact-sheet", files, &Params::new()).unwrap();
         assert!(found.data.is_some());
+    }
+
+    #[test]
+    fn a_folder_of_results_shows_as_pictures() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("made");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(folder.join("a.png"), PNG).unwrap();
+        std::fs::write(folder.join("b.txt"), "x").unwrap();
+        let (pictures, count) = folder_preview(&folder).unwrap();
+        assert_eq!((pictures.len(), count), (1, 2));
     }
 
     #[test]

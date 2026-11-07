@@ -27,5 +27,6 @@ presets:
   - { id: png, name: PNG, params: { format: png } }
   - { id: jpg, name: JPG, params: { format: jpg } }
 ui:
+  preview: compare
   facts: pdf.info
   advanced: [dpi, quality]
