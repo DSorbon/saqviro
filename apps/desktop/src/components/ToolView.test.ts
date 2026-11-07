@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   previewTool: vi.fn(),
   mediaTimeline: vi.fn(),
   planRename: vi.fn(),
+  fileFacts: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -34,6 +35,8 @@ vi.mock("../lib/api", () => ({
   previewTool: api.previewTool,
   mediaTimeline: api.mediaTimeline,
   planRename: api.planRename,
+  fileFacts: api.fileFacts,
+  fileSizes: async (paths: string[]) => paths.map(() => 2048),
   onJobEvent: (cb: (s: JobSnapshot) => void) => {
     api.listeners.push(cb);
     return Promise.resolve(() => {});
@@ -331,7 +334,7 @@ describe("ToolView comparing", () => {
 
   beforeEach(() => {
     api.imagePreview.mockResolvedValue({ data: "AA", width: 10, height: 10 });
-    api.previewTool.mockReset().mockImplementation(async (_: string, __: string, params: { quality: number }) => ({ data: "BB", size: params.quality * 1024, source_size: 1024 * 100 }));
+    api.previewTool.mockReset().mockImplementation(async (_: string, __: string[], params: { quality: number }) => ({ data: "BB", size: params.quality * 1024, source_size: 1024 * 100 }));
   });
 
   it("shows the result and its size before anything is saved", async () => {
@@ -377,7 +380,7 @@ describe("ToolView comparing a PDF or a film", () => {
     render(ToolView, { tool: shrink, files: ["/a.mp4"] });
     expect(await screen.findByAltText("Original")).toBeTruthy();
     expect(await screen.findByText(/Result about 1 KB/)).toBeTruthy();
-    expect(screen.getByText("Worked out from a few seconds of the film.")).toBeTruthy();
+    expect(screen.getByText("Worked out from a few seconds of the file.")).toBeTruthy();
   });
 
   it("still gives the sizes when there is no picture", async () => {
@@ -412,7 +415,7 @@ describe("ToolView placing a mark", () => {
     const stage = container.querySelector(".stage")!;
     stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
     await fireEvent.pointerDown(stage, { clientX: 25, clientY: 75 });
-    await vi.waitFor(() => expect(api.previewTool).toHaveBeenCalledWith(mark.id, "/a.jpg", expect.objectContaining({ x: 25, y: 75 })));
+    await vi.waitFor(() => expect(api.previewTool).toHaveBeenCalledWith(mark.id, ["/a.jpg"], expect.objectContaining({ x: 25, y: 75 })));
   });
 
   it("gives way to the grid", async () => {
@@ -497,6 +500,123 @@ describe("ToolView on a timeline", () => {
     api.mediaTimeline.mockRejectedValue({ kind: "unsupported_format", message: "this file is damaged or is not a media file" });
     render(ToolView, { tool: trim, files: ["/a.mp4"] });
     expect(await screen.findByText("This file is damaged or is not a media file")).toBeTruthy();
+  });
+});
+
+describe("ToolView that only reports", () => {
+  const info = tool("pdf.info", "View PDF Info", { inputs: [{ type: "pdf", extensions: ["pdf"] }], outputs: [{ type: "text" }] });
+
+  it("answers as soon as it has a file, with no Run", async () => {
+    render(ToolView, { tool: info, files: ["/a.pdf"] });
+    expect(screen.queryByRole("button", { name: /Run/ })).toBeNull();
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(info.id, { kind: "files", value: ["/a.pdf"] }, {}, null));
+    emit({ status: "completed", output: { kind: "text", value: "a.pdf\nPages: 4\nSize: 1 MB" } });
+    expect(await screen.findByText("Pages")).toBeTruthy();
+  });
+
+  it("can be stopped while it looks through a big folder", async () => {
+    render(ToolView, { tool: info, files: ["/a.pdf"] });
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalled());
+    emit({ status: "running" });
+    await fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(api.cancelJob).toHaveBeenCalledWith(7);
+  });
+
+  it("says what to do before it has a file", () => {
+    render(ToolView, { tool: info, files: [] });
+    expect(api.runTool).not.toHaveBeenCalled();
+    expect(screen.getByText("Add a file to start")).toBeTruthy();
+  });
+
+  it("leaves a tool that writes a file to Run", () => {
+    const toText = tool("pdf.to-text", "PDF to Text", { inputs: [{ type: "pdf", extensions: ["pdf"] }], outputs: [{ type: "text", filename: "{stem}.txt" }] });
+    render(ToolView, { tool: toText, files: ["/a.pdf"] });
+    expect(screen.getByRole("button", { name: /Run/ })).toBeTruthy();
+  });
+});
+
+describe("ToolView with many files", () => {
+  const clean = tool("pdf.metadata.remove", "Remove PDF Metadata", {
+    inputs: [{ type: "pdf", extensions: ["pdf"] }],
+    outputs: [{ type: "pdf", filename: "{stem}-clean.pdf" }],
+    ui: { facts: "pdf.info" },
+  });
+
+  it("shows what each file becomes, with its size", async () => {
+    render(ToolView, { tool: clean, files: ["/a.pdf", "/b.pdf"] });
+    expect(await screen.findByText(/a-clean.pdf/)).toBeTruthy();
+    expect(await screen.findByText("2 files, 4 KB")).toBeTruthy();
+  });
+
+  it("shows what is in a file before changing it", async () => {
+    api.fileFacts.mockResolvedValue("a.pdf\nAuthor: K. Lindqvist\nPages: 4");
+    render(ToolView, { tool: clean, files: ["/a.pdf"] });
+    expect(await screen.findByText("K. Lindqvist")).toBeTruthy();
+    expect(api.fileFacts).toHaveBeenCalledWith("pdf.info", "/a.pdf");
+  });
+
+  it("makes one picture from all the files where that is the point", async () => {
+    const sheet = tool("image.contact-sheet", "Contact Sheet", {
+      inputs: [{ type: "image", extensions: ["jpg"] }],
+      capabilities: { batch: false },
+      ui: { preview: "compare" },
+    });
+    api.previewTool.mockReset().mockResolvedValue({ data: "BB", before: null, size: 1, source_size: null, estimated: false, peaks_before: null, peaks_after: null });
+    render(ToolView, { tool: sheet, files: ["/a.jpg", "/b.jpg"] });
+    expect(await screen.findByAltText("Result")).toBeTruthy();
+    expect(api.previewTool).toHaveBeenCalledWith(sheet.id, ["/a.jpg", "/b.jpg"], expect.anything());
+  });
+
+  it("waits for the files a tool needs", () => {
+    const compare = tool("image.compare", "Compare", {
+      inputs: [{ type: "image", extensions: ["jpg"], min_files: 2 }],
+      capabilities: { batch: false },
+      ui: { preview: "compare" },
+    });
+    api.previewTool.mockReset();
+    render(ToolView, { tool: compare, files: ["/a.jpg"] });
+    expect(api.previewTool).not.toHaveBeenCalled();
+  });
+});
+
+describe("ToolView with sound", () => {
+  it("shows the sound before and after", async () => {
+    const loud = tool("audio.volume", "Change Volume", { inputs: [{ type: "audio", extensions: ["mp3"] }], ui: { preview: "compare" } });
+    api.imagePreview.mockRejectedValue({ kind: "unsupported_format", message: "no" });
+    api.previewTool.mockReset().mockResolvedValue({ data: null, before: null, size: 1024, source_size: 2048, estimated: true, peaks_before: [0.2], peaks_after: [0.4] });
+    render(ToolView, { tool: loud, files: ["/a.mp3"] });
+    expect(await screen.findByLabelText("Sound after")).toBeTruthy();
+    expect(screen.getByLabelText("Sound before")).toBeTruthy();
+  });
+});
+
+describe("ToolView splitting", () => {
+  const split = tool("pdf.split", "Split PDF", {
+    inputs: [{ type: "pdf", extensions: ["pdf"] }],
+    parameters: [{ id: "pages", type: "integer", min: 1, default: 1 }],
+    ui: { preview: "pages-parts" },
+  });
+
+  beforeEach(() => {
+    api.pdfThumbnails.mockResolvedValue({ pages: ["AA", "AA", "AA", "AA"], count: 4 });
+  });
+
+  it("shows the files it will make, and a click sets their length", async () => {
+    render(ToolView, { tool: split, files: ["/a.pdf"] });
+    expect(await screen.findByText(/4 pages into 4 files/)).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+    expect(await screen.findByText(/4 pages into 2 files/)).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: /Run/ }));
+    await vi.waitFor(() => expect(api.runTool).toHaveBeenCalledWith(split.id, expect.anything(), { pages: 2 }, null));
+  });
+});
+
+describe("ToolView merging", () => {
+  it("shows the pages of every file and how many there will be", async () => {
+    const merge = tool("pdf.merge", "Merge PDFs", { inputs: [{ type: "pdf", extensions: ["pdf"] }], capabilities: { batch: false }, ui: { preview: "pages-stack" } });
+    api.pdfThumbnails.mockResolvedValue({ pages: ["AA", "AA"], count: 2 });
+    render(ToolView, { tool: merge, files: ["/a.pdf", "/b.pdf"] });
+    expect(await screen.findByText("4 pages")).toBeTruthy();
   });
 });
 

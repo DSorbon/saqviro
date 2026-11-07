@@ -36,6 +36,7 @@ vi.mock("../lib/api", () => ({
   revealFile: async () => undefined,
   openFile: async () => undefined,
   imagePreview: async () => ({ data: "", width: 1, height: 1 }),
+  fileSizes: async (paths: string[]) => paths.map(() => 1),
   saveImage: async () => true,
   appVersion: async () => "1.2.3",
   updatesEnabled: api.updatesEnabled,

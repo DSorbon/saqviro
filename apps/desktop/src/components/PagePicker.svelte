@@ -5,7 +5,7 @@
 
   let { path, mode, toolId = "", value, disabled = false, onChange }: {
     path: string;
-    mode: "order" | "select" | "turn";
+    mode: "order" | "select" | "turn" | "parts";
     toolId?: string;
     value: string;
     disabled?: boolean;
@@ -33,6 +33,10 @@
   const hint = $derived(pageHint(toolId));
   const turns = $derived(mode === "turn" ? parseTurns(value) : {});
   const turnedCount = $derived(Object.keys(turns).length);
+  // In parts mode the value is how many pages go into each file.
+  const partSize = $derived(mode === "parts" ? Math.max(Number(value) || 1, 1) : 1);
+  const partOf = (page: number) => Math.floor((page - 1) / partSize) + 1;
+  const partCount = $derived(shown ? Math.ceil(shown.count / partSize) : 0);
 
   function turnPage(page: number, degrees: number) {
     onChange(formatTurns(turned(turns, [page], degrees)));
@@ -101,6 +105,8 @@
         class:chosen={mode === "select" && chosen.includes(page)}
         class:removes={hint.removes}
         class:chosen-turn={turns[page] !== undefined}
+        class:odd-part={mode === "parts" && partOf(page) % 2 === 1}
+        class:part-end={mode === "parts" && page % partSize === 0}
         aria-pressed={mode === "select" ? chosen.includes(page) : undefined}
         aria-label={turns[page] ? `Page ${page}, turned ${turns[page]} degrees` : `Page ${page}`}
         {disabled}
@@ -108,17 +114,20 @@
         onclick={(e) => {
           if (mode === "select") toggle(page);
           else if (mode === "turn") turnPage(page, e.shiftKey ? -90 : 90);
+          else if (mode === "parts") onChange(String(page));
         }}
         onkeydown={(e) => key(e, at)}
       >
         <span class="frame">
           <img alt="" draggable="false" style:transform="rotate({turns[page] ?? 0}deg) scale({(turns[page] ?? 0) % 180 === 0 ? 1 : 0.76})" src="data:image/jpeg;base64,{shown.pages[page - 1]}" />
         </span>
-        <span>{page}</span>
+        <span>{mode === "parts" ? `${page}, file ${partOf(page)}` : page}</span>
       </button>
     {/each}
   </div>
-  {#if mode === "turn"}
+  {#if mode === "parts"}
+    <p class="muted">{shown.count} pages into {partCount} {partCount === 1 ? "file" : "files"}. Click the last page of the first file to set the length.</p>
+  {:else if mode === "turn"}
     <div class="turn-all">
       <span class="muted">{turnedCount === 0 ? "Click a page to turn it. Shift-click turns it back." : `${turnedCount} ${turnedCount === 1 ? "page" : "pages"} turned`}</span>
       <button class="plain" {disabled} onclick={() => turnAll(-90)}>Turn all left</button>
@@ -137,6 +146,7 @@
   .pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-2); max-height: 300px; overflow-y: auto; padding: 2px; touch-action: none; }
   button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--space-1); border: 2px solid transparent; border-radius: var(--radius); background: none; color: var(--text-muted); cursor: default; }
   button:hover:not(:disabled) { background: var(--hover); }
+  button.odd-part { background: color-mix(in srgb, var(--accent) 8%, transparent); }
   button.chosen-turn { border-color: var(--accent); color: var(--text); }
   .frame { display: grid; place-items: center; width: 100%; height: 104px; }
   .turn-all { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); }

@@ -31,9 +31,9 @@ export interface Tool {
   description: string;
   keywords: string[];
   inputs: { type: string; multiple?: boolean; optional?: boolean; extensions?: string[]; min_files?: number; folders?: boolean }[];
-  outputs?: { type: string; multiple?: boolean }[];
+  outputs?: { type: string; multiple?: boolean; filename?: string }[];
   parameters?: Parameter[];
   presets: Preset[];
   capabilities?: { batch?: boolean; destructive?: boolean };
-  ui?: { advanced?: string[]; one_of?: string[]; preview?: string };
+  ui?: { advanced?: string[]; one_of?: string[]; preview?: string; facts?: string };
 }

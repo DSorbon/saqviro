@@ -4,9 +4,10 @@
   import { initialParams } from "../lib/params";
   import type { ParamValue, Tool } from "../lib/types";
 
-  let { tool, path, params, others = 0, onSizes, onPlace }: {
+  let { tool, paths, params, others = 0, onSizes, onPlace }: {
     tool: Tool;
-    path: string;
+    /** One file, or all of them for a tool that makes one result from many. */
+    paths: string[];
     params: Record<string, ParamValue>;
     /** How many more files the same choice applies to. */
     others?: number;
@@ -27,14 +28,19 @@
   let dragging = false;
   let asked = 0;
 
+  const path = $derived(paths[0]!);
+  const whole = $derived(paths.length > 1);
+
   $effect(() => {
     const wanted = path;
     picture = null;
+    // PDFs and films bring their own picture with the result.
+    if (whole || tool.inputs[0]?.type !== "image") return;
     imagePreview(wanted).then((p) => { if (wanted === path) picture = p; }, () => {});
   });
 
   $effect(() => {
-    const wanted = path;
+    const wanted = $state.snapshot(paths);
     const chosen = $state.snapshot(params);
     const ticket = ++asked;
     working = true;
@@ -65,7 +71,7 @@
   const SIZE_ALL_PRESETS_UP_TO = 50 * 1024 * 1024;
 
   $effect(() => {
-    const wanted = path;
+    const wanted = $state.snapshot(paths);
     if (tool.presets.length < 2 || !onSizes) return;
     let stopped = false;
     void (async () => {
@@ -124,7 +130,7 @@
 <svelte:window onpointerup={() => (dragging = false)} onpointermove={move} />
 
 <figure>
-  {#if before}
+  {#if before && !after?.peaks_after}
     <div class="stage" class:placing={onPlace} role="presentation" bind:this={stage} onpointerdown={(e) => { dragging = true; move(e); }}>
       <img alt="Original" draggable="false" src="data:image/jpeg;base64,{before}" />
       {#if after?.data}
@@ -138,6 +144,16 @@
       <span class="tag left">Original {after?.source_size ? formatBytes(after.source_size) : ""}</span>
       {#if after}<span class="tag right">Result {after.estimated ? "about " : ""}{formatBytes(after.size)}{change()}</span>{/if}
     </div>
+  {:else if after?.data}
+    <img class="alone" alt="Result" src="data:image/jpeg;base64,{after.data}" />
+  {:else if after?.peaks_after}
+    <div class="sound">
+      <span class="muted">Original</span>
+      <div class="wave" aria-label="Sound before">{#each after.peaks_before ?? [] as peak, i (i)}<i style:height="{Math.max(peak * 100, 2)}%"></i>{/each}</div>
+      <span class="muted">Result</span>
+      <div class="wave result" aria-label="Sound after">{#each after.peaks_after as peak, i (i)}<i style:height="{Math.max(peak * 100, 2)}%"></i>{/each}</div>
+    </div>
+    <p class="sizes">{after.source_size ? `${formatBytes(after.source_size)} → ` : ""}<strong>{after.estimated ? "about " : ""}{formatBytes(after.size)}</strong>{change()}</p>
   {:else if after}
     <p class="sizes">{after.source_size ? `${formatBytes(after.source_size)} → ` : ""}<strong>{after.estimated ? "about " : ""}{formatBytes(after.size)}</strong>{change()}</p>
   {/if}
@@ -145,7 +161,7 @@
     {#if problem}<span class="problem">{problem}</span>
     {:else if working}Working out the result…
     {:else if onPlace}Click the picture to put it there.{others > 0 ? ` The same place on ${others} more.` : ""}
-    {:else if after?.estimated}Worked out from a few seconds of the film.
+    {:else if after?.estimated}Worked out from a few seconds of the file.
     {:else if others > 0}Shown on the first file. The same applies to {others} more.
     {:else}Nothing is saved until you press Run.{/if}
   </figcaption>
@@ -161,6 +177,12 @@
   .tag { position: absolute; top: var(--space-2); padding: 3px var(--space-2); border-radius: var(--radius); background: rgb(0 0 0 / 0.65); color: white; font-size: var(--text-caption); font-weight: 600; line-height: 1.4; }
   .left { left: var(--space-2); }
   .right { right: var(--space-2); }
+  .alone { height: 320px; border-radius: var(--radius-large); background: var(--hover); }
+  .sound { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--space-2); }
+  .sound .muted { font-size: var(--text-caption); }
+  .wave { display: flex; align-items: center; gap: 1px; height: 64px; }
+  .wave i { flex: 1; min-width: 0; border-radius: 1px; background: var(--border-strong); }
+  .wave.result i { background: var(--accent); }
   .placing { cursor: crosshair; }
   .sizes { margin: 0; font-size: var(--text-lead); }
   figcaption { font-size: var(--text-caption); }

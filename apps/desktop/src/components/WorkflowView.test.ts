@@ -18,6 +18,7 @@ vi.mock("../lib/api", () => ({
   cancelJob: api.cancelJob,
   pickFiles: api.pickFiles,
   imagePreview: async () => ({ data: "", width: 1, height: 1 }),
+  fileSizes: async (paths: string[]) => paths.map(() => 1),
   saveImage: vi.fn(),
   pickFolder: vi.fn(),
   openFile: vi.fn(),

@@ -52,11 +52,20 @@ export interface ToolPreview {
   source_size: number | null;
   /** The size comes from a few seconds of the film. */
   estimated: boolean;
+  /** The shape of the sound before and after, on one scale. */
+  peaks_before: number[] | null;
+  peaks_after: number[] | null;
 }
 
 /** What a tool would make of one file, before anything is saved. */
-export const previewTool = (toolId: string, path: string, params: Record<string, ParamValue>) =>
-  invoke<ToolPreview>("preview_tool", { toolId, path, params });
+export const previewTool = (toolId: string, paths: string[], params: Record<string, ParamValue>) =>
+  invoke<ToolPreview>("preview_tool", { toolId, paths, params });
+
+/** What a reporting tool says about a file, without keeping anything. */
+export const fileFacts = (toolId: string, path: string) => invoke<string>("file_facts", { toolId, path });
+
+/** The size of each file; folders have none. */
+export const fileSizes = (paths: string[]) => invoke<(number | null)[]>("file_sizes", { paths });
 
 /** The new name of each file. Rejects with why the renaming cannot be done. */
 export const planRename = (paths: string[], params: Record<string, ParamValue>) =>

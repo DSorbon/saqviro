@@ -11,17 +11,20 @@
     type JobError,
     type JobSnapshot,
   } from "../lib/job";
-  import { needsArea, type Area } from "../lib/crop";
-  import { isLive } from "../lib/surface";
+  import { needsArea, ratioOf, type Area } from "../lib/crop";
+  import { outputName } from "../lib/plan";
+  import { isLive, reports } from "../lib/surface";
   import { initialParams, matchingPreset, paramsIssue } from "../lib/params";
   import { shortcut } from "../lib/platform";
   import type { ParamValue, Tool } from "../lib/types";
   import Compare from "./Compare.svelte";
   import CropBox from "./CropBox.svelte";
+  import FileFacts from "./FileFacts.svelte";
   import FileList from "./FileList.svelte";
   import Outcome from "./Outcome.svelte";
   import ToolIcon from "./ToolIcon.svelte";
   import PagePicker from "./PagePicker.svelte";
+  import PdfStack from "./PdfStack.svelte";
   import RenamePlan from "./RenamePlan.svelte";
   import ParamFields from "./ParamFields.svelte";
   import Timeline from "./Timeline.svelte";
@@ -126,6 +129,7 @@
   $effect(() => {
     if (!live || !active) return;
     void text;
+    void files.length;
     void JSON.stringify(values);
     if (!hasInput || issue !== null) {
       untrack(() => {
@@ -144,8 +148,8 @@
 
   function choosePreset(id: string) {
     const next = initialParams(tool, id);
-    if (values.aspect === "selection" && values.width) drawn = values as unknown as Area;
-    values = isCrop && next.aspect === "selection" && drawn ? { ...next, x: drawn.x, y: drawn.y, width: drawn.width, height: drawn.height } : next;
+    if (ratioOf(values) === null && values.width) drawn = values as unknown as Area;
+    values = isCrop && ratioOf(next) === null && drawn ? { ...next, x: drawn.x, y: drawn.y, width: drawn.width, height: drawn.height } : next;
   }
 
   // An area belongs to its picture.
@@ -208,9 +212,17 @@
 
   /** Which field the page pictures fill in. */
   const pageParam = $derived(
-    tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-select" ? "pages" : tool.ui?.preview === "pages-turn" ? "turns" : null,
+    tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-select" ? "pages" : tool.ui?.preview === "pages-turn" ? "turns" : tool.ui?.preview === "pages-parts" ? "pages" : null,
   );
-  const pickerMode = $derived(tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-turn" ? "turn" : "select");
+  const pickerMode = $derived(
+    tool.ui?.preview === "pages-order" ? "order" : tool.ui?.preview === "pages-turn" ? "turn" : tool.ui?.preview === "pages-parts" ? "parts" : "select",
+  );
+  // Tools that make one result from all their files show that one result.
+  const together = $derived(tool.capabilities?.batch === false);
+  const enoughFiles = $derived(files.length >= (tool.inputs[0]?.min_files ?? 1));
+  const previewFiles = $derived(together ? files : files.slice(0, 1));
+  /** Fields hold what their type says: a number stays a number. */
+  const pageValue = (v: string) => (pickerMode === "parts" ? Number(v) : v);
 
   function selectArea(area: Area) {
     values = { ...values, ...area };
@@ -260,16 +272,24 @@
   </header>
 
   {#if kind === "files"}
-    <FileList bind:files {ordered} folders={takesFolders(tool)} disabled={running} onChoose={choose} onChooseFolder={chooseFolder} />
+    <FileList bind:files {ordered} folders={takesFolders(tool)} disabled={running} plan={renaming || together ? undefined : (f) => outputName(tool, f, values)} onChoose={choose} onChooseFolder={chooseFolder} />
   {/if}
 
-  {#if tool.ui?.preview === "compare" && files[0]}
-    {#key files[0]}
+  {#if tool.ui?.facts && files.length === 1}
+    {#key files[0]}<FileFacts toolId={tool.ui.facts} path={files[0]!} />{/key}
+  {/if}
+
+  {#if tool.ui?.preview === "pages-stack" && files.length > 0}
+    <PdfStack {files} />
+  {/if}
+
+  {#if tool.ui?.preview === "compare" && files[0] && enoughFiles}
+    {#key together ? files.join() : files[0]}
       <Compare
         {tool}
-        path={files[0]}
+        paths={previewFiles}
         params={chosenParams()}
-        others={files.length - 1}
+        others={together ? 0 : files.length - 1}
         onSizes={(s) => (presetSizes = s)}
         onPlace={placing ? (x, y) => (values = { ...values, x, y }) : undefined}
       />
@@ -296,7 +316,7 @@
         toolId={tool.id}
         value={String(values[pageParam] ?? "")}
         disabled={running}
-        onChange={(v) => (values = { ...values, [pageParam]: v })}
+        onChange={(v) => (values = { ...values, [pageParam]: pageValue(v) })}
       />
     {/key}
   {/if}
@@ -319,7 +339,7 @@
   {/if}
 
   {#if live}
-    <div class="live" class:single={kind === "none"}>
+    <div class="live" class:single={kind !== "text"}>
       {#if kind === "text"}
         <textarea class="code" aria-label="Input" bind:value={text} spellcheck="false" placeholder="Paste text here"></textarea>
       {/if}
@@ -327,7 +347,7 @@
         {#if output || failure}
           <Outcome {output} {failure} {jobId} {onSend} quiet />
         {:else}
-          <p class="muted waiting">{hint ?? "Working…"}</p>
+          <p class="muted waiting">{hint ?? (reports(tool) && job?.status === "cancelled" ? "Stopped" : "Working…")}</p>
         {/if}
       </div>
     </div>
@@ -337,10 +357,12 @@
     </div>
   {/if}
 
-  {#if !live || kind === "none"}
+  {#if !live || kind === "none" || (reports(tool) && working)}
   <footer>
-    <span class="status muted" aria-live="polite">{!live && job && job.status !== "failed" ? statusLine(job) : (hint ?? "")}</span>
-    {#if live}
+    <span class="status muted" aria-live="polite">{job && (!live || working) && job.status !== "failed" ? statusLine(job) : (hint ?? "")}</span>
+    {#if reports(tool)}
+      <button onclick={() => job && cancelJob(job.id)}>Cancel</button>
+    {:else if live}
       <button onclick={run} disabled={!ready}>Make another</button>
     {:else if running}
       <progress max="1" value={job?.progress || undefined}></progress>

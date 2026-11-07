@@ -24,6 +24,33 @@ describe("parseReport", () => {
     });
   });
 
+  it("groups duplicates under what they have in common", () => {
+    const text = "2 sets of duplicates, 3.0 MB could be freed\n\n2 × 2.0 MB\n/a/x.jpg\n/b/x.jpg\n\n2 × 1.0 MB\n/a/y.jpg\n/b/y.jpg\n";
+    expect(parseReport(text)).toEqual({
+      kind: "groups",
+      title: "2 sets of duplicates, 3.0 MB could be freed",
+      groups: [{ label: "2 × 2.0 MB", items: ["/a/x.jpg", "/b/x.jpg"] }, { label: "2 × 1.0 MB", items: ["/a/y.jpg", "/b/y.jpg"] }],
+    });
+  });
+
+  it("groups what is empty", () => {
+    expect(parseReport("Empty folders: 1\n/a/old\n\nEmpty files: 1\n/a/b.txt\n")).toEqual({
+      kind: "groups",
+      title: "",
+      groups: [{ label: "Empty folders: 1", items: ["/a/old"] }, { label: "Empty files: 1", items: ["/a/b.txt"] }],
+    });
+  });
+
+  it("gives a checksum a clear verdict", () => {
+    expect(parseReport("✓ a.iso matches (SHA-256)")).toMatchObject({ kind: "verdict", good: true, title: "a.iso matches (SHA-256)" });
+    const wrong = parseReport("✗ a.iso does NOT match\nExpected: 12\nActual:   34");
+    expect(wrong).toMatchObject({ kind: "verdict", good: false, detail: ["Expected: 12", "Actual:   34"] });
+  });
+
+  it("says plainly when nothing was found", () => {
+    expect(parseReport("No duplicates found")).toEqual({ kind: "note", title: "No duplicates found" });
+  });
+
   it("leaves plain text alone", () => {
     expect(parseReport("just some\ntext here\nand more")).toBeNull();
     expect(parseReport('{\n  "a": 1\n}')).toBeNull();
